@@ -70,3 +70,4 @@ python-bindings = []  # Python bindings via pyo3 (enabled by consumer if needed)
 
 [dev-dependencies]
 tokio = { version = "1.48", features = ["macros", "rt-multi-thread"] }
+rstest = "0.25"

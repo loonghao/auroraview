@@ -108,3 +108,123 @@ impl WebViewRegistry {
         self.views.is_empty()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::{WebViewConfig, WebViewId};
+    use rstest::rstest;
+
+    #[test]
+    fn new_registry_is_empty() {
+        let reg = WebViewRegistry::new();
+        assert!(reg.is_empty());
+        assert_eq!(reg.len(), 0);
+        assert_eq!(reg.capacity(), None);
+    }
+
+    #[test]
+    fn with_capacity_sets_limit() {
+        let reg = WebViewRegistry::with_capacity(5);
+        assert_eq!(reg.capacity(), Some(5));
+    }
+
+    #[test]
+    fn register_adds_view() {
+        let reg = WebViewRegistry::new();
+        let config = WebViewConfig {
+            title: Some("Test".to_string()),
+            url: Some("https://example.com".to_string()),
+            html: None,
+            width: Some(800),
+            height: Some(600),
+            visible: Some(true),
+            debug: Some(false),
+        };
+        let id = reg.register(&config);
+        assert_eq!(reg.len(), 1);
+        assert!(!reg.is_empty());
+        let info = reg.get(&id).unwrap();
+        assert_eq!(info.title, "Test");
+        assert_eq!(info.url, "https://example.com");
+    }
+
+    #[rstest]
+    #[case(Some(800), Some(600))]
+    #[case(None, None)]
+    fn register_uses_defaults(#[case] width: Option<u32>, #[case] height: Option<u32>) {
+        let reg = WebViewRegistry::new();
+        let config = WebViewConfig {
+            title: None,
+            url: None,
+            html: None,
+            width,
+            height,
+            visible: None,
+            debug: None,
+        };
+        let id = reg.register(&config);
+        let info = reg.get(&id).unwrap();
+        assert_eq!(info.title, "AuroraView");
+        assert_eq!(info.url, "");
+        assert_eq!(info.width, width.unwrap_or(800));
+        assert_eq!(info.height, height.unwrap_or(600));
+        assert!(info.visible);
+    }
+
+    #[test]
+    fn try_register_returns_err_when_full() {
+        let reg = WebViewRegistry::with_capacity(1);
+        let config = WebViewConfig::default();
+        let _id1 = reg.try_register(&config).unwrap();
+        let result = reg.try_register(&config);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn update_url_modifies_existing() {
+        let reg = WebViewRegistry::new();
+        let config = WebViewConfig {
+            title: Some("Test".to_string()),
+            url: Some("https://example.com".to_string()),
+            ..Default::default()
+        };
+        let id = reg.register(&config);
+        assert!(reg.update_url(&id, "https://new-url.com"));
+        let info = reg.get(&id).unwrap();
+        assert_eq!(info.url, "https://new-url.com");
+    }
+
+    #[test]
+    fn update_url_returns_false_for_missing() {
+        let reg = WebViewRegistry::new();
+        let fake_id = crate::types::WebViewId::new();
+        assert!(!reg.update_url(&fake_id, "https://example.com"));
+    }
+
+    #[test]
+    fn remove_deletes_view() {
+        let reg = WebViewRegistry::new();
+        let config = WebViewConfig::default();
+        let id = reg.register(&config);
+        assert_eq!(reg.len(), 1);
+        let removed = reg.remove(&id);
+        assert!(removed.is_some());
+        assert_eq!(reg.len(), 0);
+        assert!(reg.get(&id).is_none());
+    }
+
+    #[test]
+    fn list_returns_all_views() {
+        let reg = WebViewRegistry::new();
+        for i in 0..3 {
+            let config = WebViewConfig {
+                title: Some(format!("View {i}")),
+                ..Default::default()
+            };
+            reg.register(&config);
+        }
+        let views = reg.list();
+        assert_eq!(views.len(), 3);
+    }
+}
