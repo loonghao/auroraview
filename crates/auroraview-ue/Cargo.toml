@@ -43,4 +43,3 @@ python-bindings = ["dep:pyo3"]
 [dev-dependencies]
 tokio = { version = "1.48", features = ["macros", "rt-multi-thread"] }
 rstest = "0.25"
-criterion = "0.5"
