@@ -5,7 +5,7 @@ use crate::{
 use dashmap::DashMap;
 use std::sync::Arc;
 
-/// Thread-safe registry of all active WebView instances.
+/// Thread-safe registry of all active `WebView` instances.
 #[derive(Debug, Clone)]
 pub struct WebViewRegistry {
     views: Arc<DashMap<String, WebViewInfo>>,
@@ -20,6 +20,7 @@ impl Default for WebViewRegistry {
 }
 
 impl WebViewRegistry {
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             views: Arc::new(DashMap::new()),
@@ -28,6 +29,7 @@ impl WebViewRegistry {
     }
 
     /// Create a registry with a maximum capacity.
+    #[must_use] 
     pub fn with_capacity(max: usize) -> Self {
         Self {
             views: Arc::new(DashMap::new()),
@@ -35,16 +37,17 @@ impl WebViewRegistry {
         }
     }
 
-    /// Register a new WebView with the given config.
+    /// Register a new `WebView` with the given config.
     ///
     /// Panics if the capacity limit would be exceeded — use [`Self::try_register`] for
     /// error-propagating variant.
+    #[must_use] 
     pub fn register(&self, config: &WebViewConfig) -> WebViewId {
         self.try_register(config)
             .expect("WebView registry capacity exceeded")
     }
 
-    /// Try to register a new WebView. Returns `Err(McpError::CapacityExceeded)` if
+    /// Try to register a new `WebView`. Returns `Err(McpError::CapacityExceeded)` if
     /// the optional capacity limit has been reached.
     pub fn try_register(&self, config: &WebViewConfig) -> Result<WebViewId> {
         if let Some(max) = self.max_webviews {
@@ -71,11 +74,13 @@ impl WebViewRegistry {
     }
 
     /// Return the capacity limit, if set.
+    #[must_use] 
     pub fn capacity(&self) -> Option<usize> {
         self.max_webviews
     }
 
-    /// Update the URL for an existing WebView.
+    /// Update the URL for an existing `WebView`.
+    #[must_use] 
     pub fn update_url(&self, id: &WebViewId, url: &str) -> bool {
         if let Some(mut entry) = self.views.get_mut(&id.0) {
             entry.url = url.to_string();
@@ -85,32 +90,38 @@ impl WebViewRegistry {
         }
     }
 
-    /// Remove a WebView from the registry.
+    /// Remove a `WebView` from the registry.
+    #[must_use] 
     pub fn remove(&self, id: &WebViewId) -> Option<WebViewInfo> {
         self.views.remove(&id.0).map(|(_, v)| v)
     }
 
-    /// Get info for a specific WebView.
+    /// Get info for a specific `WebView`.
+    #[must_use] 
     pub fn get(&self, id: &WebViewId) -> Option<WebViewInfo> {
         self.views.get(&id.0).map(|v| v.clone())
     }
 
-    /// List all registered WebViews.
+    /// List all registered `WebViews`.
+    #[must_use] 
     pub fn list(&self) -> Vec<WebViewInfo> {
         self.views.iter().map(|e| e.value().clone()).collect()
     }
 
-    /// Number of registered WebViews.
+    /// Number of registered `WebViews`.
+    #[must_use] 
     pub fn len(&self) -> usize {
         self.views.len()
     }
 
+    #[must_use] 
     pub fn is_empty(&self) -> bool {
         self.views.is_empty()
     }
 
-    /// Update the CDP endpoint for an existing WebView.
-    /// Returns `true` if the WebView was found and updated.
+    /// Update the CDP endpoint for an existing `WebView`.
+    /// Returns `true` if the `WebView` was found and updated.
+    #[must_use] 
     pub fn update_cdp_endpoint(&self, id: &WebViewId, endpoint: String) -> bool {
         if let Some(mut entry) = self.views.get_mut(&id.0) {
             entry.cdp_endpoint = Some(endpoint);

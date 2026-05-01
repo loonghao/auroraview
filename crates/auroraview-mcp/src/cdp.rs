@@ -1,4 +1,4 @@
-//! Minimal async CDP (Chrome DevTools Protocol) client for the AuroraView adapter.
+//! Minimal async CDP (Chrome `DevTools` Protocol) client for the `AuroraView` adapter.
 //!
 //! Only implements the handful of commands the adapter skeleton needs:
 //!
@@ -74,6 +74,11 @@ impl CdpClient {
     ///
     /// Performs `GET /json/version` to discover the browser-level WebSocket
     /// debugger URL, then opens a WebSocket to it.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError::Http`] if the HTTP request fails or returns an error status.
+    /// Returns [`CdpError::WebSocket`] if the WebSocket connection fails.
     pub async fn connect(http_endpoint: &str) -> Result<Self, CdpError> {
         let url = format!("{}/json/version", http_endpoint.trim_end_matches('/'));
         let info: VersionInfo = reqwest::get(&url).await?.error_for_status()?.json().await?;
@@ -96,6 +101,13 @@ impl CdpClient {
     ///
     /// Any events received while waiting are dropped — the skeleton adapter
     /// is request/response only.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError::Timeout`] if the response is not received within `timeout`.
+    /// Returns [`CdpError::WebSocket`] if the WebSocket connection is closed.
+    /// Returns [`CdpError::Remote`] if the CDP call returns an error.
+    /// Returns [`CdpError::MalformedResponse`] if the response is missing required fields.
     pub async fn call(
         &mut self,
         method: &str,

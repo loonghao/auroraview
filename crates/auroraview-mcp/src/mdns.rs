@@ -4,7 +4,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
 
-/// Broadcasts the AuroraView MCP Server via mDNS so that `dcc-mcp-client` can auto-discover it.
+/// Broadcasts the `AuroraView` MCP Server via mDNS so that `dcc-mcp-client` can auto-discover it.
 pub struct MdnsBroadcaster {
     daemon: ServiceDaemon,
     service_type: String,

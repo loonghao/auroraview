@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-/// Errors for the AuroraView MCP server.
+/// Errors for the `AuroraView` MCP server.
 #[derive(Debug, Error)]
 pub enum McpError {
     #[error("WebView not found: {0}")]

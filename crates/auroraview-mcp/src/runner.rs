@@ -15,7 +15,7 @@ use tokio::sync::{Mutex, oneshot};
 use tokio_util::sync::CancellationToken;
 use tracing::{info, warn};
 
-/// Manages the lifecycle of the AuroraView MCP Server.
+/// Manages the lifecycle of the `AuroraView` MCP Server.
 ///
 /// Starts an axum HTTP server that serves the MCP Streamable HTTP transport
 /// at `/mcp` and an AG-UI SSE event stream at `/agui/events`.
@@ -28,6 +28,7 @@ pub struct McpRunner {
 }
 
 impl McpRunner {
+    #[must_use] 
     pub fn new(config: McpServerConfig) -> Self {
         let agui_bus = AguiBus::new();
         let server = AuroraViewMcpServer::new(config.clone())
@@ -48,12 +49,13 @@ impl McpRunner {
         }
     }
 
-    /// Create a runner on the given port with a WebView capacity limit.
+    /// Create a runner on the given port with a `WebView` capacity limit.
     ///
     /// Convenience constructor: equivalent to
     /// `McpRunner::new(McpServerConfig::default().with_port(port).with_max_webviews(max))`.
     ///
     /// mDNS is disabled (useful for tests and isolated DCC sessions).
+    #[must_use] 
     pub fn with_capacity(port: u16, max: usize) -> Self {
         let config = McpServerConfig::default()
             .with_port(port)
@@ -69,6 +71,7 @@ impl McpRunner {
     ///
     /// Use this when you want `dcc-mcp-client` to auto-discover the server
     /// via mDNS without building a full [`McpServerConfig`] manually.
+    #[must_use] 
     pub fn with_mdns_port(port: u16) -> Self {
         let config = McpServerConfig::default()
             .with_port(port)
@@ -76,16 +79,19 @@ impl McpRunner {
         Self::new(config)
     }
 
+    #[must_use] 
     pub fn server(&self) -> &AuroraViewMcpServer {
         &self.server
     }
 
+    #[must_use] 
     pub fn config(&self) -> &McpServerConfig {
         &self.config
     }
 
     /// Return a reference to the AG-UI event bus.
     /// Use `bus.emit(event)` to publish events to all SSE subscribers.
+    #[must_use] 
     pub fn agui_bus(&self) -> &AguiBus {
         &self.agui_bus
     }
@@ -195,10 +201,10 @@ impl McpRunner {
         });
     }
 
-    /// Update the CDP endpoint for a registered WebView.
+    /// Update the CDP endpoint for a registered `WebView`.
     ///
-    /// Returns `Ok(())` if the WebView was found and updated.
-    /// Returns `Err(...)` if no WebView with the given ID exists.
+    /// Returns `Ok(())` if the `WebView` was found and updated.
+    /// Returns `Err(...)` if no `WebView` with the given ID exists.
     pub fn update_cdp_endpoint(&self, id: &str, endpoint: &str) -> std::result::Result<(), String> {
         let wid = id.parse::<WebViewId>().unwrap(); // Infallible
         if self.server.registry().update_cdp_endpoint(&wid, endpoint.to_string()) {

@@ -2,11 +2,12 @@ use base64::Engine;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Unique identifier for a WebView instance.
+/// Unique identifier for a `WebView` instance.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct WebViewId(pub String);
 
 impl WebViewId {
+    #[must_use] 
     pub fn new() -> Self {
         Self(Uuid::new_v4().to_string())
     }
@@ -31,7 +32,7 @@ impl std::fmt::Display for WebViewId {
     }
 }
 
-/// Information about a WebView instance.
+/// Information about a `WebView` instance.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebViewInfo {
     pub id: WebViewId,
@@ -42,13 +43,13 @@ pub struct WebViewInfo {
     pub height: u32,
     /// Raw HWND on Windows (0 if not available).
     pub hwnd: u64,
-    /// CDP endpoint for DevTools (e.g. `http://127.0.0.1:9222`).
-    /// `None` if CDP is not enabled for this WebView.
+    /// CDP endpoint for `DevTools` (e.g. `http://127.0.0.1:9222`).
+    /// `None` if CDP is not enabled for this `WebView`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cdp_endpoint: Option<String>,
 }
 
-/// Configuration for creating a new WebView.
+/// Configuration for creating a new `WebView`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebViewConfig {
     pub title: Option<String>,
@@ -85,6 +86,7 @@ pub struct ScreenshotData {
 }
 
 impl ScreenshotData {
+    #[must_use] 
     pub fn new_placeholder(width: u32, height: u32) -> Self {
         Self {
             data: String::new(),
@@ -95,6 +97,7 @@ impl ScreenshotData {
     }
 
     /// Create `ScreenshotData` from raw image bytes (PNG/JPEG/WebP).
+    #[must_use] 
     pub fn from_bytes(bytes: &[u8], width: u32, height: u32, format: &str) -> Self {
         let data = base64::engine::general_purpose::STANDARD.encode(bytes);
         Self {
@@ -114,6 +117,7 @@ pub struct JsResult {
 }
 
 impl JsResult {
+    #[must_use] 
     pub fn ok(value: serde_json::Value) -> Self {
         Self { value, error: None }
     }
@@ -133,7 +137,7 @@ pub struct McpServerConfig {
     pub port: u16,
     pub service_name: String,
     pub enable_mdns: bool,
-    /// Maximum number of concurrent WebView instances.
+    /// Maximum number of concurrent `WebView` instances.
     /// `None` means no limit.
     #[serde(default)]
     pub max_webviews: Option<usize>,
@@ -153,6 +157,7 @@ impl Default for McpServerConfig {
 
 impl McpServerConfig {
     /// Set the port number.
+    #[must_use] 
     pub fn with_port(mut self, port: u16) -> Self {
         self.port = port;
         self
@@ -165,6 +170,7 @@ impl McpServerConfig {
     }
 
     /// Enable or disable mDNS broadcast.
+    #[must_use] 
     pub fn with_mdns(mut self, enabled: bool) -> Self {
         self.enable_mdns = enabled;
         self
@@ -176,7 +182,8 @@ impl McpServerConfig {
         self
     }
 
-    /// Set the maximum number of concurrent WebView instances.
+    /// Set the maximum number of concurrent `WebView` instances.
+    #[must_use] 
     pub fn with_max_webviews(mut self, max: usize) -> Self {
         self.max_webviews = Some(max);
         self
@@ -204,6 +211,7 @@ impl McpServerConfig {
     }
 
     /// Return `true` if the configuration is valid.
+    #[must_use] 
     pub fn is_valid(&self) -> bool {
         self.validate().is_ok()
     }

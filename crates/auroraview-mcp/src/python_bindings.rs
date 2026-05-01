@@ -1,4 +1,4 @@
-//! PyO3 Python bindings for AuroraView MCP Server.
+//! `PyO3` Python bindings for `AuroraView` MCP Server.
 //!
 //! Exposes `McpServer` and `McpConfig` to Python so DCC plugins can
 //! start/stop the MCP server without managing tokio runtimes manually.
@@ -31,7 +31,7 @@ use tokio::runtime::Runtime;
 // PyMcpConfig
 // ---------------------------------------------------------------------------
 
-/// Python-facing configuration for the AuroraView MCP server.
+/// Python-facing configuration for the `AuroraView` MCP server.
 ///
 /// Mirrors [`McpServerConfig`] with Python-friendly defaults.
 pub struct PyMcpConfig {
@@ -39,11 +39,12 @@ pub struct PyMcpConfig {
     pub port: u16,
     pub service_name: String,
     pub enable_mdns: bool,
-    /// Maximum concurrent WebViews (`None` = unlimited).
+    /// Maximum concurrent `WebViews` (`None` = unlimited).
     pub max_webviews: Option<usize>,
 }
 
 impl PyMcpConfig {
+    #[must_use] 
     pub fn new(
         host: String,
         port: u16,
@@ -96,7 +97,7 @@ struct RunnerState {
     runner: McpRunner,
 }
 
-/// AuroraView MCP Server — Python binding.
+/// `AuroraView` MCP Server — Python binding.
 ///
 /// Manages its own tokio [`Runtime`] so it runs without conflicting with the
 /// DCC application's existing event loop (Qt, Maya, Blender, etc.).
@@ -129,16 +130,19 @@ impl PyMcpServer {
     /// Create a server from a [`PyMcpConfig`] (Python-friendly configuration).
     ///
     /// Equivalent to `PyMcpServer::from_config(py_config.into())`.
+    #[must_use] 
     pub fn from_config_py(py_config: PyMcpConfig) -> Self {
         Self::from_config(py_config.into())
     }
 
     /// Port this server listens on.
+    #[must_use] 
     pub fn port(&self) -> u16 {
         self.config.port
     }
 
     /// Host address this server binds to.
+    #[must_use] 
     pub fn host(&self) -> &str {
         &self.config.host
     }
@@ -173,6 +177,7 @@ impl PyMcpServer {
     }
 
     /// Return `true` if the server is currently running.
+    #[must_use] 
     pub fn is_running(&self) -> bool {
         let lock = match self.state.lock() {
             Ok(g) => g,
@@ -279,11 +284,13 @@ impl PyMcpServer {
     }
 
     /// Return the MCP endpoint URL (e.g. `http://127.0.0.1:7890/mcp`).
+    #[must_use] 
     pub fn mcp_url(&self) -> String {
         format!("http://{}:{}/mcp", self.config.host, self.config.port)
     }
 
     /// Return the AG-UI SSE endpoint URL.
+    #[must_use] 
     pub fn agui_url(&self) -> String {
         format!(
             "http://{}:{}/agui/events",
@@ -291,15 +298,15 @@ impl PyMcpServer {
         )
     }
 
-    /// Update the CDP endpoint for a registered WebView.
+    /// Update the CDP endpoint for a registered `WebView`.
     ///
-    /// Call this from DCC Python code after a WebView is created with
+    /// Call this from DCC Python code after a `WebView` is created with
     /// CDP enabled, so that `screenshot` and `eval_js` tools can
-    /// connect to the running WebView.
+    /// connect to the running `WebView`.
     ///
     /// # Errors
     ///
-    /// Returns `Err` if the server is not running or the WebView is not found.
+    /// Returns `Err` if the server is not running or the `WebView` is not found.
     pub fn update_cdp_endpoint(&self, id: &str, endpoint: &str) -> Result<(), String> {
         let lock = self.state.lock().map_err(|e| e.to_string())?;
         if let Some(state) = lock.as_ref() {

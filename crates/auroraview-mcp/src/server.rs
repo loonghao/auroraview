@@ -27,7 +27,7 @@ use std::sync::Arc;
 use tracing::{debug, info};
 use uuid::Uuid;
 
-/// AuroraView MCP Server — exposes WebView management tools via MCP.
+/// `AuroraView` MCP Server — exposes `WebView` management tools via MCP.
 ///
 /// When an `AguiBus` is attached (via `with_agui_bus`), every tool invocation
 /// automatically emits `ToolCallStart` and `ToolCallEnd` events so that
@@ -45,7 +45,7 @@ pub struct AuroraViewMcpServer {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema, Default)]
 pub struct ScreenshotParams {
-    /// Optional WebView ID. If omitted, captures the first available WebView.
+    /// Optional `WebView` ID. If omitted, captures the first available `WebView`.
     pub id: Option<String>,
 }
 
@@ -53,7 +53,7 @@ pub struct ScreenshotParams {
 pub struct LoadUrlParams {
     /// The URL to load (http://, https://, or file://).
     pub url: String,
-    /// Target WebView ID. Uses first available if omitted.
+    /// Target `WebView` ID. Uses first available if omitted.
     pub id: Option<String>,
 }
 
@@ -61,7 +61,7 @@ pub struct LoadUrlParams {
 pub struct LoadHtmlParams {
     /// Raw HTML content to load.
     pub html: String,
-    /// Target WebView ID. Uses first available if omitted.
+    /// Target `WebView` ID. Uses first available if omitted.
     pub id: Option<String>,
 }
 
@@ -69,7 +69,7 @@ pub struct LoadHtmlParams {
 pub struct EvalJsParams {
     /// JavaScript expression to evaluate.
     pub script: String,
-    /// Target WebView ID. Uses first available if omitted.
+    /// Target `WebView` ID. Uses first available if omitted.
     pub id: Option<String>,
 }
 
@@ -79,25 +79,25 @@ pub struct SendEventParams {
     pub event: String,
     /// Event payload (JSON).
     pub data: Option<serde_json::Value>,
-    /// Target WebView ID. Uses first available if omitted.
+    /// Target `WebView` ID. Uses first available if omitted.
     pub id: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct GetHwndParams {
-    /// WebView ID. Uses first available if omitted.
+    /// `WebView` ID. Uses first available if omitted.
     pub id: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct CloseWebViewParams {
-    /// WebView ID to close.
+    /// `WebView` ID to close.
     pub id: String,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct CreateWebViewParams {
-    /// Title for the new WebView window.
+    /// Title for the new `WebView` window.
     pub title: Option<String>,
     /// Initial URL to load.
     pub url: Option<String>,
@@ -153,7 +153,7 @@ pub struct SuccessOutput {
 
 #[tool_router]
 impl AuroraViewMcpServer {
-    /// Capture a screenshot of the specified WebView.
+    /// Capture a screenshot of the specified `WebView`.
     #[tool(
         name = "screenshot",
         description = "Capture a screenshot of a WebView window. Returns base64-encoded PNG data."
@@ -229,7 +229,7 @@ impl AuroraViewMcpServer {
         result
     }
 
-    /// Load a URL in the specified WebView.
+    /// Load a URL in the specified `WebView`.
     #[tool(
         name = "load_url",
         description = "Load a URL (http://, https://, or file://) in a WebView."
@@ -268,7 +268,7 @@ impl AuroraViewMcpServer {
         result
     }
 
-    /// Load raw HTML content in the specified WebView.
+    /// Load raw HTML content in the specified `WebView`.
     #[tool(
         name = "load_html",
         description = "Load HTML content directly into a WebView."
@@ -286,7 +286,7 @@ impl AuroraViewMcpServer {
         result
     }
 
-    /// Execute JavaScript in the specified WebView and return the result.
+    /// Execute JavaScript in the specified `WebView` and return the result.
     #[tool(
         name = "eval_js",
         description = "Execute JavaScript code in a WebView and return the result."
@@ -349,7 +349,7 @@ impl AuroraViewMcpServer {
         result
     }
 
-    /// Send a custom event to the WebView's JavaScript context.
+    /// Send a custom event to the `WebView`'s JavaScript context.
     #[tool(
         name = "send_event",
         description = "Send a named event with payload to the WebView JS context via auroraview.on()."
@@ -367,7 +367,7 @@ impl AuroraViewMcpServer {
         result
     }
 
-    /// Get the native window handle (HWND on Windows) for a WebView.
+    /// Get the native window handle (HWND on Windows) for a `WebView`.
     #[tool(
         name = "get_hwnd",
         description = "Get the native window handle (HWND on Windows, 0 on other platforms) for embedding in UE or other hosts."
@@ -379,14 +379,13 @@ impl AuroraViewMcpServer {
         let hwnd = self
             .registry
             .get(&id.parse::<WebViewId>().unwrap())
-            .map(|v| v.hwnd)
-            .unwrap_or(0);
+            .map_or(0, |v| v.hwnd);
         let result = Json(HwndOutput { id: id.clone(), hwnd });
         self.emit_tool_end(&call_id, &id);
         result
     }
 
-    /// List all active WebView instances.
+    /// List all active `WebView` instances.
     #[tool(
         name = "list_webviews",
         description = "Return a list of all active WebView instances with their IDs, titles, and URLs."
@@ -416,7 +415,7 @@ impl AuroraViewMcpServer {
         })
     }
 
-    /// Create a new WebView instance.
+    /// Create a new `WebView` instance.
     #[tool(
         name = "create_webview",
         description = "Create a new WebView window with the given configuration."
@@ -449,7 +448,7 @@ impl AuroraViewMcpServer {
         }
     }
 
-    /// Close and remove a WebView instance.
+    /// Close and remove a `WebView` instance.
     #[tool(
         name = "close_webview",
         description = "Close a WebView window by its ID and release resources."
@@ -472,6 +471,7 @@ impl AuroraViewMcpServer {
 }
 
 impl AuroraViewMcpServer {
+    #[must_use] 
     pub fn new(config: McpServerConfig) -> Self {
         let tool_router = Self::tool_router();
         let registry = match config.max_webviews {
@@ -487,25 +487,29 @@ impl AuroraViewMcpServer {
     }
 
     /// Attach an `AguiBus` so tool invocations automatically emit AG-UI events.
+    #[must_use] 
     pub fn with_agui_bus(mut self, bus: AguiBus) -> Self {
         self.agui_bus = Some(bus);
         self
     }
 
+    #[must_use] 
     pub fn registry(&self) -> &WebViewRegistry {
         &self.registry
     }
 
+    #[must_use] 
     pub fn config(&self) -> &McpServerConfig {
         &self.config
     }
 
     /// Return a reference to the attached AG-UI bus, if any.
+    #[must_use] 
     pub fn agui_bus(&self) -> Option<&AguiBus> {
         self.agui_bus.as_ref()
     }
 
-    /// Resolve a WebView ID: use provided string or fall back to first registered.
+    /// Resolve a `WebView` ID: use provided string or fall back to first registered.
     fn resolve_id(&self, id: Option<&str>) -> String {
         if let Some(s) = id {
             return s.to_string();
@@ -513,9 +517,7 @@ impl AuroraViewMcpServer {
         self.registry
             .list()
             .into_iter()
-            .next()
-            .map(|v| v.id.0)
-            .unwrap_or_else(|| "default".to_string())
+            .next().map_or_else(|| "default".to_string(), |v| v.id.0)
     }
 
     /// Emit `ToolCallStart` when a tool begins execution.

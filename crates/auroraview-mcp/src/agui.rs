@@ -1,4 +1,4 @@
-/// AG-UI protocol event types for AuroraView MCP Server.
+/// AG-UI protocol event types for `AuroraView` MCP Server.
 ///
 /// AG-UI is a protocol for streaming agent state updates to UI clients.
 /// See: <https://docs.ag-ui.com>
@@ -91,6 +91,7 @@ pub enum AguiEvent {
 
 impl AguiEvent {
     /// Return the `run_id` associated with this event.
+    #[must_use] 
     pub fn run_id(&self) -> &str {
         match self {
             Self::RunStarted { run_id, .. }
@@ -111,13 +112,14 @@ impl AguiEvent {
     }
 
     /// Serialize this event to SSE format: `data: <json>\n\n`
+    #[must_use] 
     pub fn to_sse_line(&self) -> String {
         let json = serde_json::to_string(self).unwrap_or_default();
         format!("data: {json}\n\n")
     }
 }
 
-/// Broadcast bus for AG-UI events.  
+/// Broadcast bus for AG-UI events.\
 /// Cloning this is cheap — all clones share the same channel.
 #[derive(Clone)]
 pub struct AguiBus {
@@ -126,6 +128,7 @@ pub struct AguiBus {
 
 impl AguiBus {
     /// Create a new bus with a buffer capacity of 256 events.
+    #[must_use] 
     pub fn new() -> Self {
         let (tx, _) = broadcast::channel(256);
         Self { tx: Arc::new(tx) }
@@ -139,11 +142,13 @@ impl AguiBus {
 
     /// Subscribe to receive events.  Returns a `Receiver` that receives
     /// events emitted *after* this call.
+    #[must_use] 
     pub fn subscribe(&self) -> broadcast::Receiver<AguiEvent> {
         self.tx.subscribe()
     }
 
     /// Return the number of active subscribers.
+    #[must_use] 
     pub fn receiver_count(&self) -> usize {
         self.tx.receiver_count()
     }
