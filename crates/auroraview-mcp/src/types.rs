@@ -335,3 +335,179 @@ impl McpServerConfig {
         cfg
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+
+    // WebViewId tests
+    #[test]
+    fn webview_id_new_creates_unique_ids() {
+        let id1 = WebViewId::new();
+        let id2 = WebViewId::new();
+        assert_ne!(id1, id2, "WebViewId::new() should create unique IDs");
+    }
+
+    #[test]
+    fn webview_id_from_str() {
+        let id = WebViewId::from_str("test-id-123").unwrap();
+        assert_eq!(id, WebViewId("test-id-123".to_string()));
+    }
+
+    #[test]
+    fn webview_id_display() {
+        let id = WebViewId("test-id".to_string());
+        assert_eq!(format!("{id}"), "test-id");
+    }
+
+    // ScreenshotData tests
+    #[test]
+    fn screenshot_data_new_placeholder() {
+        let data = ScreenshotData::new_placeholder(800, 600);
+        assert_eq!(data.width, 800);
+        assert_eq!(data.height, 600);
+        assert_eq!(data.format, "png");
+        assert!(data.data.is_empty());
+    }
+
+    #[test]
+    fn screenshot_data_from_bytes() {
+        let bytes = b"fake png data";
+        let data = ScreenshotData::from_bytes(bytes, 1024, 768, "png");
+        assert_eq!(data.width, 1024);
+        assert_eq!(data.height, 768);
+        assert_eq!(data.format, "png");
+        assert!(!data.data.is_empty());
+        // Verify it's valid base64
+        let decoded = base64::engine::general_purpose::STANDARD
+            .decode(&data.data)
+            .expect("should be valid base64");
+        assert_eq!(decoded, bytes);
+    }
+
+    #[test]
+    fn screenshot_data_display() {
+        let data = ScreenshotData::new_placeholder(800, 600);
+        let display = format!("{data}");
+        assert!(display.contains("800"));
+        assert!(display.contains("600"));
+        assert!(display.contains("png"));
+    }
+
+    // JsResult tests
+    #[test]
+    fn js_result_ok() {
+        let result = JsResult::ok(serde_json::json!({"key": "value"}));
+        assert_eq!(result.value, serde_json::json!({"key": "value"}));
+        assert!(result.error.is_none());
+    }
+
+    #[test]
+    fn js_result_err() {
+        let result = JsResult::err("something went wrong");
+        assert_eq!(result.value, serde_json::Value::Null);
+        assert_eq!(result.error, Some("something went wrong".to_string()));
+    }
+
+    #[test]
+    fn js_result_display_ok() {
+        let result = JsResult::ok(serde_json::json!("hello"));
+        let display = format!("{result}");
+        assert!(display.contains("Ok"));
+        assert!(display.contains("hello"));
+    }
+
+    #[test]
+    fn js_result_display_err() {
+        let result = JsResult::err("fail");
+        let display = format!("{result}");
+        assert!(display.contains("Err"));
+        assert!(display.contains("fail"));
+    }
+
+    // McpServerConfig tests
+    #[test]
+    fn mcp_server_config_default() {
+        let cfg = McpServerConfig::default();
+        assert_eq!(cfg.port, 7890);
+        assert_eq!(cfg.host, "127.0.0.1");
+        assert!(cfg.enable_mdns);
+        assert!(!cfg.enable_oauth);
+        assert_eq!(cfg.max_webviews, None);
+    }
+
+    #[test]
+    fn mcp_server_config_with_all() {
+        let cfg = McpServerConfig::with_all(
+            7891,
+            "0.0.0.0",
+            "my-mcp",
+            true,
+            false,
+            Some(10),
+        );
+        assert_eq!(cfg.port, 7891);
+        assert_eq!(cfg.host, "0.0.0.0");
+        assert_eq!(cfg.service_name, "my-mcp");
+        assert!(cfg.enable_mdns);
+        assert!(!cfg.enable_oauth);
+        assert_eq!(cfg.max_webviews, Some(10));
+    }
+
+    #[test]
+    fn mcp_server_config_validate_invalid_port() {
+        let cfg = McpServerConfig {
+            port: 0,
+            ..McpServerConfig::default()
+        };
+        let err = cfg.validate().expect_err("port 0 should be invalid");
+        assert!(err.contains("port"), "error should mention 'port': {err}");
+    }
+
+    #[test]
+    fn mcp_server_config_validate_empty_host() {
+        let cfg = McpServerConfig {
+            host: "   ".to_string(),
+            ..McpServerConfig::default()
+        };
+        let err = cfg.validate().expect_err("empty host should be invalid");
+        assert!(err.contains("host"), "error should mention 'host': {err}");
+    }
+
+    #[test]
+    fn mcp_server_config_validate_empty_service_name() {
+        let cfg = McpServerConfig {
+            service_name: "".to_string(),
+            ..McpServerConfig::default()
+        };
+        let err = cfg
+            .validate()
+            .expect_err("empty service_name should be invalid");
+        assert!(
+            err.contains("service_name"),
+            "error should mention 'service_name': {err}"
+        );
+    }
+
+    #[test]
+    fn mcp_server_config_is_valid() {
+        let cfg = McpServerConfig::default();
+        assert!(cfg.is_valid());
+
+        let invalid_cfg = McpServerConfig {
+            port: 0,
+            ..McpServerConfig::default()
+        };
+        assert!(!invalid_cfg.is_valid());
+    }
+
+    #[test]
+    fn mcp_server_config_display() {
+        let cfg = McpServerConfig::default();
+        let display = format!("{cfg}");
+        assert!(display.contains("7890"));
+        assert!(display.contains("127.0.0.1"));
+        assert!(display.contains("auroraview-mcp"));
+    }
+}
