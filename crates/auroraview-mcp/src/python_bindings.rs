@@ -290,6 +290,24 @@ impl PyMcpServer {
             self.config.host, self.config.port
         )
     }
+
+    /// Update the CDP endpoint for a registered WebView.
+    ///
+    /// Call this from DCC Python code after a WebView is created with
+    /// CDP enabled, so that `screenshot` and `eval_js` tools can
+    /// connect to the running WebView.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the server is not running or the WebView is not found.
+    pub fn update_cdp_endpoint(&self, id: &str, endpoint: &str) -> Result<(), String> {
+        let lock = self.state.lock().map_err(|e| e.to_string())?;
+        if let Some(state) = lock.as_ref() {
+            state.runner.update_cdp_endpoint(id, endpoint)
+        } else {
+            Err("MCP server is not running".to_string())
+        }
+    }
 }
 
 impl Drop for PyMcpServer {
@@ -511,6 +529,16 @@ mod pyo3_impl {
         ) -> PyResult<()> {
             self.inner
                 .emit_step(run_id, step_name, step_id)
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+        }
+
+        /// Update the CDP endpoint for a registered WebView.
+        ///
+        /// Call this after a WebView is created with CDP enabled so that
+        /// `screenshot` and `eval_js` tools can connect to it.
+        fn update_cdp_endpoint(&self, id: &str, endpoint: &str) -> PyResult<()> {
+            self.inner
+                .update_cdp_endpoint(id, endpoint)
                 .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
         }
 

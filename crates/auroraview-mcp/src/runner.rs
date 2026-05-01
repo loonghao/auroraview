@@ -3,7 +3,7 @@ use crate::{
     error::{McpError, Result},
     mdns::MdnsBroadcaster,
     server::AuroraViewMcpServer,
-    types::McpServerConfig,
+    types::{McpServerConfig, WebViewId},
 };
 use axum::Router;
 use rmcp::transport::streamable_http_server::{
@@ -194,6 +194,19 @@ impl McpRunner {
             step_id: step_id.to_string(),
         });
     }
+
+    /// Update the CDP endpoint for a registered WebView.
+    ///
+    /// Returns `Ok(())` if the WebView was found and updated.
+    /// Returns `Err(...)` if no WebView with the given ID exists.
+    pub fn update_cdp_endpoint(&self, id: &str, endpoint: &str) -> std::result::Result<(), String> {
+        let wid = id.parse::<WebViewId>().unwrap(); // Infallible
+        if self.server.registry().update_cdp_endpoint(&wid, endpoint.to_string()) {
+            Ok(())
+        } else {
+            Err(format!("WebView {id} not found"))
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -272,7 +285,7 @@ fn agui_router(bus: AguiBus) -> Router {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::McpServerConfig;
+    use crate::types::{McpServerConfig, WebViewConfig};
 
     #[test]
     fn new_creates_runner_with_defaults() {
@@ -318,5 +331,25 @@ mod tests {
     fn emit_agui_step_does_not_panic() {
         let runner = McpRunner::new(McpServerConfig::default());
         runner.emit_agui_step("run-1", "export", "step-1");
+    }
+
+    #[test]
+    fn update_cdp_endpoint_updates_registered_view() {
+        let runner = McpRunner::new(McpServerConfig::default());
+        let registry = runner.server().registry();
+        let id = registry.register(&WebViewConfig::default());
+        
+        let result = runner.update_cdp_endpoint(&id.0, "http://127.0.0.1:9222");
+        assert!(result.is_ok());
+        
+        let info = registry.get(&id).unwrap();
+        assert_eq!(info.cdp_endpoint, Some("http://127.0.0.1:9222".to_string()));
+    }
+
+    #[test]
+    fn update_cdp_endpoint_returns_err_for_unknown_id() {
+        let runner = McpRunner::new(McpServerConfig::default());
+        let result = runner.update_cdp_endpoint("nonexistent", "http://127.0.0.1:9222");
+        assert!(result.is_err());
     }
 }
