@@ -2,31 +2,21 @@
 // Extracted from server.rs to keep files under 1000 lines.
 
 use crate::{
-    agui::{AguiBus, AguiEvent},
+    agui::AguiBus,
     cdp::CdpClient,
     registry::WebViewRegistry,
     types::{JsResult, McpServerConfig, ScreenshotData, WebViewConfig, WebViewId},
     server::types::*,
 };
+use std::sync::Arc;
 use tokio::runtime::Runtime;
 use rmcp::{
-    ServerHandler, tool,
     handler::server::{
         router::tool::ToolRouter,
-        tool::ToolCallContext,
         wrapper::{Json, Parameters},
     },
-    model::{
-        CallToolResult, CallToolRequestParams, InitializeResult, ListToolsResult,
-        PaginatedRequestParams, ServerCapabilities,
-    },
-    schemars,
-    service::RequestContext,
-    tool_router, RoleServer,
-    ErrorData,
+    tool_router, tool,
 };
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use tracing::{debug, info};
 use uuid::Uuid;
 

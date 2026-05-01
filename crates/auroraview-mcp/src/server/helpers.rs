@@ -7,9 +7,6 @@ use crate::{
     registry::WebViewRegistry,
     types::McpServerConfig,
 };
-use std::sync::Arc;
-use tracing::{debug, info};
-use uuid::Uuid;
 
 impl AuroraViewMcpServer {
     /// Attach an `AguiBus` so tool invocations automatically emit AG-UI events.
