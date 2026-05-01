@@ -16,10 +16,11 @@
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use uuid::Uuid;
+
+use dashmap::DashMap;
 
 /// OAuth 2.0 client configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -89,8 +90,8 @@ pub struct TokenResponse {
 /// In-memory OAuth store.
 #[derive(Clone)]
 pub struct OAuthStore {
-    clients: Arc<RwLock<HashMap<String, OAuthClient>>>,
-    codes: Arc<RwLock<HashMap<String, AuthorizationCode>>>,
+    clients: Arc<DashMap<String, OAuthClient>>,
+    codes: Arc<DashMap<String, AuthorizationCode>>,
     encoding_key: EncodingKey,
     decoding_key: DecodingKey,
 }
@@ -105,8 +106,8 @@ impl OAuthStore {
         let decoding_key = DecodingKey::from_secret(jwt_secret.as_bytes());
 
         Self {
-            clients: Arc::new(RwLock::new(HashMap::new())),
-            codes: Arc::new(RwLock::new(HashMap::new())),
+            clients: Arc::new(DashMap::new()),
+            codes: Arc::new(DashMap::new()),
             encoding_key,
             decoding_key,
         }
@@ -121,7 +122,7 @@ impl Default for OAuthStore {
 
 impl OAuthStore {
     /// Register a new OAuth client (dynamic registration).
-    pub async fn register_client(
+    pub fn register_client(
         &self,
         name: String,
         redirect_uris: Vec<String>,
@@ -139,22 +140,18 @@ impl OAuthStore {
             scope,
         };
 
-        self.clients
-            .write()
-            .await
-            .insert(client_id.clone(), client.clone());
+        self.clients.insert(client_id.clone(), client.clone());
 
         (client, client_secret)
     }
 
     /// Validate client credentials.
-    pub async fn validate_client(
+    pub fn validate_client(
         &self,
         client_id: &str,
         client_secret: &str,
     ) -> Option<OAuthClient> {
-        let clients = self.clients.read().await;
-        let client = clients.get(client_id)?;
+        let client = self.clients.get(client_id)?;
 
         if bcrypt::verify(client_secret, &client.client_secret_hash).unwrap_or(false) {
             Some(client.clone())
@@ -164,7 +161,7 @@ impl OAuthStore {
     }
 
     /// Issue a new authorization code.
-    pub async fn issue_code(
+    pub fn issue_code(
         &self,
         client_id: String,
         redirect_uri: String,
@@ -183,52 +180,50 @@ impl OAuthStore {
             expires_at,
         };
 
-        self.codes.write().await.insert(code.clone(), auth_code);
+        self.codes.insert(code.clone(), auth_code);
 
         code
     }
 
     /// Exchange authorization code for access token.
-    pub async fn exchange_code(
+    pub fn exchange_code(
         &self,
         code: &str,
         client_id: &str,
         redirect_uri: &str,
         code_verifier: &str,
     ) -> Option<TokenResponse> {
-        // First, validate the code and extract needed data.
-        let (scope, client_id_owned) = {
-            let codes = self.codes.read().await;
-            let auth_code = codes.get(code)?;
+        // Get the code (DashMap::get returns Option<Ref<K, V>>)
+        let auth_code = self.codes.get(code)?;
 
-            // Validate code.
-            if auth_code.client_id != client_id {
-                return None;
-            }
-            if auth_code.redirect_uri != redirect_uri {
-                return None;
-            }
-            if chrono::Utc::now().timestamp() > auth_code.expires_at {
-                return None;
-            }
+        // Validate code.
+        if auth_code.client_id != client_id {
+            return None;
+        }
+        if auth_code.redirect_uri != redirect_uri {
+            return None;
+        }
+        if chrono::Utc::now().timestamp() > auth_code.expires_at {
+            return None;
+        }
 
-            // Validate PKCE challenge.
-            let verifier_hash = base64_url::encode(
-                &sha2::Sha256::digest(code_verifier.as_bytes())[..],
-            );
-            if verifier_hash != auth_code.code_challenge {
-                return None;
-            }
+        // Validate PKCE challenge.
+        let verifier_hash = base64_url::encode(
+            &sha2::Sha256::digest(code_verifier.as_bytes())[..],
+        );
+        if verifier_hash != auth_code.code_challenge {
+            return None;
+        }
 
-            // Clone needed data before releasing the read lock.
-            (
-                auth_code.scope.clone(),
-                auth_code.client_id.clone(),
-            )
-        }; // Read lock released here.
+        // Extract needed data before possible removal.
+        let scope = auth_code.scope.clone();
+        let client_id_owned = auth_code.client_id.clone();
 
-        // Now acquire write lock to remove the code (single-use).
-        self.codes.write().await.remove(code);
+        // Explicitly drop the Ref guard before removing.
+        drop(auth_code);
+
+        // Remove the code (single-use).
+        self.codes.remove(code);
 
         // Issue JWT access token.
         let now = chrono::Utc::now().timestamp();
@@ -305,8 +300,7 @@ mod tests {
                 "Test Client".to_string(),
                 vec!["http://localhost:8080/callback".to_string()],
                 "mcp:tools".to_string(),
-            )
-            .await;
+            );
 
         assert_eq!(client.name, "Test Client");
         assert!(!secret.is_empty());
@@ -336,8 +330,7 @@ mod tests {
                 "Test Client".to_string(),
                 vec!["http://localhost:8080/callback".to_string()],
                 "mcp:tools".to_string(),
-            )
-            .await;
+            );
 
         // Simulate PKCE challenge
         let code_verifier = "test_verifier_12345678901234567890123456789012";
@@ -350,8 +343,7 @@ mod tests {
                 "http://localhost:8080/callback".to_string(),
                 code_challenge,
                 "mcp:tools".to_string(),
-            )
-            .await;
+            );
 
         assert!(!code.is_empty());
 
@@ -362,8 +354,7 @@ mod tests {
                 &client.client_id,
                 "http://localhost:8080/callback",
                 code_verifier,
-            )
-            .await;
+            );
 
         assert!(token_resp.is_some());
         let token_resp = token_resp.unwrap();
@@ -384,8 +375,7 @@ mod tests {
                 "Test Client".to_string(),
                 vec!["http://localhost:8080/callback".to_string()],
                 "mcp:tools".to_string(),
-            )
-            .await;
+            );
 
         let code_verifier = "test_verifier_12345678901234567890123456789012";
         let code_challenge = base64_url::encode(&sha2::Sha256::digest(code_verifier.as_bytes()));
@@ -396,8 +386,7 @@ mod tests {
                 "http://localhost:8080/callback".to_string(),
                 code_challenge,
                 "mcp:tools".to_string(),
-            )
-            .await;
+            );
 
         let token_resp = store
             .exchange_code(
@@ -406,7 +395,6 @@ mod tests {
                 "http://localhost:8080/callback",
                 code_verifier,
             )
-            .await
             .unwrap();
 
         // Validate the token
@@ -428,8 +416,7 @@ mod tests {
                 "client_id",
                 "http://localhost:8080/callback",
                 "verifier",
-            )
-            .await;
+            );
 
         assert!(result.is_none());
     }
@@ -444,8 +431,7 @@ mod tests {
                 "Test Client".to_string(),
                 vec!["http://localhost:8080/callback".to_string()],
                 "mcp:tools".to_string(),
-            )
-            .await;
+            );
 
         let code_verifier = "test_verifier_12345678901234567890123456789012";
         let code_challenge = base64_url::encode(&sha2::Sha256::digest(code_verifier.as_bytes()));
@@ -456,8 +442,7 @@ mod tests {
                 "http://localhost:8080/callback".to_string(),
                 code_challenge,
                 "mcp:tools".to_string(),
-            )
-            .await;
+            );
 
         // Try to exchange with wrong client_id
         let result = store
@@ -466,8 +451,7 @@ mod tests {
                 "wrong_client_id",
                 "http://localhost:8080/callback",
                 code_verifier,
-            )
-            .await;
+            );
 
         assert!(result.is_none());
     }

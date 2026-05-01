@@ -374,8 +374,7 @@ fn oauth_router(oauth_store: OAuthStore) -> Router {
             "/oauth/register",
             axum::routing::post(|State(store): State<OAuthStore>, Json(req): Json<OAuthRegisterRequest>| async move {
                 let (client, secret) = store
-                    .register_client(req.client_name, req.redirect_uris.clone(), req.scope.clone())
-                    .await;
+                    .register_client(req.client_name, req.redirect_uris.clone(), req.scope.clone());
 
                 Ok::<_, StatusCode>(axum::Json(OAuthRegisterResponse {
                     client_id: client.client_id,
@@ -397,8 +396,7 @@ fn oauth_router(oauth_store: OAuthStore) -> Router {
                 }
 
                 let code = store
-                    .issue_code(q.client_id, q.redirect_uri.clone(), q.code_challenge, q.scope)
-                    .await;
+                    .issue_code(q.client_id, q.redirect_uri.clone(), q.code_challenge, q.scope);
 
                 let redirect_url = format!("{}?code={}&state=", q.redirect_uri, code);
                 Ok::<_, StatusCode>(axum::response::Redirect::to(&redirect_url))
@@ -418,7 +416,6 @@ fn oauth_router(oauth_store: OAuthStore) -> Router {
 
                 let token_resp = store
                     .exchange_code(&code, &client_id, &redirect_uri, &code_verifier)
-                    .await
                     .ok_or(StatusCode::BAD_REQUEST)?;
 
                 Ok::<_, StatusCode>(axum::Json(serde_json::json!({
