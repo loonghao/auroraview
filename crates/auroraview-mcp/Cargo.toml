@@ -65,8 +65,12 @@ anyhow = "1.0"
 # Workspace dep unification (same as every other crate in this workspace).
 auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-hack" }
 
+# Python bindings (optional, enabled via `python-bindings` feature).
+# abi3-py37: built wheel runs on CPython 3.7+ without recompilation.
+pyo3 = { version = "0.27.2", features = ["abi3-py37"], optional = true }
+
 [features]
-python-bindings = []  # Python bindings via pyo3 (enabled by consumer if needed)
+python-bindings = ["dep:pyo3"]  # Python bindings via pyo3 (enabled by consumer if needed)
 
 [dev-dependencies]
 tokio = { version = "1.48", features = ["macros", "rt-multi-thread"] }

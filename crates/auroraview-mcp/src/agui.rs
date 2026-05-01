@@ -134,7 +134,7 @@ impl AguiBus {
     /// Publish an event to all active subscribers.
     pub fn emit(&self, event: AguiEvent) {
         // If there are no receivers, send returns an error — we ignore it.
-        let _ = self.tx.send(event);
+        let _result = self.tx.send(event);
     }
 
     /// Subscribe to receive events.  Returns a `Receiver` that receives
@@ -152,5 +152,79 @@ impl AguiBus {
 impl Default for AguiBus {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn run_id_returns_correct_value() {
+        let event = AguiEvent::RunStarted {
+            run_id: "run-1".to_string(),
+            thread_id: "t-1".to_string(),
+        };
+        assert_eq!(event.run_id(), "run-1");
+
+        let event = AguiEvent::ToolCallStart {
+            run_id: "run-2".to_string(),
+            tool_call_id: "c-1".to_string(),
+            tool_name: "screenshot".to_string(),
+        };
+        assert_eq!(event.run_id(), "run-2");
+    }
+
+    #[test]
+    fn to_sse_line_produces_valid_sse() {
+        let event = AguiEvent::RunStarted {
+            run_id: "r1".to_string(),
+            thread_id: "t1".to_string(),
+        };
+        let line = event.to_sse_line();
+        assert!(line.starts_with("data: "));
+        assert!(line.ends_with("\n\n"));
+        // Should be valid JSON
+        let json_start = line.trim_start_matches("data: ");
+        let json_end = json_start.trim_end_matches("\n\n");
+        let parsed: serde_json::Value = serde_json::from_str(json_end).unwrap();
+        assert_eq!(parsed["type"], "RUN_STARTED");
+    }
+
+    #[tokio::test]
+    async fn bus_subscribe_receives_emitted_event() {
+        let bus = AguiBus::new();
+        let mut rx = bus.subscribe();
+
+        let event = AguiEvent::RunStarted {
+            run_id: "r1".to_string(),
+            thread_id: "t1".to_string(),
+        };
+        bus.emit(event.clone());
+
+        let received = rx.recv().await.unwrap();
+        assert_eq!(received.run_id(), "r1");
+    }
+
+    #[test]
+    fn bus_receiver_count_tracks_subscribers() {
+        let bus = AguiBus::new();
+        assert_eq!(bus.receiver_count(), 0);
+
+        let _rx1 = bus.subscribe();
+        assert_eq!(bus.receiver_count(), 1);
+
+        let _rx2 = bus.subscribe();
+        assert_eq!(bus.receiver_count(), 2);
+    }
+
+    #[test]
+    fn bus_emit_without_receivers_does_not_panic() {
+        let bus = AguiBus::new();
+        // Should not panic even with no receivers
+        bus.emit(AguiEvent::RunFinished {
+            run_id: "r1".to_string(),
+            thread_id: "t1".to_string(),
+        });
     }
 }

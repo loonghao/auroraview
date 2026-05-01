@@ -70,6 +70,14 @@ impl MdnsBroadcaster {
     }
 }
 
+fn gethostname_str() -> String {
+    // Simple fallback — gethostname via std is not stable cross-platform without a crate.
+    std::env::var("COMPUTERNAME")
+        .or_else(|_| std::env::var("HOSTNAME"))
+        .unwrap_or_else(|_| "localhost".to_string())
+        + ".local."
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -90,12 +98,4 @@ mod tests {
             assert_eq!(b.service_type, MdnsBroadcaster::SERVICE_TYPE);
         }
     }
-}
-
-fn gethostname_str() -> String {
-    // Simple fallback — gethostname via std is not stable cross-platform without a crate.
-    std::env::var("COMPUTERNAME")
-        .or_else(|_| std::env::var("HOSTNAME"))
-        .unwrap_or_else(|_| "localhost".to_string())
-        + ".local."
 }

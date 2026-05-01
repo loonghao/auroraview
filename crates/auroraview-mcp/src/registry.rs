@@ -112,7 +112,7 @@ impl WebViewRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{WebViewConfig, WebViewId};
+    use crate::types::WebViewConfig;
     use rstest::rstest;
 
     #[test]

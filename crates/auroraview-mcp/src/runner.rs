@@ -268,3 +268,55 @@ fn agui_router(bus: AguiBus) -> Router {
         ),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::McpServerConfig;
+
+    #[test]
+    fn new_creates_runner_with_defaults() {
+        let config = McpServerConfig::default();
+        let runner = McpRunner::new(config);
+        assert_eq!(runner.config().port, 7890);
+        assert!(runner.server().registry().is_empty());
+    }
+
+    #[test]
+    fn with_capacity_sets_port_and_limit() {
+        let runner = McpRunner::with_capacity(9000, 5);
+        assert_eq!(runner.config().port, 9000);
+        assert_eq!(runner.config().max_webviews, Some(5));
+        assert!(!runner.config().enable_mdns);
+    }
+
+    #[test]
+    fn with_mdns_port_sets_port_and_mdns() {
+        let runner = McpRunner::with_mdns_port(9001);
+        assert_eq!(runner.config().port, 9001);
+        assert!(runner.config().enable_mdns);
+    }
+
+    #[test]
+    fn agui_bus_returns_valid_bus() {
+        let runner = McpRunner::new(McpServerConfig::default());
+        let bus = runner.agui_bus();
+        assert_eq!(bus.receiver_count(), 0);
+    }
+
+    #[test]
+    fn emit_agui_does_not_panic() {
+        let runner = McpRunner::new(McpServerConfig::default());
+        let event = crate::agui::AguiEvent::RunStarted {
+            run_id: "test".to_string(),
+            thread_id: "t1".to_string(),
+        };
+        runner.emit_agui(event);
+    }
+
+    #[test]
+    fn emit_agui_step_does_not_panic() {
+        let runner = McpRunner::new(McpServerConfig::default());
+        runner.emit_agui_step("run-1", "export", "step-1");
+    }
+}
