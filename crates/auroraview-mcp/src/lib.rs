@@ -1,3 +1,5 @@
+#![allow(clippy::missing_errors_doc)]
+
 //! `AuroraView` adapter for `dcc-mcp-core`.
 //!
 //! This crate exposes a running `AuroraView` instance as a

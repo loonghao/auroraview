@@ -162,6 +162,11 @@ impl CdpClient {
     }
 
     /// `Browser.getVersion` — lightweight liveness probe.
+    ///
+    /// # Errors
+    ///
+    /// Returns `CdpError` if the CDP call times out or the remote
+    /// returns an error.
     pub async fn get_version(&mut self, timeout: Duration) -> Result<BrowserVersion, CdpError> {
         let result = self.call("Browser.getVersion", json!({}), timeout).await?;
         Ok(BrowserVersion {
@@ -182,6 +187,7 @@ impl CdpClient {
     ///
     /// Returns the JSON value of the expression result, or a remote error
     /// if the script throws.
+    #[allow(clippy::missing_errors_doc)]
     pub async fn evaluate_script(
         &mut self,
         expression: &str,
