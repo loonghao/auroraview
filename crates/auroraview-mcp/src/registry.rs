@@ -64,6 +64,7 @@ impl WebViewRegistry {
             width: config.width.unwrap_or(800),
             height: config.height.unwrap_or(600),
             hwnd: 0,
+            cdp_endpoint: None,
         };
         self.views.insert(id.0.clone(), info);
         Ok(id)

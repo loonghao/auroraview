@@ -1,3 +1,4 @@
+use base64::Engine;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -41,6 +42,10 @@ pub struct WebViewInfo {
     pub height: u32,
     /// Raw HWND on Windows (0 if not available).
     pub hwnd: u64,
+    /// CDP endpoint for DevTools (e.g. `http://127.0.0.1:9222`).
+    /// `None` if CDP is not enabled for this WebView.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cdp_endpoint: Option<String>,
 }
 
 /// Configuration for creating a new WebView.
@@ -86,6 +91,17 @@ impl ScreenshotData {
             width,
             height,
             format: "png".to_string(),
+        }
+    }
+
+    /// Create `ScreenshotData` from raw image bytes (PNG/JPEG/WebP).
+    pub fn from_bytes(bytes: &[u8], width: u32, height: u32, format: &str) -> Self {
+        let data = base64::engine::general_purpose::STANDARD.encode(bytes);
+        Self {
+            data,
+            width,
+            height,
+            format: format.to_string(),
         }
     }
 }

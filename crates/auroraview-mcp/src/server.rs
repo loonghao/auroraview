@@ -1,8 +1,10 @@
 use crate::{
     agui::{AguiBus, AguiEvent},
+    cdp::CdpClient,
     registry::WebViewRegistry,
     types::{JsResult, McpServerConfig, ScreenshotData, WebViewConfig, WebViewId},
 };
+use tokio::runtime::Runtime;
 use rmcp::{
     ServerHandler, tool,
     handler::server::{
@@ -161,7 +163,61 @@ impl AuroraViewMcpServer {
         let call_id = Uuid::new_v4().to_string();
         self.emit_tool_start("screenshot", &call_id, &id);
         debug!("screenshot requested for WebView: {id}");
-        let data = ScreenshotData::new_placeholder(800, 600);
+
+        let data = if let Some(info) = self.registry.get(&id.parse::<WebViewId>().unwrap()) {
+            if let Some(ref cdp_ep) = info.cdp_endpoint {
+                debug!("Connecting to CDP endpoint: {cdp_ep}");
+                match Runtime::new() {
+                    Ok(rt) => {
+                        let fut = CdpClient::connect(cdp_ep);
+                        match rt.block_on(fut) {
+                            Ok(mut client) => {
+                                let capture_fut = client.capture_screenshot(
+                                    "png",
+                                    std::time::Duration::from_secs(10),
+                                );
+                                match rt.block_on(capture_fut) {
+                                    Ok(bytes) => {
+                                        ScreenshotData::from_bytes(
+                                            &bytes,
+                                            info.width,
+                                            info.height,
+                                            "png",
+                                        )
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!(
+                                            "CDP screenshot failed: {e}, falling back to placeholder"
+                                        );
+                                        ScreenshotData::new_placeholder(
+                                            info.width,
+                                            info.height,
+                                        )
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                tracing::warn!(
+                                    "CDP connect failed: {e}, falling back to placeholder"
+                                );
+                                ScreenshotData::new_placeholder(info.width, info.height)
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            "Failed to create runtime: {e}, falling back to placeholder"
+                        );
+                        ScreenshotData::new_placeholder(info.width, info.height)
+                    }
+                }
+            } else {
+                ScreenshotData::new_placeholder(info.width, info.height)
+            }
+        } else {
+            ScreenshotData::new_placeholder(800, 600)
+        };
+
         let result = Json(ScreenshotOutput {
             id: id.clone(),
             data: data.data,
