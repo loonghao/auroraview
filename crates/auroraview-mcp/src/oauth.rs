@@ -16,7 +16,7 @@
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
@@ -246,10 +246,16 @@ impl OAuthStore {
 
     /// Validate JWT access token.
     pub fn validate_token(&self, token: &str) -> Option<AccessTokenClaims> {
-        let validation = Validation::default();
-        decode::<AccessTokenClaims>(token, &self.decoding_key, &validation)
-            .ok()
-            .map(|data| data.claims)
+        let mut validation = Validation::default();
+        validation.iss = Some(HashSet::from(["auroraview-mcp".to_string()]));
+        validation.aud = Some(HashSet::from(["auroraview-mcp".to_string()]));
+        match decode::<AccessTokenClaims>(token, &self.decoding_key, &validation) {
+            Ok(data) => Some(data.claims),
+            Err(e) => {
+                eprintln!("Token validation error: {:?}", e);
+                None
+            }
+        }
     }
 }
 
@@ -266,11 +272,20 @@ pub fn extract_bearer_token(header: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use jsonwebtoken::CryptoProvider;
+    use std::sync::OnceLock;
+    use jsonwebtoken::crypto::{CryptoProvider, aws_lc};
+
+    static CRYPTO_INIT: OnceLock<()> = OnceLock::new();
+
+    fn setup_crypto() {
+        CRYPTO_INIT.get_or_init(|| {
+            CryptoProvider::install_default(&aws_lc::DEFAULT_PROVIDER).unwrap();
+        });
+    }
 
     #[tokio::test]
     async fn oauth_store_creation() {
-        jsonwebtoken::CryptoProvider::install_default().unwrap();
+        setup_crypto();
         let _store = OAuthStore::new();
         // Should not panic - store is created successfully.
         // (jwt_secret is now internal to EncodingKey/DecodingKey)
@@ -278,7 +293,7 @@ mod tests {
 
     #[tokio::test]
     async fn client_registration() {
-        jsonwebtoken::CryptoProvider::install_default().unwrap();
+        setup_crypto();
         let store = OAuthStore::new();
         let (client, secret) = store
             .register_client(
@@ -308,7 +323,7 @@ mod tests {
 
     #[tokio::test]
     async fn issue_code_and_exchange() {
-        jsonwebtoken::CryptoProvider::install_default().unwrap();
+        setup_crypto();
         
         let store = OAuthStore::new();
         let (client, _secret) = store
@@ -355,7 +370,7 @@ mod tests {
 
     #[tokio::test]
     async fn validate_token_success() {
-        jsonwebtoken::CryptoProvider::install_default().unwrap();
+        setup_crypto();
         
         let store = OAuthStore::new();
         // Use the full flow to get a valid token
@@ -399,7 +414,7 @@ mod tests {
 
     #[tokio::test]
     async fn exchange_code_invalid_code_returns_none() {
-        jsonwebtoken::CryptoProvider::install_default().unwrap();
+        setup_crypto();
         
         let store = OAuthStore::new();
         let result = store
@@ -416,7 +431,7 @@ mod tests {
 
     #[tokio::test]
     async fn exchange_code_wrong_client_returns_none() {
-        jsonwebtoken::CryptoProvider::install_default().unwrap();
+        setup_crypto();
         
         let store = OAuthStore::new();
         let (client, _) = store
