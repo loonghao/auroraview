@@ -70,6 +70,28 @@ impl MdnsBroadcaster {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gethostname_returns_non_empty() {
+        let name = gethostname_str();
+        assert!(!name.is_empty());
+        assert!(name.ends_with(".local."));
+    }
+
+    #[tokio::test]
+    async fn new_creates_broadcaster() {
+        // This may fail if mDNS is not available, so we just test it doesn't panic
+        let result = MdnsBroadcaster::new();
+        // On most systems, this should succeed
+        if let Ok(b) = result {
+            assert_eq!(b.service_type, MdnsBroadcaster::SERVICE_TYPE);
+        }
+    }
+}
+
 fn gethostname_str() -> String {
     // Simple fallback — gethostname via std is not stable cross-platform without a crate.
     std::env::var("COMPUTERNAME")
