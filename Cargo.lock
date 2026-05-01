@@ -997,6 +997,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "auroraview-ue"
+version = "0.5.2"
+dependencies = [
+ "anyhow",
+ "auroraview-core",
+ "auroraview-signals",
+ "crossbeam-channel",
+ "pyo3",
+ "rstest 0.25.0",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "auroraview-workspace-hack"
 version = "0.1.0"
 dependencies = [

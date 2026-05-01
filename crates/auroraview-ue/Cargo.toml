@@ -1,0 +1,45 @@
+[package]
+name = "auroraview-ue"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Unreal Engine integration for AuroraView — supports UE4/UE5 Python scripting, GameThread adapter, Slate UI, and GC-safe WebView embedding"
+keywords = ["auroraview", "unreal-engine", "ue4", "ue5", "webview", "dcc"]
+categories = ["api-bindings", "gui"]
+
+[dependencies]
+# Core AuroraView crate (WebView management)
+auroraview-core = { path = "../auroraview-core" }
+
+# Signal system (Qt-style signals/slots)
+auroraview-signals = { path = "../auroraview-signals" }
+
+# Async runtime
+tokio = { version = "1.48", features = ["rt-multi-thread", "sync", "time"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "2.0"
+
+# Logging
+tracing = "0.1"
+
+# IPC/Task dispatch
+crossbeam-channel = "0.5"
+
+# UE-specific: Python bindings (optional, enabled via `python-bindings` feature)
+pyo3 = { version = "0.27.2", features = ["multiple-pymethods"], optional = true }
+
+[features]
+python-bindings = ["dep:pyo3"]
+
+[dev-dependencies]
+tokio = { version = "1.48", features = ["macros", "rt-multi-thread"] }
+rstest = "0.25"
