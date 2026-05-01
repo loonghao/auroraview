@@ -3,7 +3,7 @@
 //! `AuroraView` adapter for `dcc-mcp-core`.
 //!
 //! This crate exposes a running `AuroraView` instance as a
-//! [`DccAdapter`](dcc_mcp_protocols::adapters::DccAdapter), so that
+//! [`DccAdapter`], so that
 //! `dcc-mcp-server` (from `dcc-mcp-core v0.13+`) can discover it via
 //! `FileRegistry` and call into it over the Chrome `DevTools` Protocol.
 //!
@@ -21,11 +21,11 @@
 //!
 //! Deliberately **not yet wired**:
 //!
-//! - [`DccScriptEngine`] — blocked on upstream
+//! - `DccScriptEngine` — blocked on upstream
 //!   [`dcc-mcp-core#222`](https://github.com/loonghao/dcc-mcp-core/issues/222)
 //!   adding `ScriptLanguage::JavaScript`. Once that lands, `Runtime.evaluate`
 //!   becomes a one-screen implementation.
-//! - [`DccSceneInfo`] / scene-manager / hierarchy / transform — `AuroraView` is
+//! - `DccSceneInfo` / scene-manager / hierarchy / transform — `AuroraView` is
 //!   a web view, not a 3D DCC, so these stay `None` unless a skill explicitly
 //!   opts in.
 //!
