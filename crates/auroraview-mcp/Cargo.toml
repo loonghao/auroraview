@@ -65,7 +65,7 @@ tracing = "0.1"
 anyhow = "1.0"
 
 # OAuth 2.0 dependencies (for `auth` feature usage).
-jsonwebtoken = "10"
+jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
 bcrypt = "0.15"
 sha2 = "0.10"
 chrono = "0.4"
