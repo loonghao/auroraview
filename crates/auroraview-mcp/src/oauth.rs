@@ -111,7 +111,15 @@ impl OAuthStore {
             decoding_key,
         }
     }
+}
 
+impl Default for OAuthStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl OAuthStore {
     /// Register a new OAuth client (dynamic registration).
     pub async fn register_client(
         &self,
@@ -261,12 +269,9 @@ impl OAuthStore {
 
 /// Extract bearer token from Authorization header.
 pub fn extract_bearer_token(header: &str) -> Option<String> {
-    let prefix = "Bearer ";
-    if header.starts_with(prefix) {
-        Some(header[prefix.len()..].to_string())
-    } else {
-        None
-    }
+    header
+        .strip_prefix("Bearer ")
+        .map(|s| s.to_string())
 }
 
 #[cfg(test)]
