@@ -49,6 +49,16 @@ pub struct WebViewInfo {
     pub cdp_endpoint: Option<String>,
 }
 
+impl std::fmt::Display for WebViewInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "WebViewInfo {{ id: {}, title: \"{}\", url: \"{}\", visible: {}, {}x{}, hwnd: {} }}",
+            self.id, self.title, self.url, self.visible, self.width, self.height, self.hwnd
+        )
+    }
+}
+
 /// Configuration for creating a new `WebView`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebViewConfig {
@@ -59,6 +69,22 @@ pub struct WebViewConfig {
     pub height: Option<u32>,
     pub visible: Option<bool>,
     pub debug: Option<bool>,
+}
+
+impl std::fmt::Display for WebViewConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "WebViewConfig {{ title: {:?}, url: {:?}, html: {:?}, {}x{}, visible: {}, debug: {} }}",
+            self.title,
+            self.url,
+            self.html,
+            self.width.unwrap_or(800),
+            self.height.unwrap_or(600),
+            self.visible.unwrap_or(true),
+            self.debug.unwrap_or(false)
+        )
+    }
 }
 
 impl Default for WebViewConfig {
@@ -83,6 +109,16 @@ pub struct ScreenshotData {
     pub width: u32,
     pub height: u32,
     pub format: String,
+}
+
+impl std::fmt::Display for ScreenshotData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "ScreenshotData {{ {}x{}, format: {} }}",
+            self.width, self.height, self.format
+        )
+    }
 }
 
 impl ScreenshotData {
@@ -116,6 +152,16 @@ pub struct JsResult {
     pub error: Option<String>,
 }
 
+impl std::fmt::Display for JsResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(ref err) = self.error {
+            write!(f, "JsResult::Err({err})")
+        } else {
+            write!(f, "JsResult::Ok({})", self.value)
+        }
+    }
+}
+
 impl JsResult {
     #[must_use] 
     pub fn ok(value: serde_json::Value) -> Self {
@@ -146,6 +192,21 @@ pub struct McpServerConfig {
     /// `None` means no limit.
     #[serde(default)]
     pub max_webviews: Option<usize>,
+}
+
+impl std::fmt::Display for McpServerConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "McpServerConfig {{ host: {}, port: {}, service_name: \"{}\", mdns: {}, oauth: {}, max_webviews: {:?} }}",
+            self.host,
+            self.port,
+            self.service_name,
+            self.enable_mdns,
+            self.enable_oauth,
+            self.max_webviews
+        )
+    }
 }
 
 impl Default for McpServerConfig {
