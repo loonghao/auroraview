@@ -192,6 +192,7 @@ webview2-com = { version = "0.39", optional = true }
 criterion = "0.8"
 tempfile = "3.14"
 rstest = "0.26"
+auroraview-mcp = { path = "crates/auroraview-mcp" }
 test-case = "3.3"
 proptest = "1.11"
 mockall = "0.14"
@@ -331,4 +332,8 @@ path = "tests/rust/http_discovery_integration_tests.rs"
 # Benchmarks
 [[bench]]
 name = "ipc_bench"
+harness = false
+
+[[bench]]
+name = "oauth_bench"
 harness = false
