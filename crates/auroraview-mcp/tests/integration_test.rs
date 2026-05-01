@@ -169,6 +169,110 @@ async fn runner_builder_and_start_stop() {
 }
 
 // ---------------------------------------------------------------------------
+// McpServerConfig: validation
+// ---------------------------------------------------------------------------
+
+#[test]
+fn mcp_server_config_validate_valid() {
+    let cfg = McpServerConfig::with_all(7890, "127.0.0.1", "auroraview-mcp", true, None);
+    assert!(cfg.validate().is_ok());
+    assert!(cfg.is_valid());
+}
+
+#[test]
+fn mcp_server_config_validate_invalid_port() {
+    let cfg = McpServerConfig::default().with_port(0);
+    assert!(cfg.validate().is_err());
+    assert!(!cfg.is_valid());
+}
+
+#[test]
+fn mcp_server_config_validate_empty_host() {
+    let cfg = McpServerConfig::with_all(7890, "", "auroraview-mcp", true, None);
+    assert!(cfg.validate().is_err());
+}
+
+// ---------------------------------------------------------------------------
+// AguiBus: receiver counting
+// ---------------------------------------------------------------------------
+
+#[test]
+fn agui_bus_receiver_count_tracks() {
+    let bus = AguiBus::new();
+    assert_eq!(bus.receiver_count(), 0);
+
+    let _rx1 = bus.subscribe();
+    assert_eq!(bus.receiver_count(), 1);
+
+    let _rx2 = bus.subscribe();
+    assert_eq!(bus.receiver_count(), 2);
+
+    // Dropping a receiver reduces count.
+    // (Can't easily test here without async runtime)
+}
+
+#[test]
+fn agui_bus_emit_without_receivers_no_panic() {
+    let bus = AguiBus::new();
+    let event = AguiEvent::RunFinished {
+        run_id: "r1".to_string(),
+        thread_id: "t1".to_string(),
+    };
+    // Should not panic even with zero receivers.
+    bus.emit(event);
+}
+
+// ---------------------------------------------------------------------------
+// WebViewRegistry: edge cases
+// ---------------------------------------------------------------------------
+
+#[test]
+fn registry_get_nonexistent_returns_none() {
+    let registry = WebViewRegistry::new();
+    let fake_id = auroraview_mcp::types::WebViewId::new();
+    assert!(registry.get(&fake_id).is_none());
+}
+
+#[test]
+fn registry_remove_nonexistent_returns_none() {
+    let registry = WebViewRegistry::new();
+    let fake_id = auroraview_mcp::types::WebViewId::new();
+    assert!(registry.remove(&fake_id).is_none());
+}
+
+#[test]
+fn registry_update_url_nonexistent_returns_false() {
+    let registry = WebViewRegistry::new();
+    let fake_id = auroraview_mcp::types::WebViewId::new();
+    assert!(!registry.update_url(&fake_id, "https://example.com"));
+}
+
+#[test]
+fn registry_list_empty() {
+    let registry = WebViewRegistry::new();
+    let list = registry.list();
+    assert!(list.is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// McpRunner: builder patterns
+// ---------------------------------------------------------------------------
+
+#[test]
+fn runner_with_capacity_builder() {
+    let runner = McpRunner::with_capacity(12345, 10);
+    // Just verify it doesn't panic.
+    let _ = runner;
+}
+
+#[test]
+fn runner_with_mdns_port_builder() {
+    let runner = McpRunner::with_mdns_port(54321);
+    // Just verify it doesn't panic.
+    let _ = runner;
+}
+
+// ---------------------------------------------------------------------------
 // CdpAdapterConfig (re-exports from lib.rs)
 // ---------------------------------------------------------------------------
 
@@ -178,4 +282,12 @@ fn cdp_adapter_config_localhost() {
     assert_eq!(cfg.http_endpoint, "http://127.0.0.1:9222");
     assert_eq!(cfg.ws_endpoint, "ws://127.0.0.1:9222");
     assert_eq!(cfg.version, "0.5.2");
+}
+
+#[test]
+fn cdp_adapter_config_fields() {
+    let cfg = auroraview_mcp::CdpAdapterConfig::localhost(9222, "0.5.2");
+    assert_eq!(cfg.pid, std::process::id());
+    assert!(!cfg.platform.is_empty());
+    assert_eq!(cfg.window_title, None);
 }

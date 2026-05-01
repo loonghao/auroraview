@@ -245,7 +245,7 @@ mod tests {
                 title: Some(format!("View {i}")),
                 ..Default::default()
             };
-            reg.register(&config);
+            let _ = reg.register(&config);
         }
         let views = reg.list();
         assert_eq!(views.len(), 3);
