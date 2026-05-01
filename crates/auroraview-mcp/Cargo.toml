@@ -38,7 +38,8 @@ mdns-sd = "0.10"
 uuid = { version = "1.7", features = ["v4", "serde"] }
 
 # JSON Schema derivation (required by rmcp for tool parameter schemas).
-schemars = "0.8"
+# rmcp 1.5.x requires schemars 1.2.x
+schemars = "1.2"
 
 # Async runtime + WebSocket for CDP transport.
 tokio = { version = "1.48", features = ["rt-multi-thread", "net", "sync", "time", "macros"] }

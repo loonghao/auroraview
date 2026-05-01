@@ -1,8 +1,12 @@
+// MCP tool implementations for AuroraViewMcpServer.
+// Extracted from server.rs to keep files under 1000 lines.
+
 use crate::{
     agui::{AguiBus, AguiEvent},
     cdp::CdpClient,
     registry::WebViewRegistry,
     types::{JsResult, McpServerConfig, ScreenshotData, WebViewConfig, WebViewId},
+    server::types::*,
 };
 use tokio::runtime::Runtime;
 use rmcp::{
@@ -33,125 +37,30 @@ use uuid::Uuid;
 /// AG-UI subscribers can track real-time progress.
 #[derive(Clone)]
 pub struct AuroraViewMcpServer {
-    registry: WebViewRegistry,
-    config: Arc<McpServerConfig>,
-    tool_router: ToolRouter<Self>,
+    pub registry: WebViewRegistry,
+    pub config: Arc<McpServerConfig>,
+    pub tool_router: ToolRouter<Self>,
     /// Optional AG-UI broadcast bus — `None` means events are not emitted.
-    agui_bus: Option<AguiBus>,
-}
-
-// --- Parameter types ---
-
-#[derive(Debug, Deserialize, schemars::JsonSchema, Default)]
-pub struct ScreenshotParams {
-    /// Optional `WebView` ID. If omitted, captures the first available `WebView`.
-    pub id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct LoadUrlParams {
-    /// The URL to load (http://, https://, or file://).
-    pub url: String,
-    /// Target `WebView` ID. Uses first available if omitted.
-    pub id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct LoadHtmlParams {
-    /// Raw HTML content to load.
-    pub html: String,
-    /// Target `WebView` ID. Uses first available if omitted.
-    pub id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct EvalJsParams {
-    /// JavaScript expression to evaluate.
-    pub script: String,
-    /// Target `WebView` ID. Uses first available if omitted.
-    pub id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct SendEventParams {
-    /// Event name.
-    pub event: String,
-    /// Event payload (JSON).
-    pub data: Option<serde_json::Value>,
-    /// Target `WebView` ID. Uses first available if omitted.
-    pub id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct GetHwndParams {
-    /// `WebView` ID. Uses first available if omitted.
-    pub id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct CloseWebViewParams {
-    /// `WebView` ID to close.
-    pub id: String,
-}
-
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct CreateWebViewParams {
-    /// Title for the new `WebView` window.
-    pub title: Option<String>,
-    /// Initial URL to load.
-    pub url: Option<String>,
-    /// Initial HTML content.
-    pub html: Option<String>,
-    pub width: Option<u32>,
-    pub height: Option<u32>,
-    pub debug: Option<bool>,
-}
-
-// --- Output types ---
-
-#[derive(Debug, Serialize, schemars::JsonSchema)]
-pub struct ScreenshotOutput {
-    pub id: String,
-    pub data: String,
-    pub width: u32,
-    pub height: u32,
-    pub format: String,
-}
-
-#[derive(Debug, Serialize, schemars::JsonSchema)]
-pub struct WebViewIdOutput {
-    pub id: String,
-}
-
-#[derive(Debug, Serialize, schemars::JsonSchema)]
-pub struct HwndOutput {
-    pub id: String,
-    pub hwnd: u64,
-}
-
-#[derive(Debug, Serialize, schemars::JsonSchema)]
-pub struct ListWebViewsOutput {
-    pub count: usize,
-    /// Capacity limit, if set. `null` means unlimited.
-    pub capacity: Option<usize>,
-    pub views: Vec<serde_json::Value>,
-}
-
-#[derive(Debug, Serialize, schemars::JsonSchema)]
-pub struct JsResultOutput {
-    pub id: String,
-    pub value: serde_json::Value,
-    pub error: Option<String>,
-}
-
-#[derive(Debug, Serialize, schemars::JsonSchema)]
-pub struct SuccessOutput {
-    pub ok: bool,
-    pub message: String,
+    pub agui_bus: Option<AguiBus>,
 }
 
 #[tool_router]
 impl AuroraViewMcpServer {
+    #[must_use]
+    pub fn new(config: McpServerConfig) -> Self {
+        let tool_router = Self::tool_router();
+        let registry = match config.max_webviews {
+            Some(max) => WebViewRegistry::with_capacity(max),
+            None => WebViewRegistry::new(),
+        };
+        Self {
+            registry,
+            config: Arc::new(config),
+            tool_router,
+            agui_bus: None,
+        }
+    }
+
     /// Capture a screenshot of the specified `WebView`.
     #[tool(
         name = "screenshot",
@@ -348,7 +257,7 @@ impl AuroraViewMcpServer {
         result
     }
 
-    /// Send a custom event to the `WebView`'s JavaScript context.
+    /// Send a custom event to the `WebView`s JavaScript context.
     #[tool(
         name = "send_event",
         description = "Send a named event with payload to the WebView JS context via auroraview.on()."
@@ -474,152 +383,5 @@ impl AuroraViewMcpServer {
         });
         self.emit_tool_end(&call_id, &params.0.id);
         result
-    }
-}
-
-impl AuroraViewMcpServer {
-    #[must_use] 
-    pub fn new(config: McpServerConfig) -> Self {
-        let tool_router = Self::tool_router();
-        let registry = match config.max_webviews {
-            Some(max) => WebViewRegistry::with_capacity(max),
-            None => WebViewRegistry::new(),
-        };
-        Self {
-            registry,
-            config: Arc::new(config),
-            tool_router,
-            agui_bus: None,
-        }
-    }
-
-    /// Attach an `AguiBus` so tool invocations automatically emit AG-UI events.
-    #[must_use] 
-    pub fn with_agui_bus(mut self, bus: AguiBus) -> Self {
-        self.agui_bus = Some(bus);
-        self
-    }
-
-    #[must_use] 
-    pub fn registry(&self) -> &WebViewRegistry {
-        &self.registry
-    }
-
-    #[must_use] 
-    pub fn config(&self) -> &McpServerConfig {
-        &self.config
-    }
-
-    /// Return a reference to the attached AG-UI bus, if any.
-    #[must_use] 
-    pub fn agui_bus(&self) -> Option<&AguiBus> {
-        self.agui_bus.as_ref()
-    }
-
-    /// Resolve a `WebView` ID: use provided string or fall back to first registered.
-    fn resolve_id(&self, id: Option<&str>) -> String {
-        if let Some(s) = id {
-            return s.to_string();
-        }
-        self.registry
-            .list()
-            .into_iter()
-            .next().map_or_else(|| "default".to_string(), |v| v.id.0)
-    }
-
-    /// Emit `ToolCallStart` when a tool begins execution.
-    fn emit_tool_start(&self, tool_name: &str, call_id: &str, run_id: &str) {
-        if let Some(bus) = &self.agui_bus {
-            bus.emit(AguiEvent::ToolCallStart {
-                run_id: run_id.to_string(),
-                tool_call_id: call_id.to_string(),
-                tool_name: tool_name.to_string(),
-            });
-        }
-    }
-
-    /// Emit `ToolCallEnd` when a tool finishes execution.
-    fn emit_tool_end(&self, call_id: &str, run_id: &str) {
-        if let Some(bus) = &self.agui_bus {
-            bus.emit(AguiEvent::ToolCallEnd {
-                run_id: run_id.to_string(),
-                tool_call_id: call_id.to_string(),
-            });
-        }
-    }
-}
-
-impl ServerHandler for AuroraViewMcpServer {
-    fn get_info(&self) -> InitializeResult {
-        let capabilities = ServerCapabilities::builder().enable_tools().build();
-        InitializeResult::new(capabilities)
-            .with_instructions(
-                "AuroraView MCP Server: manage WebView windows in DCC applications (Maya, Houdini, Blender, UE, etc.)".to_string()
-            )
-    }
-
-    fn call_tool(
-        &self,
-        req: CallToolRequestParams,
-        context: RequestContext<RoleServer>,
-    ) -> impl std::future::Future<Output = Result<CallToolResult, ErrorData>> + Send + '_ {
-        let ctx = ToolCallContext::new(self, req, context);
-        self.tool_router.call(ctx)
-    }
-
-    fn list_tools(
-        &self,
-        _req: Option<PaginatedRequestParams>,
-        _context: RequestContext<RoleServer>,
-    ) -> impl std::future::Future<Output = Result<ListToolsResult, ErrorData>> + Send + '_
-    {
-        let tools = self.tool_router.list_all();
-        async move {
-            Ok(ListToolsResult {
-                tools,
-                ..Default::default()
-            })
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::types::McpServerConfig;
-
-    #[test]
-    fn new_creates_default_registry() {
-        let config = McpServerConfig::default();
-        let server = AuroraViewMcpServer::new(config);
-        assert!(server.registry().is_empty());
-        assert_eq!(server.registry().capacity(), None);
-    }
-
-    #[test]
-    fn with_agui_bus_attaches_bus() {
-        let config = McpServerConfig::default();
-        let server = AuroraViewMcpServer::new(config);
-        assert!(server.agui_bus().is_none());
-
-        let bus = crate::agui::AguiBus::new();
-        let server = server.with_agui_bus(bus);
-        assert!(server.agui_bus().is_some());
-    }
-
-    #[test]
-    fn resolve_id_returns_default_when_empty() {
-        let config = McpServerConfig::default();
-        let server = AuroraViewMcpServer::new(config);
-        let result = server.resolve_id(None);
-        assert_eq!(result, "default");
-    }
-
-    #[test]
-    fn get_info_returns_valid_result() {
-        let config = McpServerConfig::default();
-        let server = AuroraViewMcpServer::new(config);
-        let info = server.get_info();
-        assert!(info.instructions.is_some());
     }
 }
