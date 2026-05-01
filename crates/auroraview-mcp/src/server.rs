@@ -423,6 +423,8 @@ impl AuroraViewMcpServer {
         &self,
         params: Parameters<CreateWebViewParams>,
     ) -> Json<SuccessOutput> {
+        let call_id = Uuid::new_v4().to_string();
+        self.emit_tool_start("create_webview", &call_id, "server");
         let config = WebViewConfig {
             title: params.0.title,
             url: params.0.url,
@@ -432,7 +434,7 @@ impl AuroraViewMcpServer {
             visible: Some(true),
             debug: params.0.debug,
         };
-        match self.registry.try_register(&config) {
+        let result = match self.registry.try_register(&config) {
             Ok(id) => {
                 info!("create_webview: new id={}", id.0);
                 Json(SuccessOutput {
@@ -444,7 +446,9 @@ impl AuroraViewMcpServer {
                 ok: false,
                 message: e.to_string(),
             }),
-        }
+        };
+        self.emit_tool_end(&call_id, "server");
+        result
     }
 
     /// Close and remove a `WebView` instance.
@@ -456,16 +460,20 @@ impl AuroraViewMcpServer {
         &self,
         params: Parameters<CloseWebViewParams>,
     ) -> Json<SuccessOutput> {
+        let call_id = Uuid::new_v4().to_string();
+        self.emit_tool_start("close_webview", &call_id, &params.0.id);
         let wid = params.0.id.parse::<WebViewId>().unwrap();
         let removed = self.registry.remove(&wid).is_some();
-        Json(SuccessOutput {
+        let result = Json(SuccessOutput {
             ok: removed,
             message: if removed {
                 format!("WebView {} closed", params.0.id)
             } else {
                 format!("WebView {} not found", params.0.id)
             },
-        })
+        });
+        self.emit_tool_end(&call_id, &params.0.id);
+        result
     }
 }
 
