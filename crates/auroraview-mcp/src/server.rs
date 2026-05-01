@@ -306,7 +306,40 @@ impl AuroraViewMcpServer {
         }
 
         debug!("eval_js: id={id}");
-        let result_data = JsResult::ok(serde_json::Value::Null);
+
+        let result_data =
+            if let Some(info) = self.registry.get(&id.parse::<WebViewId>().unwrap()) {
+                if let Some(ref cdp_ep) = info.cdp_endpoint {
+                    debug!("eval_js: connecting to CDP endpoint: {cdp_ep}");
+                    match Runtime::new() {
+                        Ok(rt) => {
+                            let fut = CdpClient::connect(cdp_ep);
+                            match rt.block_on(fut) {
+                                Ok(mut client) => {
+                                    let eval_fut =
+                                        client.evaluate_script(&params.script, std::time::Duration::from_secs(10));
+                                    match rt.block_on(eval_fut) {
+                                        Ok(value) => JsResult::ok(value),
+                                        Err(e) => JsResult::err(format!("CDP eval error: {e}")),
+                                    }
+                                }
+                                Err(e) => {
+                                    JsResult::err(format!("CDP connect error: {e}"))
+                                }
+                            }
+                        }
+                        Err(e) => JsResult::err(format!("Failed to create runtime: {e}")),
+                    }
+                } else {
+                    JsResult::err(
+                        "No CDP endpoint available for this WebView. Is the WebView running?"
+                            .to_string(),
+                    )
+                }
+            } else {
+                JsResult::err(format!("WebView {id} not found"))
+            };
+
         let result = Json(JsResultOutput {
             id: id.clone(),
             value: result_data.value,

@@ -166,6 +166,38 @@ impl CdpClient {
         })
     }
 
+    /// `Runtime.evaluate` — execute JavaScript and return the result.
+    ///
+    /// Returns the JSON value of the expression result, or a remote error
+    /// if the script throws.
+    pub async fn evaluate_script(
+        &mut self,
+        expression: &str,
+        timeout: Duration,
+    ) -> Result<serde_json::Value, CdpError> {
+        let params = json!({
+            "expression": expression,
+            "returnByValue": true,
+            "awaitPromise": true,
+        });
+        let result = self.call("Runtime.evaluate", params, timeout).await?;
+        if let Some(exception) = result.get("exceptionDetails") {
+            let msg = exception
+                .get("text")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("unknown error");
+            return Err(CdpError::Remote(format!(
+                "JavaScript exception: {msg}"
+            )));
+        }
+        let value = result
+            .get("result")
+            .and_then(|r| r.get("value"))
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+        Ok(value)
+    }
+
     /// `Page.captureScreenshot` — returns raw image bytes.
     ///
     /// `format` is passed straight through (`"png"` / `"jpeg"` / `"webp"`).
