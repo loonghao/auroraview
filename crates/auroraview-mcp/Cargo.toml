@@ -24,6 +24,8 @@ rmcp = { version = "1.5.0", features = [
     "macros",
     "schemars",
     "transport-streamable-http-server",
+    "auth",
+    "elicitation",
 ] }
 
 # HTTP framework for MCP Streamable HTTP transport and AG-UI SSE endpoints.
