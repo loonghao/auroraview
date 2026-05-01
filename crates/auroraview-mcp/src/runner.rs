@@ -2,6 +2,7 @@ use crate::{
     agui::{AguiBus, AguiEvent},
     error::{McpError, Result},
     mdns::MdnsBroadcaster,
+    oauth::OAuthStore,
     server::AuroraViewMcpServer,
     types::{McpServerConfig, WebViewId},
 };
@@ -22,13 +23,14 @@ use tracing::{info, warn};
 pub struct McpRunner {
     config: McpServerConfig,
     server: AuroraViewMcpServer,
+    oauth_store: Option<OAuthStore>,
     broadcaster: Option<MdnsBroadcaster>,
     agui_bus: AguiBus,
     shutdown_tx: Arc<Mutex<Option<oneshot::Sender<()>>>>,
 }
 
 impl McpRunner {
-    #[must_use] 
+    #[must_use]
     pub fn new(config: McpServerConfig) -> Self {
         let agui_bus = AguiBus::new();
         let server = AuroraViewMcpServer::new(config.clone())
@@ -40,9 +42,15 @@ impl McpRunner {
         } else {
             None
         };
+        let oauth_store = if config.enable_oauth {
+            Some(OAuthStore::new())
+        } else {
+            None
+        };
         Self {
             config,
             server,
+            oauth_store,
             broadcaster,
             agui_bus,
             shutdown_tx: Arc::new(Mutex::new(None)),
@@ -130,11 +138,19 @@ impl McpRunner {
 
         let mcp_service = build_mcp_service(self.server.clone(), cancel.clone());
         let agui_bus = self.agui_bus.clone();
-        let router = Router::new()
+
+        let mut router = Router::new()
             .nest_service("/mcp", mcp_service)
             .merge(agui_router(agui_bus));
 
-        info!("AuroraView MCP Server starting on http://{addr}/mcp");
+        // Add OAuth routes if enabled
+        if let Some(oauth_store) = &self.oauth_store {
+            let oauth_store = oauth_store.clone();
+            router = router.merge(oauth_router(oauth_store));
+            info!("OAuth 2.0 endpoints enabled");
+        }
+
+        info!("AuroraView MCP Server starting on http://{addr}");
 
         let tcp = tokio::net::TcpListener::bind(&addr)
             .await
@@ -286,6 +302,134 @@ fn agui_router(bus: AguiBus) -> Router {
             },
         ),
     )
+}
+
+/// Build the OAuth 2.0 router.
+///
+/// Endpoints:
+/// - `GET  /.well-known/oauth-authorization-server` — server metadata
+/// - `POST /oauth/register` — dynamic client registration
+/// - `GET  /oauth/authorize` — authorization endpoint (simplified)
+/// - `POST /oauth/token` — token endpoint
+fn oauth_router(oauth_store: OAuthStore) -> Router {
+    use axum::{
+        extract::{State, Json, Query},
+        http::StatusCode,
+    };
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, Deserialize)]
+    struct OAuthRegisterRequest {
+        client_name: String,
+        redirect_uris: Vec<String>,
+        scope: String,
+    }
+
+    #[derive(Debug, Serialize)]
+    struct OAuthRegisterResponse {
+        client_id: String,
+        client_secret: String,
+        client_name: String,
+        redirect_uris: Vec<String>,
+        scope: String,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct OAuthAuthorizeQuery {
+        client_id: String,
+        redirect_uri: String,
+        response_type: String,
+        scope: String,
+        code_challenge: String,
+        code_challenge_method: String,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct OAuthTokenRequest {
+        grant_type: String,
+        client_id: String,
+        code: Option<String>,
+        redirect_uri: Option<String>,
+        code_verifier: Option<String>,
+    }
+
+    Router::new()
+        .route(
+            "/.well-known/oauth-authorization-server",
+            axum::routing::get(|State(_store): State<OAuthStore>| async move {
+                axum::Json(serde_json::json!({
+                    "issuer": "auroraview-mcp",
+                    "authorization_endpoint": "http://localhost:7890/oauth/authorize",
+                    "token_endpoint": "http://localhost:7890/oauth/token",
+                    "registration_endpoint": "http://localhost:7890/oauth/register",
+                    "code_challenge_methods_supported": ["S256"],
+                    "scopes_supported": ["mcp:tools", "mcp:resources"],
+                    "response_types_supported": ["code"],
+                    "grant_types_supported": ["authorization_code"],
+                    "token_endpoint_auth_methods_supported": ["client_secret_basic", "client_secret_post"]
+                }))
+            }),
+        )
+        .route(
+            "/oauth/register",
+            axum::routing::post(|State(store): State<OAuthStore>, Json(req): Json<OAuthRegisterRequest>| async move {
+                let (client, secret) = store
+                    .register_client(req.client_name, req.redirect_uris.clone(), req.scope.clone())
+                    .await;
+
+                Ok::<_, StatusCode>(axum::Json(OAuthRegisterResponse {
+                    client_id: client.client_id,
+                    client_secret: secret,
+                    client_name: client.name,
+                    redirect_uris: client.redirect_uris,
+                    scope: client.scope,
+                }))
+            }),
+        )
+        .route(
+            "/oauth/authorize",
+            axum::routing::get(|State(store): State<OAuthStore>, Query(q): Query<OAuthAuthorizeQuery>| async move {
+                if q.response_type != "code" {
+                    return Err(StatusCode::BAD_REQUEST);
+                }
+                if q.code_challenge_method != "S256" {
+                    return Err(StatusCode::BAD_REQUEST);
+                }
+
+                let code = store
+                    .issue_code(q.client_id, q.redirect_uri.clone(), q.code_challenge, q.scope)
+                    .await;
+
+                let redirect_url = format!("{}?code={}&state=", q.redirect_uri, code);
+                Ok::<_, StatusCode>(axum::response::Redirect::to(&redirect_url))
+            }),
+        )
+        .route(
+            "/oauth/token",
+            axum::routing::post(|State(store): State<OAuthStore>, Json(req): Json<OAuthTokenRequest>| async move {
+                if req.grant_type != "authorization_code" {
+                    return Err(StatusCode::BAD_REQUEST);
+                }
+
+                let code = req.code.ok_or(StatusCode::BAD_REQUEST)?;
+                let client_id = req.client_id;
+                let redirect_uri = req.redirect_uri.ok_or(StatusCode::BAD_REQUEST)?;
+                let code_verifier = req.code_verifier.ok_or(StatusCode::BAD_REQUEST)?;
+
+                let token_resp = store
+                    .exchange_code(&code, &client_id, &redirect_uri, &code_verifier)
+                    .await
+                    .ok_or(StatusCode::BAD_REQUEST)?;
+
+                Ok::<_, StatusCode>(axum::Json(serde_json::json!({
+                    "access_token": token_resp.access_token,
+                    "token_type": token_resp.token_type,
+                    "expires_in": token_resp.expires_in,
+                    "scope": token_resp.scope
+                })))
+            }),
+        )
+        .with_state(oauth_store)
 }
 
 #[cfg(test)]
