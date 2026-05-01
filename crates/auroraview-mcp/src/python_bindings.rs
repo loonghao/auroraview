@@ -353,12 +353,13 @@ mod pyo3_impl {
     #[pymethods]
     impl PyMcpConfigWrapper {
         #[new]
-        #[pyo3(signature = (port=7890, host="127.0.0.1", service_name="auroraview-mcp", enable_mdns=true, max_webviews=None))]
+        #[pyo3(signature = (port=7890, host="127.0.0.1", service_name="auroraview-mcp", enable_mdns=true, enable_oauth=false, max_webviews=None))]
         fn new(
             port: u16,
             host: &str,
             service_name: &str,
             enable_mdns: bool,
+            enable_oauth: bool,
             max_webviews: Option<usize>,
         ) -> Self {
             Self {
@@ -367,6 +368,7 @@ mod pyo3_impl {
                     port,
                     service_name: service_name.to_string(),
                     enable_mdns,
+                    enable_oauth,
                     max_webviews,
                 },
             }
