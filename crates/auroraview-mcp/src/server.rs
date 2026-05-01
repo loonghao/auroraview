@@ -486,3 +486,44 @@ impl ServerHandler for AuroraViewMcpServer {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::McpServerConfig;
+
+    #[test]
+    fn new_creates_default_registry() {
+        let config = McpServerConfig::default();
+        let server = AuroraViewMcpServer::new(config);
+        assert!(server.registry().is_empty());
+        assert_eq!(server.registry().capacity(), None);
+    }
+
+    #[test]
+    fn with_agui_bus_attaches_bus() {
+        let config = McpServerConfig::default();
+        let server = AuroraViewMcpServer::new(config);
+        assert!(server.agui_bus().is_none());
+
+        let bus = crate::agui::AguiBus::new();
+        let server = server.with_agui_bus(bus);
+        assert!(server.agui_bus().is_some());
+    }
+
+    #[test]
+    fn resolve_id_returns_default_when_empty() {
+        let config = McpServerConfig::default();
+        let server = AuroraViewMcpServer::new(config);
+        let result = server.resolve_id(None);
+        assert_eq!(result, "default");
+    }
+
+    #[test]
+    fn get_info_returns_valid_result() {
+        let config = McpServerConfig::default();
+        let server = AuroraViewMcpServer::new(config);
+        let info = server.get_info();
+        assert!(info.instructions.is_some());
+    }
+}
