@@ -108,6 +108,17 @@ impl WebViewRegistry {
     pub fn is_empty(&self) -> bool {
         self.views.is_empty()
     }
+
+    /// Update the CDP endpoint for an existing WebView.
+    /// Returns `true` if the WebView was found and updated.
+    pub fn update_cdp_endpoint(&self, id: &WebViewId, endpoint: String) -> bool {
+        if let Some(mut entry) = self.views.get_mut(&id.0) {
+            entry.cdp_endpoint = Some(endpoint);
+            true
+        } else {
+            false
+        }
+    }
 }
 
 #[cfg(test)]
