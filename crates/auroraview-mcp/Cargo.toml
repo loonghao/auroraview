@@ -19,11 +19,11 @@ name = "auroraview_mcp"
 dcc-mcp-protocols = { git = "https://github.com/loonghao/dcc-mcp-core.git", tag = "v0.13.2" }
 
 # MCP SDK — exposes WebView management tools via Model Context Protocol.
-rmcp = { version = "0.3.2", features = [
+rmcp = { version = "1.5.0", features = [
+    "server",
+    "macros",
+    "schemars",
     "transport-streamable-http-server",
-    "transport-streamable-http-server-session",
-    "transport-sse-server",
-    "transport-worker",
 ] }
 
 # HTTP framework for MCP Streamable HTTP transport and AG-UI SSE endpoints.

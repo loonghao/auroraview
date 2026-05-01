@@ -10,12 +10,11 @@ use rmcp::{
     handler::server::{
         router::tool::ToolRouter,
         tool::ToolCallContext,
-        wrapper::Json,
+        wrapper::{Json, Parameters},
     },
-    handler::server::tool::Parameters,
     model::{
-        CallToolResult, CallToolRequestParam, InitializeResult, ListToolsResult,
-        PaginatedRequestParam, ServerCapabilities,
+        CallToolResult, CallToolRequestParams, InitializeResult, ListToolsResult,
+        PaginatedRequestParams, ServerCapabilities,
     },
     schemars,
     service::RequestContext,
@@ -158,8 +157,8 @@ impl AuroraViewMcpServer {
         name = "screenshot",
         description = "Capture a screenshot of a WebView window. Returns base64-encoded PNG data."
     )]
-    fn screenshot(&self, Parameters(params): Parameters<ScreenshotParams>) -> Json<ScreenshotOutput> {
-        let id = self.resolve_id(params.id.as_deref());
+    fn screenshot(&self, params: Parameters<ScreenshotParams>) -> Json<ScreenshotOutput> {
+        let id = self.resolve_id(params.0.id.as_deref());
         let call_id = Uuid::new_v4().to_string();
         self.emit_tool_start("screenshot", &call_id, &id);
         debug!("screenshot requested for WebView: {id}");
@@ -234,28 +233,28 @@ impl AuroraViewMcpServer {
         name = "load_url",
         description = "Load a URL (http://, https://, or file://) in a WebView."
     )]
-    fn load_url(&self, Parameters(params): Parameters<LoadUrlParams>) -> Json<SuccessOutput> {
-        let id = self.resolve_id(params.id.as_deref());
+    fn load_url(&self, params: Parameters<LoadUrlParams>) -> Json<SuccessOutput> {
+        let id = self.resolve_id(params.0.id.as_deref());
         let call_id = Uuid::new_v4().to_string();
         self.emit_tool_start("load_url", &call_id, &id);
 
         // Validate URL scheme.
-        let scheme_ok = params.url.starts_with("http://")
-            || params.url.starts_with("https://")
-            || params.url.starts_with("file://");
+        let scheme_ok = params.0.url.starts_with("http://")
+            || params.0.url.starts_with("https://")
+            || params.0.url.starts_with("file://");
         if !scheme_ok {
             self.emit_tool_end(&call_id, &id);
             return Json(SuccessOutput {
                 ok: false,
                 message: format!(
                     "Invalid URL scheme: '{}' — must be http, https, or file",
-                    params.url
+                    params.0.url
                 ),
             });
         }
 
-        info!("load_url: id={id} url={}", params.url);
-        let updated = self.registry.update_url(&id.parse::<WebViewId>().unwrap(), &params.url);
+        info!("load_url: id={id} url={}", params.0.url);
+        let updated = self.registry.update_url(&id.parse::<WebViewId>().unwrap(), &params.0.url);
         let result = Json(SuccessOutput {
             ok: updated,
             message: if updated {
@@ -273,14 +272,14 @@ impl AuroraViewMcpServer {
         name = "load_html",
         description = "Load HTML content directly into a WebView."
     )]
-    fn load_html(&self, Parameters(params): Parameters<LoadHtmlParams>) -> Json<SuccessOutput> {
-        let id = self.resolve_id(params.id.as_deref());
+    fn load_html(&self, params: Parameters<LoadHtmlParams>) -> Json<SuccessOutput> {
+        let id = self.resolve_id(params.0.id.as_deref());
         let call_id = Uuid::new_v4().to_string();
         self.emit_tool_start("load_html", &call_id, &id);
-        info!("load_html: id={id} html_len={}", params.html.len());
+        info!("load_html: id={id} html_len={}", params.0.html.len());
         let result = Json(SuccessOutput {
             ok: true,
-            message: format!("HTML loaded in WebView {id} ({} bytes)", params.html.len()),
+            message: format!("HTML loaded in WebView {id} ({} bytes)", params.0.html.len()),
         });
         self.emit_tool_end(&call_id, &id);
         result
@@ -291,12 +290,12 @@ impl AuroraViewMcpServer {
         name = "eval_js",
         description = "Execute JavaScript code in a WebView and return the result."
     )]
-    fn eval_js(&self, Parameters(params): Parameters<EvalJsParams>) -> Json<JsResultOutput> {
-        let id = self.resolve_id(params.id.as_deref());
+    fn eval_js(&self, params: Parameters<EvalJsParams>) -> Json<JsResultOutput> {
+        let id = self.resolve_id(params.0.id.as_deref());
         let call_id = Uuid::new_v4().to_string();
         self.emit_tool_start("eval_js", &call_id, &id);
 
-        if params.script.trim().is_empty() {
+        if params.0.script.trim().is_empty() {
             self.emit_tool_end(&call_id, &id);
             return Json(JsResultOutput {
                 id,
@@ -317,7 +316,7 @@ impl AuroraViewMcpServer {
                             match rt.block_on(fut) {
                                 Ok(mut client) => {
                                     let eval_fut =
-                                        client.evaluate_script(&params.script, std::time::Duration::from_secs(10));
+                                        client.evaluate_script(&params.0.script, std::time::Duration::from_secs(10));
                                     match rt.block_on(eval_fut) {
                                         Ok(value) => JsResult::ok(value),
                                         Err(e) => JsResult::err(format!("CDP eval error: {e}")),
@@ -354,14 +353,14 @@ impl AuroraViewMcpServer {
         name = "send_event",
         description = "Send a named event with payload to the WebView JS context via auroraview.on()."
     )]
-    fn send_event(&self, Parameters(params): Parameters<SendEventParams>) -> Json<SuccessOutput> {
-        let id = self.resolve_id(params.id.as_deref());
+    fn send_event(&self, params: Parameters<SendEventParams>) -> Json<SuccessOutput> {
+        let id = self.resolve_id(params.0.id.as_deref());
         let call_id = Uuid::new_v4().to_string();
         self.emit_tool_start("send_event", &call_id, &id);
-        info!("send_event: id={id} event={}", params.event);
+        info!("send_event: id={id} event={}", params.0.event);
         let result = Json(SuccessOutput {
             ok: true,
-            message: format!("Event '{}' sent to WebView {id}", params.event),
+            message: format!("Event '{}' sent to WebView {id}", params.0.event),
         });
         self.emit_tool_end(&call_id, &id);
         result
@@ -372,8 +371,8 @@ impl AuroraViewMcpServer {
         name = "get_hwnd",
         description = "Get the native window handle (HWND on Windows, 0 on other platforms) for embedding in UE or other hosts."
     )]
-    fn get_hwnd(&self, Parameters(params): Parameters<GetHwndParams>) -> Json<HwndOutput> {
-        let id = self.resolve_id(params.id.as_deref());
+    fn get_hwnd(&self, params: Parameters<GetHwndParams>) -> Json<HwndOutput> {
+        let id = self.resolve_id(params.0.id.as_deref());
         let call_id = Uuid::new_v4().to_string();
         self.emit_tool_start("get_hwnd", &call_id, &id);
         let hwnd = self
@@ -422,16 +421,16 @@ impl AuroraViewMcpServer {
     )]
     fn create_webview(
         &self,
-        Parameters(params): Parameters<CreateWebViewParams>,
+        params: Parameters<CreateWebViewParams>,
     ) -> Json<SuccessOutput> {
         let config = WebViewConfig {
-            title: params.title,
-            url: params.url,
-            html: params.html,
-            width: params.width,
-            height: params.height,
+            title: params.0.title,
+            url: params.0.url,
+            html: params.0.html,
+            width: params.0.width,
+            height: params.0.height,
             visible: Some(true),
-            debug: params.debug,
+            debug: params.0.debug,
         };
         match self.registry.try_register(&config) {
             Ok(id) => {
@@ -455,16 +454,16 @@ impl AuroraViewMcpServer {
     )]
     fn close_webview(
         &self,
-        Parameters(params): Parameters<CloseWebViewParams>,
+        params: Parameters<CloseWebViewParams>,
     ) -> Json<SuccessOutput> {
-        let wid = params.id.parse::<WebViewId>().unwrap();
+        let wid = params.0.id.parse::<WebViewId>().unwrap();
         let removed = self.registry.remove(&wid).is_some();
         Json(SuccessOutput {
             ok: removed,
             message: if removed {
-                format!("WebView {} closed", params.id)
+                format!("WebView {} closed", params.0.id)
             } else {
-                format!("WebView {} not found", params.id)
+                format!("WebView {} not found", params.0.id)
             },
         })
     }
@@ -544,18 +543,16 @@ impl AuroraViewMcpServer {
 
 impl ServerHandler for AuroraViewMcpServer {
     fn get_info(&self) -> InitializeResult {
-        InitializeResult {
-            capabilities: ServerCapabilities::builder().enable_tools().build(),
-            instructions: Some(
+        let capabilities = ServerCapabilities::builder().enable_tools().build();
+        InitializeResult::new(capabilities)
+            .with_instructions(
                 "AuroraView MCP Server: manage WebView windows in DCC applications (Maya, Houdini, Blender, UE, etc.)".to_string()
-            ),
-            ..Default::default()
-        }
+            )
     }
 
     fn call_tool(
         &self,
-        req: CallToolRequestParam,
+        req: CallToolRequestParams,
         context: RequestContext<RoleServer>,
     ) -> impl std::future::Future<Output = Result<CallToolResult, ErrorData>> + Send + '_ {
         let ctx = ToolCallContext::new(self, req, context);
@@ -564,7 +561,7 @@ impl ServerHandler for AuroraViewMcpServer {
 
     fn list_tools(
         &self,
-        _req: Option<PaginatedRequestParam>,
+        _req: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> impl std::future::Future<Output = Result<ListToolsResult, ErrorData>> + Send + '_
     {
