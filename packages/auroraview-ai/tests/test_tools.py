@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
-
 from auroraview_ai.tools import (
     DCCTool,
     DCCToolCategory,
@@ -238,18 +236,15 @@ class TestPythonTypeToJsonSchema:
         assert _python_type_to_json_schema(dict) == {"type": "object"}
 
     def test_list_of_str(self) -> None:
-        from typing import List
-        result = _python_type_to_json_schema(List[str])
+        result = _python_type_to_json_schema(list[str])
         assert result == {"type": "array", "items": {"type": "string"}}
 
     def test_list_of_int(self) -> None:
-        from typing import List
-        result = _python_type_to_json_schema(List[int])
+        result = _python_type_to_json_schema(list[int])
         assert result == {"type": "array", "items": {"type": "integer"}}
 
     def test_dict_generic(self) -> None:
-        from typing import Dict
-        result = _python_type_to_json_schema(Dict[str, Any])
+        result = _python_type_to_json_schema(dict[str, Any])
         assert result == {"type": "object"}
 
     def test_unknown_type_returns_empty(self) -> None:
@@ -263,8 +258,7 @@ class TestPythonTypeToJsonSchema:
         assert result == {}
 
     def test_list_without_args(self) -> None:
-        from typing import List
-        result = _python_type_to_json_schema(List)
+        result = _python_type_to_json_schema(list)
         assert result == {"type": "array"}
 
 

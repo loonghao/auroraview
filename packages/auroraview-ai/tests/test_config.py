@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from auroraview_ai.config import (
     AVAILABLE_MODELS,
     AgentConfig,
