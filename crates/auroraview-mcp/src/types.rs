@@ -166,10 +166,12 @@ impl std::fmt::Display for JsResult {
 
 impl JsResult {
     #[must_use]
+    #[inline)]
     pub fn ok(value: serde_json::Value) -> Self {
         Self { value, error: None }
     }
 
+    #[inline)]
     pub fn err(msg: impl Into<String>) -> Self {
         Self {
             value: serde_json::Value::Null,
