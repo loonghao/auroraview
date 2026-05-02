@@ -5,12 +5,19 @@ use serde::{Deserialize, Serialize};
 
 // --- Parameter types ---
 
+/// Parameters for the `screenshot` tool.
+///
+/// Captures the current visible area of a `WebView` and returns
+/// the image as a base64‑encoded PNG.
 #[derive(Debug, Deserialize, schemars::JsonSchema, Default)]
 pub struct ScreenshotParams {
     /// Optional `WebView` ID. If omitted, captures the first available `WebView`.
     pub id: Option<String>,
 }
 
+/// Parameters for the `load_url` tool.
+///
+/// Navigates the target `WebView` to the given URL.
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct LoadUrlParams {
     /// The URL to load (http://, https://, or file://).
@@ -27,6 +34,10 @@ pub struct LoadHtmlParams {
     pub id: Option<String>,
 }
 
+/// Parameters for the `eval_js` tool.
+///
+/// Evaluates a JavaScript expression in the target `WebView`
+/// and returns the JSON‑serializable result.
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct EvalJsParams {
     /// JavaScript expression to evaluate.
@@ -35,6 +46,10 @@ pub struct EvalJsParams {
     pub id: Option<String>,
 }
 
+/// Parameters for the `send_event` tool.
+///
+/// Emits an event that the front‑end can subscribe to via
+/// `window.auroraview.on(event, handler)`.
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct SendEventParams {
     /// Event name.
@@ -92,6 +107,10 @@ pub struct HwndOutput {
     pub hwnd: u64,
 }
 
+/// Output of the `list_webviews` tool.
+///
+/// Returns the current set of `WebView` instances managed by
+/// the `AuroraViewMcpServer`.
 #[derive(Debug, Serialize, schemars::JsonSchema)]
 pub struct ListWebViewsOutput {
     pub count: usize,
