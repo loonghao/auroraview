@@ -397,7 +397,8 @@ fn history_search_respects_limit() {
 
 #[test]
 fn bookmark_default_constructor() {
-    let mgr = BookmarkManager::default();
+    // Use helper to ensure isolation from persisted bookmarks on disk
+    let (mgr, _tmp) = bookmarks();
     assert_eq!(mgr.count(), 0);
 }
 

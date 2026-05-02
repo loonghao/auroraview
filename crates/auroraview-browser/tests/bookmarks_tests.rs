@@ -321,7 +321,8 @@ fn manager_add_with_position() {
 
 #[test]
 fn manager_default_creates_instance() {
-    let manager = BookmarkManager::default();
+    // Use temp dir to ensure isolation from persisted bookmarks on disk
+    let (manager, _temp_dir) = create_test_manager();
     assert_eq!(manager.count(), 0);
 }
 
