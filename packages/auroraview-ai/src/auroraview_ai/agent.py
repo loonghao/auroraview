@@ -201,7 +201,19 @@ and executing appropriate tools. Be concise and helpful."""
         """Discover tools from WebView bound APIs."""
         if not self.webview:
             return 0
-        # TODO: Implement WebView API discovery
+        # WebView API discovery: call JavaScript to get registered tools
+        # This uses the window.auroraview API registration mechanism
+        try:
+            # Execute JS to get all registered tools from WebView
+            # Returns: {"tools": [{"name": "...", "description": "..."}]}
+            js_code = "JSON.stringify(window.auroraview?.getRegisteredTools?.() ?? [])"
+            result = self.webview.eval_js(js_code)
+            if result:
+                tools = json.loads(result)
+                return len(tools) if isinstance(tools, list) else 0
+        except Exception:
+            # WebView not ready or API not available
+            pass
         return 0
 
     def get_session(self, session_id: str | None = None) -> str:

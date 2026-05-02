@@ -776,3 +776,46 @@ class TestAuroraAgentWebview:
             agent = AuroraAgent(webview=wv1)
         agent.webview = wv2
         assert agent.webview is wv2
+
+
+class TestDiscoverTools:
+    """Tests for discover_tools method."""
+
+    def test_discover_tools_no_webview(self) -> None:
+        """Test discover_tools returns 0 when webview is None."""
+        with patch("auroraview_ai.agent.Agent") as mock_cls:
+            mock_cls.return_value = make_mock_agent()
+            agent = AuroraAgent()
+        result = agent.discover_tools()
+        assert result == 0
+
+    def test_discover_tools_with_valid_js_response(self) -> None:
+        """Test discover_tools returns correct count with valid JS response."""
+        mock_webview = MagicMock()
+        mock_webview.eval_js.return_value = '{"tools": [{"name": "tool1"}, {"name": "tool2"}]}'
+        with patch("auroraview_ai.agent.Agent") as mock_cls:
+            mock_cls.return_value = make_mock_agent()
+            agent = AuroraAgent(webview=mock_webview)
+        result = agent.discover_tools()
+        assert result == 2
+        mock_webview.eval_js.assert_called_once()
+
+    def test_discover_tools_with_invalid_js_response(self) -> None:
+        """Test discover_tools returns 0 with invalid JS response."""
+        mock_webview = MagicMock()
+        mock_webview.eval_js.return_value = "invalid json"
+        with patch("auroraview_ai.agent.Agent") as mock_cls:
+            mock_cls.return_value = make_mock_agent()
+            agent = AuroraAgent(webview=mock_webview)
+        result = agent.discover_tools()
+        assert result == 0
+
+    def test_discover_tools_with_js_exception(self) -> None:
+        """Test discover_tools returns 0 when JS execution fails."""
+        mock_webview = MagicMock()
+        mock_webview.eval_js.side_effect = Exception("JS error")
+        with patch("auroraview_ai.agent.Agent") as mock_cls:
+            mock_cls.return_value = make_mock_agent()
+            agent = AuroraAgent(webview=mock_webview)
+        result = agent.discover_tools()
+        assert result == 0
