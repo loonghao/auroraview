@@ -505,6 +505,43 @@ fn test_identity_get_auth_token_returns_error(plugin: ExtensionsPlugin) {
     let args = make_api_call("identity", "getAuthToken", json!({}));
     let result = plugin.handle("api_call", args, &Default::default());
     assert!(result.is_err());
+
+    // Verify error message is helpful (not just "not implemented")
+    let err = result.unwrap_err();
+    let err_msg = err.to_string();
+    assert!(
+        err_msg.contains("OAuth") || err_msg.contains("not yet implemented"),
+        "Error message should be helpful: {}",
+        err_msg
+    );
+}
+
+#[rstest]
+fn test_identity_launch_web_auth_flow_returns_error(plugin: ExtensionsPlugin) {
+    let args = make_api_call(
+        "identity",
+        "launchWebAuthFlow",
+        json!({ "url": "https://example.com/auth" }),
+    );
+    let result = plugin.handle("api_call", args, &Default::default());
+    assert!(result.is_err());
+
+    // Verify error message is helpful
+    let err = result.unwrap_err();
+    let err_msg = err.to_string();
+    assert!(
+        err_msg.contains("web authentication") || err_msg.contains("not yet implemented"),
+        "Error message should be helpful: {}",
+        err_msg
+    );
+}
+
+#[rstest]
+fn test_identity_launch_web_auth_flow_without_url(plugin: ExtensionsPlugin) {
+    let args = make_api_call("identity", "launchWebAuthFlow", json!({}));
+    let result = plugin.handle("api_call", args, &Default::default());
+    // Should still return error (not implemented yet)
+    assert!(result.is_err());
 }
 
 #[rstest]
