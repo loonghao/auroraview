@@ -648,3 +648,162 @@ fn file_filter_identical_serde_values_are_equal() {
     }).unwrap();
     assert_eq!(a, b);
 }
+
+// ---------------------------------------------------------------------------
+// Error message content verification (following clipboard plugin pattern)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn unknown_command_error_message_contains_command() {
+    let plugin = DialogPlugin::new();
+    let scope = ScopeConfig::new();
+    let err = plugin.handle("totally_unknown", serde_json::json!({}), &scope).unwrap_err();
+    let msg = err.to_string();
+    assert!(msg.contains("totally_unknown"), "Error should mention the unknown command: {}", msg);
+}
+
+#[test]
+fn unknown_command_error_code_is_command_not_found() {
+    let plugin = DialogPlugin::new();
+    let scope = ScopeConfig::new();
+    let err = plugin.handle("nope", serde_json::json!({}), &scope).unwrap_err();
+    assert_eq!(err.code(), "COMMAND_NOT_FOUND");
+}
+
+#[test]
+fn message_invalid_args_error_message() {
+    let plugin = DialogPlugin::new();
+    let scope = ScopeConfig::new();
+    let err = plugin.handle("message", serde_json::json!({ "invalid": "args" }), &scope).unwrap_err();
+    let msg = err.to_string();
+    assert!(msg.contains("message") || msg.contains("missing"), "Error should mention missing field: {}", msg);
+}
+
+#[test]
+fn confirm_invalid_args_error_message() {
+    let plugin = DialogPlugin::new();
+    let scope = ScopeConfig::new();
+    let err = plugin.handle("confirm", serde_json::json!({ "invalid": "args" }), &scope).unwrap_err();
+    let msg = err.to_string();
+    assert!(msg.contains("message") || msg.contains("missing"), "Error should mention missing field: {}", msg);
+}
+
+#[test]
+fn message_null_args_error_message() {
+    let plugin = DialogPlugin::new();
+    let scope = ScopeConfig::new();
+    let err = plugin.handle("message", serde_json::json!(null), &scope).unwrap_err();
+    let msg = err.to_string();
+    assert!(!msg.is_empty(), "Error message should not be empty");
+}
+
+#[test]
+fn confirm_null_args_error_message() {
+    let plugin = DialogPlugin::new();
+    let scope = ScopeConfig::new();
+    let err = plugin.handle("confirm", serde_json::json!(null), &scope).unwrap_err();
+    let msg = err.to_string();
+    assert!(!msg.is_empty(), "Error message should not be empty");
+}
+
+// ---------------------------------------------------------------------------
+// Additional edge-case tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn plugin_handle_empty_command_string() {
+    let plugin = DialogPlugin::new();
+    let scope = ScopeConfig::new();
+    let result = plugin.handle("", serde_json::json!({}), &scope);
+    assert!(result.is_err());
+}
+
+#[test]
+fn plugin_handle_whitespace_only_command() {
+    let plugin = DialogPlugin::new();
+    let scope = ScopeConfig::new();
+    let result = plugin.handle("   ", serde_json::json!({}), &scope);
+    assert!(result.is_err());
+}
+
+#[test]
+fn file_filter_extremely_many_extensions() {
+    let exts: Vec<String> = (0..100).map(|i| format!("ext{}", i)).collect();
+    let filter = FileFilter {
+        name: "Many".to_string(),
+        extensions: exts.clone(),
+    };
+    assert_eq!(filter.extensions.len(), 100);
+}
+
+#[test]
+fn file_dialog_options_serializes_to_expected_json() {
+    let opts = FileDialogOptions {
+        title: Some("Test".to_string()),
+        default_path: None,
+        filters: vec![],
+        default_name: None,
+    };
+    let serialized = serde_json::to_value(&opts).unwrap();
+    assert_eq!(serialized["title"], "Test");
+    // With #[serde(default)], None fields serialize as null
+    assert!(serialized.as_object().unwrap().contains_key("defaultPath"));
+    assert!(serialized.as_object().unwrap().contains_key("filters"));
+    assert!(serialized.as_object().unwrap().contains_key("defaultName"));
+}
+
+#[test]
+fn message_dialog_options_serializes_to_expected_json() {
+    let opts = MessageDialogOptions {
+        title: None,
+        message: "Test".to_string(),
+        level: None,
+        buttons: None,
+    };
+    let serialized = serde_json::to_value(&opts).unwrap();
+    assert_eq!(serialized["message"], "Test");
+    assert!(serialized.as_object().unwrap().contains_key("title"));
+    assert!(serialized.as_object().unwrap().contains_key("level"));
+    assert!(serialized.as_object().unwrap().contains_key("buttons"));
+}
+
+#[test]
+fn concurrent_message_valid_args() {
+    let plugin = Arc::new(DialogPlugin::new());
+    let scope = ScopeConfig::new();
+    let handles: Vec<_> = (0..8)
+        .map(|i| {
+            let p = Arc::clone(&plugin);
+            let s = scope.clone();
+            std::thread::spawn(move || {
+                p.handle("message", serde_json::json!({ "message": format!("thread-{}", i) }), &s)
+            })
+        })
+        .collect();
+
+    for h in handles {
+        let result = h.join().unwrap();
+        assert!(result.is_ok() || result.is_err());
+    }
+}
+
+#[test]
+fn unknown_command_multiple_threads_same_error_code() {
+    let plugin = Arc::new(DialogPlugin::new());
+    let scope = ScopeConfig::new();
+    let handles: Vec<_> = (0..4)
+        .map(|i| {
+            let p = Arc::clone(&plugin);
+            let s = scope.clone();
+            std::thread::spawn(move || {
+                let cmd = format!("unknown_{}", i);
+                p.handle(&cmd, serde_json::json!({}), &s).unwrap_err().code()
+            })
+        })
+        .collect();
+
+    let codes: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+    for code in &codes {
+        assert_eq!(code, &"COMMAND_NOT_FOUND");
+    }
+}
