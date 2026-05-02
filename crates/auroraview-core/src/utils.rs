@@ -160,3 +160,75 @@ pub fn is_process_alive(_pid: u32) -> bool {
     // Cannot determine on this platform; assume alive
     true
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_escape_js_string_basic() {
+        assert_eq!(escape_js_string("hello"), "hello");
+    }
+
+    #[test]
+    fn test_escape_js_string_backslash() {
+        assert_eq!(escape_js_string("hello\\world"), "hello\\\\world");
+    }
+
+    #[test]
+    fn test_escape_js_string_double_quote() {
+        assert_eq!(escape_js_string("hello \"world\""), "hello \\\"world\\\"");
+    }
+
+    #[test]
+    fn test_escape_js_string_single_quote() {
+        assert_eq!(escape_js_string("it's"), "it\\'s");
+    }
+
+    #[test]
+    fn test_escape_js_string_newline() {
+        assert_eq!(escape_js_string("line1\nline2"), "line1\\nline2");
+    }
+
+    #[test]
+    fn test_escape_js_string_carriage_return() {
+        assert_eq!(escape_js_string("line1\rline2"), "line1\\rline2");
+    }
+
+    #[test]
+    fn test_escape_js_string_tab() {
+        assert_eq!(escape_js_string("col1\tcol2"), "col1\\tcol2");
+    }
+
+    #[test]
+    fn test_escape_json_for_js_basic() {
+        assert_eq!(
+            escape_json_for_js("{\"key\": \"value\"}"),
+            "{\\\"key\\\": \\\"value\\\"}"
+        );
+    }
+
+    #[test]
+    fn test_escape_json_for_js_backslash() {
+        assert_eq!(escape_json_for_js("C:\\path"), "C:\\\\path");
+    }
+
+    #[test]
+    fn test_escape_json_for_js_newline() {
+        assert_eq!(escape_json_for_js("line1\nline2"), "line1\\nline2");
+    }
+
+    #[test]
+    fn test_parse_size_valid() {
+        assert_eq!(parse_size("800x600"), Some((800, 600)));
+        assert_eq!(parse_size("1024x768"), Some((1024, 768)));
+    }
+
+    #[test]
+    fn test_parse_size_invalid() {
+        assert_eq!(parse_size("800"), None);
+        assert_eq!(parse_size(""), None);
+        assert_eq!(parse_size("abcxdef"), None);
+    }
+}
+
