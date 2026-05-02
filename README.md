@@ -84,8 +84,29 @@ AuroraView provides a modern web-based UI solution for professional DCC applicat
 - **Cross-Platform**: Windows, macOS, and Linux support
 - **DCC-First Design**: Built specifically for DCC software integration
 - **Type-Safe**: Full type checking with Rust + Python
+- **MCP Server**: Exposes AuroraView as a Model Context Protocol server for AI agent integration
 
 [POINTER] **[DCC Integration Guide](./docs/dcc/index.md)** - Learn how to integrate AuroraView into Maya, Houdini, Nuke, and other DCC applications.
+
+## MCP Server Integration
+
+AuroraView includes an MCP (Model Context Protocol) server (`auroraview-mcp`) that exposes WebView management tools to AI agents:
+
+- **Tools**: `screenshot`, `load_url`, `load_html`, `eval_js`, `send_event`, `get_hwnd`, `list_webviews`, `create_webview`, `close_webview`
+- **mDNS Broadcast**: Auto-discoverable by `dcc-mcp-client`
+- **AG-UI Protocol**: SSE endpoint at `/agui/events` for real-time event streaming
+- **Python Bindings**: `McpServer` and `McpConfig` classes for easy integration
+
+```python
+from auroraview import McpServer
+
+server = McpServer(port=7890)
+server.start()  # non-blocking
+server.emit_run_started("run-1", "thread-1")
+server.stop()
+```
+
+[POINTER] **[MCP Server Guide](./docs/mcp/index.md)** - Learn how to use AuroraView as an MCP server for AI agent integration.
 
 ## Architecture
 
