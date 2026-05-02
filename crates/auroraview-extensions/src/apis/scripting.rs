@@ -213,7 +213,7 @@ impl ScriptingManager {
     ) {
         let mut ext_scripts = self.registered_scripts
             .entry(extension_id.to_string())
-            .or_insert_with(Vec::new);
+            .or_default();
         ext_scripts.extend(scripts);
     }
 

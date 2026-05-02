@@ -126,7 +126,7 @@ impl RuntimeManager {
     pub fn add_message_handler(&self, extension_id: &str, handler: MessageHandler) {
         let mut handlers = self.message_handlers
             .entry(extension_id.to_string())
-            .or_insert_with(Vec::new);
+            .or_default();
         handlers.push(handler);
     }
 
@@ -164,6 +164,20 @@ impl RuntimeManager {
     /// Get uninstall URL for an extension
     pub fn get_uninstall_url(&self, extension_id: &str) -> Option<String> {
         self.uninstall_urls.get(extension_id).map(|u| u.clone())
+    }
+
+    /// Open the options page for an extension
+    pub fn open_options_page(&self, extension_id: &str, page: &str) {
+        if let Some(callback) = self.on_open_options_page.read().as_ref() {
+            callback(extension_id, page);
+        }
+    }
+
+    /// Reload an extension
+    pub fn reload_extension(&self, extension_id: &str) {
+        if let Some(callback) = self.on_reload.read().as_ref() {
+            callback(extension_id);
+        }
     }
 }
 
@@ -244,6 +258,20 @@ impl ApiHandler for RuntimeApiHandler {
                 let url = self.manager.get_uninstall_url(extension_id);
                 Ok(serde_json::to_value(url)?)
             }
+            "openOptionsPage" => {
+                self.manager.open_options_page(extension_id, "");
+                Ok(serde_json::json!({}))
+            }
+            "reload" => {
+                self.manager.reload_extension(extension_id);
+                Ok(serde_json::json!({}))
+            }
+            "getBackgroundPage" => {
+                Ok(Value::Null)
+            }
+            "requestUpdateCheck" => {
+                Ok(serde_json::json!({"status": "no_update"}))
+            }
             _ => Err(ExtensionError::ApiNotSupported(format!(
                 "runtime.{} is not supported",
                 method
@@ -258,6 +286,8 @@ impl ApiHandler for RuntimeApiHandler {
             "getPlatformInfo",
             "setUninstallURL",
             "getUninstallURL",
+            "openOptionsPage",
+            "reload",
         ]
     }
 }
