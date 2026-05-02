@@ -4,6 +4,7 @@
 
 use std::sync::Arc;
 
+use dashmap::DashMap;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -114,11 +115,10 @@ pub struct InjectionResult {
 /// Scripting state manager
 pub struct ScriptingManager {
     /// Registered content scripts per extension
-    registered_scripts: RwLock<std::collections::HashMap<String, Vec<RegisteredContentScript>>>,
+    registered_scripts: DashMap<String, Vec<RegisteredContentScript>>,
     /// Callback for script execution
     #[allow(clippy::type_complexity)]
-    on_execute:
-        RwLock<Option<Box<dyn Fn(&str, &ScriptInjection) -> Vec<InjectionResult> + Send + Sync>>>,
+    on_execute: RwLock<Option<Box<dyn Fn(&str, &ScriptInjection) -> Vec<InjectionResult> + Send + Sync>>>,
     /// Callback for CSS injection
     #[allow(clippy::type_complexity)]
     on_insert_css: RwLock<Option<Box<dyn Fn(&str, &CssInjection) + Send + Sync>>>,
@@ -131,7 +131,7 @@ impl ScriptingManager {
     /// Create a new scripting manager
     pub fn new() -> Self {
         Self {
-            registered_scripts: RwLock::new(std::collections::HashMap::new()),
+            registered_scripts: DashMap::new(),
             on_execute: RwLock::new(None),
             on_insert_css: RwLock::new(None),
             on_remove_css: RwLock::new(None),
@@ -211,15 +211,15 @@ impl ScriptingManager {
         extension_id: &str,
         scripts: Vec<RegisteredContentScript>,
     ) {
-        let mut registered = self.registered_scripts.write();
-        let ext_scripts = registered.entry(extension_id.to_string()).or_default();
+        let mut ext_scripts = self.registered_scripts
+            .entry(extension_id.to_string())
+            .or_insert_with(Vec::new);
         ext_scripts.extend(scripts);
     }
 
     /// Unregister content scripts
     pub fn unregister_content_scripts(&self, extension_id: &str, ids: Option<Vec<String>>) {
-        let mut registered = self.registered_scripts.write();
-        if let Some(ext_scripts) = registered.get_mut(extension_id) {
+        if let Some(mut ext_scripts) = self.registered_scripts.get_mut(extension_id) {
             match ids {
                 Some(ids) => {
                     ext_scripts.retain(|s| !ids.contains(&s.id));
@@ -237,8 +237,7 @@ impl ScriptingManager {
         extension_id: &str,
         ids: Option<Vec<String>>,
     ) -> Vec<RegisteredContentScript> {
-        let registered = self.registered_scripts.read();
-        registered
+        self.registered_scripts
             .get(extension_id)
             .map(|scripts| match ids {
                 Some(ids) => scripts
