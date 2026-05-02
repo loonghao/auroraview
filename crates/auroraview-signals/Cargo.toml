@@ -18,6 +18,9 @@ path = "src/lib.rs"
 # Thread-safe primitives
 parking_lot = "0.12"
 
+# Concurrent map (replaces RwLock<HashMap> for better performance)
+dashmap = "6"
+
 # Serialization for dynamic signals
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
