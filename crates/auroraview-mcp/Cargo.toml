@@ -14,9 +14,9 @@ categories = ["api-bindings", "gui"]
 name = "auroraview_mcp"
 
 [dependencies]
-# dcc-mcp-core protocols (DccAdapter trait + types). Pinned to v0.13.2; not
+# dcc-mcp-core protocols (DccAdapter trait + types). Pinned to v0.14.23; not
 # yet published to crates.io, so depend via git.
-dcc-mcp-protocols = { git = "https://github.com/loonghao/dcc-mcp-core.git", tag = "v0.13.2" }
+dcc-mcp-protocols = { git = "https://github.com/loonghao/dcc-mcp-core.git", tag = "v0.14.23" }
 
 # MCP SDK — exposes WebView management tools via Model Context Protocol.
 rmcp = { version = "1.5.0", features = [
