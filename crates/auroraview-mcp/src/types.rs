@@ -230,12 +230,14 @@ impl Default for McpServerConfig {
 impl McpServerConfig {
     /// Set the port number.
     #[must_use]
+    #[inline)]
     pub fn with_port(mut self, port: u16) -> Self {
         self.port = port;
         self
     }
 
     /// Set the bind host.
+    #[inline)]
     pub fn with_host(mut self, host: impl Into<String>) -> Self {
         self.host = host.into();
         self
@@ -243,6 +245,7 @@ impl McpServerConfig {
 
     /// Enable or disable mDNS broadcast.
     #[must_use]
+    #[inline)]
     pub fn with_mdns(mut self, enabled: bool) -> Self {
         self.enable_mdns = enabled;
         self
@@ -253,6 +256,7 @@ impl McpServerConfig {
     /// When enabled, clients must authenticate via OAuth 2.0
     /// to access MCP endpoints.
     #[must_use]
+    #[inline)]
     pub fn with_oauth(mut self, enabled: bool) -> Self {
         self.enable_oauth = enabled;
         self
