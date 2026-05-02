@@ -124,6 +124,7 @@ impl std::fmt::Display for ScreenshotData {
 
 impl ScreenshotData {
     #[must_use]
+    #[inline)]
     pub fn new_placeholder(width: u32, height: u32) -> Self {
         Self {
             data: String::new(),
