@@ -92,15 +92,9 @@ impl IpcRouter {
 
     /// Handle call message (returns response)
     fn handle_call(&self, message: &IpcMessage) -> Option<String> {
-        let method = match &message.method {
-            Some(m) => m,
-            None => return None,
-        };
+        let method = message.method.as_ref()?;
 
-        let id = match &message.id {
-            Some(i) => i.clone(),
-            None => return None,
-        };
+        let id = message.id.clone()?;
 
         let params = message.params.clone().unwrap_or(serde_json::Value::Null);
 
@@ -120,15 +114,9 @@ impl IpcRouter {
 
     /// Handle invoke message (plugin commands)
     fn handle_invoke(&self, message: &IpcMessage) -> Option<String> {
-        let cmd = match &message.cmd {
-            Some(c) => c,
-            None => return None,
-        };
+        let cmd = message.cmd.as_ref()?;
 
-        let id = match &message.id {
-            Some(i) => i.clone(),
-            None => return None,
-        };
+        let id = message.id.clone()?;
 
         let args = message
             .args
