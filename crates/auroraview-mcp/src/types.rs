@@ -136,6 +136,7 @@ impl ScreenshotData {
 
     /// Create `ScreenshotData` from raw image bytes (PNG/JPEG/WebP).
     #[must_use]
+    #[inline)]
     pub fn from_bytes(bytes: &[u8], width: u32, height: u32, format: &str) -> Self {
         let data = base64::engine::general_purpose::STANDARD.encode(bytes);
         Self {
