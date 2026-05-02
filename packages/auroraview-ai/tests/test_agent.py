@@ -792,7 +792,7 @@ class TestDiscoverTools:
     def test_discover_tools_with_valid_js_response(self) -> None:
         """Test discover_tools returns correct count with valid JS response."""
         mock_webview = MagicMock()
-        mock_webview.eval_js.return_value = '{"tools": [{"name": "tool1"}, {"name": "tool2"}]}'
+        mock_webview.eval_js.return_value = '[{"name": "tool1"}, {"name": "tool2"}]'
         with patch("auroraview_ai.agent.Agent") as mock_cls:
             mock_cls.return_value = make_mock_agent()
             agent = AuroraAgent(webview=mock_webview)

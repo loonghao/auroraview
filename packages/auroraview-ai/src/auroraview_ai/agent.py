@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import uuid
@@ -205,7 +206,7 @@ and executing appropriate tools. Be concise and helpful."""
         # This uses the window.auroraview API registration mechanism
         try:
             # Execute JS to get all registered tools from WebView
-            # Returns: {"tools": [{"name": "...", "description": "..."}]}
+            # Returns: [{"name": "...", "description": "..."}]
             js_code = "JSON.stringify(window.auroraview?.getRegisteredTools?.() ?? [])"
             result = self.webview.eval_js(js_code)
             if result:
