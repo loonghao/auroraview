@@ -332,3 +332,7 @@ path = "tests/rust/http_discovery_integration_tests.rs"
 [[bench]]
 name = "ipc_bench"
 harness = false
+
+[[bench]]
+name = "registry_bench"
+harness = false
