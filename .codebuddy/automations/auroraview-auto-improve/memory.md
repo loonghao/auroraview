@@ -1,143 +1,124 @@
 # AuroraView Auto-Improve Memory#
 
-## Iteration #6 - 2026-05-02#
+## Session Summary - 2026-05-02#
 
-### What Was Done#
+### Iteration #33: MCP Server Implementation Verification#
 
-1. **Fixed compilation errors in `auroraview-mcp` crate**:
-   - Fixed `schemars` version in `crates/auroraview-mcp/Cargo.toml` (changed from "0.8" to "1.2" to match `rmcp` dependency requirement)
-   - Fixed module structure: renamed `server.rs` to `server/tools.rs`, created `server/` module directory
-   - Created `server/mod.rs`, `server/handler.rs`, `server/helpers.rs`, `server/types.rs`
-   - Made `AuroraViewMcpServer` fields `pub` for cross-module access
-   - Made helper methods `pub fn` so they can be called from `tools.rs`
-   - Added missing imports in `helpers.rs` (`super::tools::AuroraViewMcpServer`, `registry::WebViewRegistry`, `types::McpServerConfig`)
-   - Added missing imports in `handler.rs` (`super::tools::AuroraViewMcpServer`, `rmcp::RoleServer`, `rmcp::handler::server::tool::ToolCallContext`)
-   - Moved `new()` function from `helpers.rs` to `tools.rs` (same module as `#[tool_router]` macro to fix visibility of generated `tool_router()` function)
-   - Fixed duplicate workspace member in root `Cargo.toml` (removed duplicate `auroraview-mcp` entry)
-   - Deleted old `server.rs` file that conflicted with `server/` module directory
+**Startup Checklist:**
+- [x] **Branch check**: `auto-improve` ✓
+- [x] **Sync with origin/main**: Already up to date (merge) ✓
+- [x] **All tests pass**: 37 tests passed ✓
+- [x] **MCP Server status**: Fully implemented ✓
+- [x] **mDNS Broadcast**: Implemented (`MdnsBroadcaster`) ✓
+- [x] **AG-UI Protocol**: SSE endpoint implemented (`/agui/events`) ✓
 
-2. **Testing**:
-   - All tests pass (0 failed across all crates)
-   - Compilation succeeds with only warnings (unused imports)
+**Completed Modules (Verification):**
 
-### Current Status#
+1. **`auroraview-mcp` crate** - Fully implemented
+   - `Cargo.toml`: Dependencies configured (rmcp 1.5.0, axum 0.7, mdns-sd 0.10, etc.)
+   - `src/lib.rs`: `CdpAuroraViewAdapter` implementing `DccAdapter` trait
+   - `src/server/mod.rs`: Sub-modules (types, tools, helpers, handler)
+   - `src/server/tools.rs`: `AuroraViewMcpServer` with 9 MCP tools:
+     - `screenshot` - Capture WebView screenshot
+     - `load_url` - Load URL in WebView
+     - `load_html` - Load HTML content
+     - `eval_js` - Execute JavaScript
+     - `send_event` - Send event to JS context
+     - `get_hwnd` - Get native window handle
+     - `list_webviews` - List all WebView instances
+     - `create_webview` - Create new WebView
+     - `close_webview` - Close WebView
+   - `src/server/handler.rs`: `ServerHandler` trait implementation
+   - `src/agui.rs`: AG-UI protocol support (`AguiEvent`, `AguiBus`)
+   - `src/mdns.rs`: mDNS broadcast (`MdnsBroadcaster`)
+   - `src/runner.rs`: MCP Server runner (axum HTTP + SSE)
+   - `src/python_bindings.rs`: PyO3 bindings for `McpServer` and `McpConfig`
+   - `src/oauth.rs`: OAuth 2.0 support
+   - `src/registry.rs`: WebView registry
+   - `src/types.rs`: Type definitions (`McpServerConfig`, `WebViewId`, etc.)
+   - `src/cdp.rs`: CDP client for WebView communication
 
-- [x] **Compilation**: Fixed, all crates compile successfully
-- [x] **Testing**: All tests pass
-- [x] **Commit**: `b7bfcec` - "fix(mcp): fix compilation errors in auroraview-mcp crate"
-- [x] **Push**: Successfully pushed to `origin/auto-improve`
+2. **Test Coverage**:
+   - Unit tests: 37 tests (all passed)
+   - Integration tests: `tests/integration_test.rs` (14.87 KB)
+   - Test categories: config, registry, server, tools, AG-UI, mDNS, OAuth
 
-### What Needs to Be Done (Next Iterations)#
+**Code Quality Status:**
 
-1. **UE compatibility** (HIGH VALUE - next iteration):
-   - Create `crates/auroraview-ue/` with basic structure
-   - Implement `UeIntegration` struct
-   - Add `UeGameThreadExecutor` for GameThread calls
-   - Add Python bindings (via `pyo3`)
+- [x] **All tests pass**: `cargo test -p auroraview-mcp` (37 tests passed) ✓
+- [x] **Clippy**: No warnings ✓
+- [x] **Build**: Successful ✓
 
-2. **MCP Server features**:
-   - Verify `mdns.rs` implements mDNS broadcast for auto-discovery by `dcc-mcp-client`
-   - Verify `agui.rs` implements `subscribe_agui_events` SSE endpoint
-   - Add tests for MCP tools (`screenshot`, `load_url`, `load_html`, `eval_js`, `send_event`, `get_hwnd`, `list_webviews`, `create_webview`, `close_webview`)
+**Commits Made This Session:**
 
-3. **Performance optimization**:
-   - Add working benchmarks (simpler approach, avoid dependency issues)
-   - Optimize WebView startup time
-   - Reduce memory footprint
+None yet - verification only.
 
-4. **Cross-platform consistency**:
-   - macOS WKWebView implementation
-   - Linux WebKitGTK implementation
+**What's Left (Future Iterations):**
 
-5. **Code cleanup**:
-   - Remove unused imports (11 warnings in `auroraview-mcp` crate)
-   - Clean up temporary files (`build_output*.txt`, `test_output.txt`)
+**Optimization tasks** (enter optimization loop per task description):
+1. **Performance optimization** - Profile and identify bottlenecks
+   - WebView startup time < 150ms
+   - Memory usage < 50MB
+   - IPC latency optimization
+2. **Stability optimization** - Error handling, crash recovery
+   - Enhance error context information
+   - Implement graceful degradation strategies
+   - Add retry mechanisms
+3. **Cross-platform consistency** - macOS WKWebView, Linux WebKitGTK
+   - Ensure consistent behavior across platforms
+4. **Security optimization** - XSS protection, resource isolation
+   - CSP policy enhancement
+   - Remote URL whitelist
+   - Sandbox mechanism
 
-### Next Iteration Plan#
+**Integration tasks**:
+1. **`dcc-mcp-core` integration testing** - Verify `McpClient` can discover and call AuroraView tools
+2. **Documentation** - Add usage examples for `dcc-mcp-core` integration
+3. **End-to-end testing** - Test complete workflow: `dcc-mcp-core` → `AuroraViewMcpServer` → WebView
 
-Start UE compatibility work:
-1. Create `crates/auroraview-ue/Cargo.toml`
-2. Add basic `UeIntegration` struct
-3. Implement `UeGameThreadExecutor` (placeholder)
-4. Add Python bindings (via `pyo3`)
-5. Add tests
-6. Commit and push
+**Next Iteration Plan:**
 
-### Notes#
+When automation triggers next:
 
-- Commit: `b7bfcec` (fix compilation errors)
-- Previous commit: `97cb4e8` (remove oauth_bench)
-- `auroraview-mcp` crate now compiles and tests pass
-- Next: Focus on UE compatibility (high-value feature for UE users)
+1. **Enter optimization loop** (all core features implemented):
+   - Run benchmarks for performance baseline
+   - Identify and fix performance bottlenecks
+   - Enhance error handling and recovery
+2. **Cross-platform testing**:
+   - Test on macOS (WKWebView)
+   - Test on Linux (WebKitGTK)
+3. **Security audit**:
+   - Review CSP policies
+   - Test XSS protection
+   - Validate input sanitization
+4. **Continue the auto-improve loop**
 
-## Iteration #7 - 2026-05-02#
+---
 
-### What Was Done#
+## Previous Sessions Summary#
 
-1. **Created `auroraview-ue` crate for Unreal Engine integration**:
-   - Added `crates/auroraview-ue/Cargo.toml` with dependencies (auroraview-core, auroraview-signals, tokio, serde, tracing, crossbeam-channel, pyo3 optional)
-   - Implemented `GameThreadId` struct for UE GameThread detection
-   - Implemented `UeGameThreadExecutor` with channel-based task dispatch
-     - `execute()` - fire-and-forget task execution
-     - `execute_with_callback()` - execute with result callback
-   - Implemented `SlateWidgetHandle` for Slate UI widget references
-   - Implemented `UeWebViewConfig` with embed mode and init script support
-   - Implemented `UeEmbedMode` enum (SlateWidget, NativeChildWindow, FloatingWindow)
-   - Implemented `UeIntegration` struct for managing WebView embedding
-     - `process_tasks()` - process pending GameThread tasks
-     - `create_webview()` - create WebView on GameThread
-   - Implemented `UeError` enum with proper error handling
-   - Added Python bindings via `pyo3` (behind `python-bindings` feature)
-   - Added comprehensive tests (7 tests, all pass)
-   - Fixed all clippy warnings
+### Session - 2026-05-02 (Iteration #32)#
 
-2. **Workspace configuration**:
-   - Added `crates/auroraview-ue` to workspace members in root `Cargo.toml`
+**Completed:**
+1. Added `open_options_page()` and `reload_extension()` methods to `RuntimeManager`
+2. Implemented `RuntimeApiHandler` API methods
+3. Fixed clippy warnings
 
-### Current Status#
+**Commit:** `3878b8d` - feat(extensions): implement runtime API methods and fix clippy warnings
 
-- [x] **Compilation**: `auroraview-ue` compiles successfully with no clippy warnings
-- [x] **Testing**: 7 tests pass
-- [x] **Commit**: `6c355b2` - "feat(ue): add auroraview-ue crate with GameThread executor"
-- [ ] **Push**: Pending
+### Session - 2026-05-02 (Iteration #31)#
 
-### What Needs to Be Done (Next Iterations)#
+**Completed:**
+1. Fixed `Cargo.toml` duplicate `dashmap` dependency
+2. Fixed `auroraview-mcp/Cargo.toml` warp dependency
+3. Added `dashmap` dependency to `auroraview-signals/Cargo.toml`
+4. Migrated `auroraview-signals/src/signal.rs` to DashMap
+5. Migrated `auroraview-extensions/src/runtime.rs` to DashMap
 
-1. **MCP Server features** (HIGH VALUE):
-   - Verify `mdns.rs` implements mDNS broadcast for auto-discovery by `dcc-mcp-client`
-   - Verify `agui.rs` implements `subscribe_agui_events` SSE endpoint
-   - Add tests for MCP tools (`screenshot`, `load_url`, `load_html`, `eval_js`, `send_event`, `get_hwnd`, `list_webviews`, `create_webview`, `close_webview`)
+### Session - 2026-05-02 (Iteration #30)#
 
-2. **UE integration completion**:
-   - Implement actual UE FFI bindings (when UE plugin is available)
-   - Add Slate widget creation logic
-   - Add HWND parenting for Windows DCC embedding
-   - Test with real UE Python scripting
+**Completed:**
+1. Added `dashmap` dependency
+2. Migrated `WindowManager` to use `DashMap`
 
-3. **Performance optimization**:
-   - Add working benchmarks (simpler approach, avoid dependency issues)
-   - Optimize WebView startup time
-   - Reduce memory footprint
-
-4. **Cross-platform consistency**:
-   - macOS WKWebView implementation
-   - Linux WebKitGTK implementation
-
-5. **Code cleanup**:
-   - Remove unused imports (11 warnings in `auroraview-mcp` crate)
-   - Clean up temporary files (`build_output*.txt`, `test_output.txt`)
-
-### Next Iteration Plan#
-
-Focus on MCP Server features:
-1. Review `mdns.rs` for mDNS broadcast implementation
-2. Review `agui.rs` for SSE endpoint implementation
-3. Add tests for all MCP tools
-4. Commit and push
-
-### Notes#
-
-- Commit: `6c355b2` (add auroraview-ue crate)
-- Previous commit: `b7bfcec` (fix auroraview-mcp compilation)
-- UE integration is placeholder-ready for FFI bindings
-- Next: Focus on MCP Server features (high-value for AI agent integration)
+---
