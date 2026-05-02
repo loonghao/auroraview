@@ -8,6 +8,7 @@ pub struct WebViewId(pub String);
 
 impl WebViewId {
     #[must_use]
+    #[inline)]
     pub fn new() -> Self {
         Self(Uuid::new_v4().to_string())
     }
