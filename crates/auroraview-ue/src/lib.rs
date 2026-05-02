@@ -17,6 +17,12 @@ use crossbeam_channel::{self, Receiver, Sender};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GameThreadId(ThreadId);
 
+impl std::fmt::Display for GameThreadId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "GameThreadId({:?})", self.0)
+    }
+}
+
 impl GameThreadId {
     /// Create from current thread.
     #[must_use]
@@ -106,6 +112,16 @@ impl UeGameThreadExecutor {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SlateWidgetHandle(pub u64);
 
+impl std::fmt::Display for SlateWidgetHandle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.0 == 0 {
+            write!(f, "SlateWidgetHandle(null)")
+        } else {
+            write!(f, "SlateWidgetHandle({})", self.0)
+        }
+    }
+}
+
 impl SlateWidgetHandle {
     /// Create a null handle.
     #[must_use]
@@ -131,6 +147,17 @@ pub enum UeEmbedMode {
     FloatingWindow,
 }
 
+impl std::fmt::Display for UeEmbedMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = match self {
+            Self::SlateWidget => "SlateWidget",
+            Self::NativeChildWindow => "NativeChildWindow",
+            Self::FloatingWindow => "FloatingWindow",
+        };
+        write!(f, "{name}")
+    }
+}
+
 /// Configuration for UE WebView integration.
 #[derive(Debug, Clone)]
 pub struct UeWebViewConfig {
@@ -142,6 +169,19 @@ pub struct UeWebViewConfig {
     pub dev_tools: bool,
     /// JavaScript to execute on load.
     pub init_script: Option<String>,
+}
+
+impl std::fmt::Display for UeWebViewConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "UeWebViewConfig {{ {}x{}, mode: {}, dev_tools: {} }}",
+            self.initial_size.0,
+            self.initial_size.1,
+            self.embed_mode,
+            self.dev_tools
+        )
+    }
 }
 
 impl Default for UeWebViewConfig {
@@ -290,7 +330,7 @@ mod python {
             match self.inner.create_webview(url) {
                 Ok(handle) => Ok(handle.0),
                 Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(
-                    format!("Failed to create WebView: {e}"),
+                    format!("Failed to create WebView: {e}")
                 )),
             }
         }
@@ -381,5 +421,23 @@ mod tests {
 
         let err = UeError::WebViewCreationFailed("test".into());
         assert!(err.to_string().contains("test"));
+    }
+
+    // Additional tests for Display impls
+
+    #[test]
+    fn ue_embed_mode_display() {
+        assert_eq!(format!("{}", UeEmbedMode::SlateWidget), "SlateWidget");
+        assert_eq!(format!("{}", UeEmbedMode::NativeChildWindow), "NativeChildWindow");
+        assert_eq!(format!("{}", UeEmbedMode::FloatingWindow), "FloatingWindow");
+    }
+
+    #[test]
+    fn ue_webview_config_display() {
+        let config = UeWebViewConfig::default();
+        let display = format!("{}", config);
+        assert!(display.contains("800"));
+        assert!(display.contains("600"));
+        assert!(display.contains("SlateWidget"));
     }
 }
