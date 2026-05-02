@@ -52,6 +52,7 @@ pub struct WebViewInfo {
 }
 
 impl std::fmt::Display for WebViewInfo {
+    #[inline)]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
