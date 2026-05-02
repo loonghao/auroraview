@@ -3,10 +3,10 @@
 use std::collections::HashMap;
 
 use auroraview_browser::devtools::cdp::{CdpError, CdpEvent, CdpRequest, CdpResponse};
+use auroraview_browser::devtools::{DevToolsState, NetworkRequestInfo, NetworkResponseInfo};
 use auroraview_browser::{
     ConsoleMessage, ConsoleMessageType, DevToolsConfig, DevToolsManager, DockSide,
 };
-use auroraview_browser::devtools::{DevToolsState, NetworkRequestInfo, NetworkResponseInfo};
 use rstest::rstest;
 use serde_json::json;
 
@@ -577,19 +577,30 @@ fn devtools_config_default_remote_port_is_zero() {
 
 #[rstest]
 fn devtools_config_new_disabled() {
-    let cfg = DevToolsConfig { enabled: false, ..Default::default() };
+    let cfg = DevToolsConfig {
+        enabled: false,
+        ..Default::default()
+    };
     assert!(!cfg.enabled);
 }
 
 #[rstest]
 fn devtools_state_close_sets_not_open() {
-    let state = DevToolsState { is_open: false, ..Default::default() };
+    let state = DevToolsState {
+        is_open: false,
+        ..Default::default()
+    };
     assert!(!state.is_open);
 }
 
 #[rstest]
 fn dock_side_debug_non_empty() {
-    let sides = [DockSide::Left, DockSide::Right, DockSide::Bottom, DockSide::Undocked];
+    let sides = [
+        DockSide::Left,
+        DockSide::Right,
+        DockSide::Bottom,
+        DockSide::Undocked,
+    ];
     for s in &sides {
         let dbg = format!("{:?}", s);
         assert!(!dbg.is_empty());
@@ -627,7 +638,10 @@ fn console_message_type_debug_non_empty() {
 
 #[rstest]
 fn devtools_manager_multiple_opens_no_panic() {
-    let cfg = DevToolsConfig { enabled: true, ..Default::default() };
+    let cfg = DevToolsConfig {
+        enabled: true,
+        ..Default::default()
+    };
     let mut mgr = DevToolsManager::new(cfg);
     for _ in 0..5 {
         mgr.open();

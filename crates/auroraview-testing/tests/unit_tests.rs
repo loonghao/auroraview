@@ -1,8 +1,8 @@
 //! Unit tests for auroraview-testing data types (no CDP required)
 
 use auroraview_testing::{
-    ActionResult, InspectorConfig, InspectorError, RefId, RefInfo, ScrollDirection,
-    Snapshot, SnapshotFormat, WaitCondition,
+    ActionResult, InspectorConfig, InspectorError, RefId, RefInfo, ScrollDirection, Snapshot,
+    SnapshotFormat, WaitCondition,
 };
 use rstest::rstest;
 use std::time::Duration;
@@ -291,15 +291,18 @@ fn snapshot_new() {
 fn snapshot_ref_count() {
     let mut s = Snapshot::new("T".to_string(), "u".to_string(), (800, 600));
     assert_eq!(s.ref_count(), 0);
-    s.refs.insert("@1".to_string(), RefInfo::new("@1", "button", "B1"));
-    s.refs.insert("@2".to_string(), RefInfo::new("@2", "link", "L1"));
+    s.refs
+        .insert("@1".to_string(), RefInfo::new("@1", "button", "B1"));
+    s.refs
+        .insert("@2".to_string(), RefInfo::new("@2", "link", "L1"));
     assert_eq!(s.ref_count(), 2);
 }
 
 #[rstest]
 fn snapshot_get_ref_with_at() {
     let mut s = Snapshot::new("T".to_string(), "u".to_string(), (800, 600));
-    s.refs.insert("@5".to_string(), RefInfo::new("@5", "button", "Five"));
+    s.refs
+        .insert("@5".to_string(), RefInfo::new("@5", "button", "Five"));
     assert!(s.get_ref("@5").is_some());
     assert_eq!(s.get_ref("@5").unwrap().name, "Five");
 }
@@ -307,7 +310,8 @@ fn snapshot_get_ref_with_at() {
 #[rstest]
 fn snapshot_get_ref_without_at() {
     let mut s = Snapshot::new("T".to_string(), "u".to_string(), (800, 600));
-    s.refs.insert("@5".to_string(), RefInfo::new("@5", "button", "Five"));
+    s.refs
+        .insert("@5".to_string(), RefInfo::new("@5", "button", "Five"));
     assert!(s.get_ref("5").is_some());
 }
 
@@ -320,8 +324,12 @@ fn snapshot_get_ref_missing() {
 #[rstest]
 fn snapshot_find_by_name() {
     let mut s = Snapshot::new("T".to_string(), "u".to_string(), (800, 600));
-    s.refs.insert("@1".to_string(), RefInfo::new("@1", "button", "Submit Form"));
-    s.refs.insert("@2".to_string(), RefInfo::new("@2", "link", "Cancel"));
+    s.refs.insert(
+        "@1".to_string(),
+        RefInfo::new("@1", "button", "Submit Form"),
+    );
+    s.refs
+        .insert("@2".to_string(), RefInfo::new("@2", "link", "Cancel"));
     let results = s.find("submit");
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].name, "Submit Form");
@@ -330,7 +338,8 @@ fn snapshot_find_by_name() {
 #[rstest]
 fn snapshot_find_case_insensitive() {
     let mut s = Snapshot::new("T".to_string(), "u".to_string(), (800, 600));
-    s.refs.insert("@1".to_string(), RefInfo::new("@1", "button", "SUBMIT"));
+    s.refs
+        .insert("@1".to_string(), RefInfo::new("@1", "button", "SUBMIT"));
     let results = s.find("submit");
     assert_eq!(results.len(), 1);
 }
@@ -349,14 +358,19 @@ fn snapshot_find_by_description() {
 #[rstest]
 fn snapshot_find_no_match() {
     let mut s = Snapshot::new("T".to_string(), "u".to_string(), (800, 600));
-    s.refs.insert("@1".to_string(), RefInfo::new("@1", "button", "OK"));
+    s.refs
+        .insert("@1".to_string(), RefInfo::new("@1", "button", "OK"));
     let results = s.find("nonexistent");
     assert!(results.is_empty());
 }
 
 #[rstest]
 fn snapshot_to_text_contains_header() {
-    let s = Snapshot::new("My Page".to_string(), "http://x.com".to_string(), (1024, 768));
+    let s = Snapshot::new(
+        "My Page".to_string(),
+        "http://x.com".to_string(),
+        (1024, 768),
+    );
     let text = s.to_text();
     assert!(text.contains("My Page"));
     assert!(text.contains("http://x.com"));
@@ -381,7 +395,8 @@ fn snapshot_display_same_as_to_text() {
 #[rstest]
 fn snapshot_clone() {
     let mut s = Snapshot::new("T".to_string(), "u".to_string(), (800, 600));
-    s.refs.insert("@1".to_string(), RefInfo::new("@1", "button", "B"));
+    s.refs
+        .insert("@1".to_string(), RefInfo::new("@1", "button", "B"));
     let c = s.clone();
     assert_eq!(c.title, "T");
     assert_eq!(c.ref_count(), 1);

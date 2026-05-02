@@ -1,4 +1,4 @@
-﻿//! ID generator tests
+//! ID generator tests
 
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -283,7 +283,6 @@ fn id_generator_string_thread_safe() {
     assert_eq!(all.len(), 100);
 }
 
-
 #[test]
 fn id_generator_current_reflects_concurrent_writes() {
     let gen = Arc::new(IdGenerator::new());
@@ -508,9 +507,7 @@ fn concurrent_string_ids_no_duplicates() {
     let handles: Vec<_> = (0..4)
         .map(|_| {
             let g = gen.clone();
-            thread::spawn(move || {
-                (0..25).map(|_| g.next_string()).collect::<Vec<_>>()
-            })
+            thread::spawn(move || (0..25).map(|_| g.next_string()).collect::<Vec<_>>())
         })
         .collect();
 
@@ -526,11 +523,9 @@ fn concurrent_string_ids_no_duplicates() {
 #[test]
 fn current_after_mixed_calls_equals_total() {
     let gen = IdGenerator::new();
-    gen.next();             // +1
-    gen.next_string();      // +1
+    gen.next(); // +1
+    gen.next_string(); // +1
     gen.next_with_prefix("p"); // +1
-    gen.next();             // +1
+    gen.next(); // +1
     assert_eq!(gen.current(), 4);
 }
-
-

@@ -396,15 +396,23 @@ fn tray_menu_item_debug_item_all_fields() {
 #[rstest]
 fn count_separator_items_in_default() {
     let config = TrayConfig::default();
-    let separator_count = config.menu.iter().filter(|i| matches!(i, TrayMenuItem::Separator)).count();
+    let separator_count = config
+        .menu
+        .iter()
+        .filter(|i| matches!(i, TrayMenuItem::Separator))
+        .count();
     assert_eq!(separator_count, 1);
 }
 
 #[rstest]
 fn count_action_items_in_default() {
     let config = TrayConfig::default();
-    let action_count = config.menu.iter().filter(|i| matches!(i, TrayMenuItem::Item { .. })).count();
-    assert_eq!(action_count, 2);  // show + quit
+    let action_count = config
+        .menu
+        .iter()
+        .filter(|i| matches!(i, TrayMenuItem::Item { .. }))
+        .count();
+    assert_eq!(action_count, 2); // show + quit
 }
 
 // ─── Additional coverage R9 ──────────────────────────────────────────────────
@@ -564,4 +572,3 @@ fn tray_config_serde_no_tooltip() {
     let decoded: TrayConfig = serde_json::from_str(&json).unwrap();
     assert!(decoded.tooltip.is_none());
 }
-

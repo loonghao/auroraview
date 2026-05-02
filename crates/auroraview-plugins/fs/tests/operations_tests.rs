@@ -1,12 +1,11 @@
 //! Tests for fs plugin operations and types
 
+use auroraview_plugin_core::PluginHandler;
 use auroraview_plugin_core::{PathScope, ScopeConfig};
 use auroraview_plugin_fs::{
-    read_file, read_file_binary, write_file, write_file_binary, read_dir, create_dir,
-    remove, copy, rename, exists, stat, FsPlugin, ReadFileOptions, WriteFileOptions,
-    DirEntry, FileStat,
+    copy, create_dir, exists, read_dir, read_file, read_file_binary, remove, rename, stat,
+    write_file, write_file_binary, DirEntry, FileStat, FsPlugin, ReadFileOptions, WriteFileOptions,
 };
-use auroraview_plugin_core::PluginHandler;
 use rstest::rstest;
 use serde_json::json;
 use std::fs as std_fs;
@@ -48,7 +47,11 @@ fn read_file_utf8_encoding_ok() {
 fn read_file_not_found_err() {
     let dir = TempDir::new().unwrap();
     let scope = make_scope(&dir);
-    let missing = dir.path().join("missing.txt").to_string_lossy().into_owned();
+    let missing = dir
+        .path()
+        .join("missing.txt")
+        .to_string_lossy()
+        .into_owned();
 
     let result = read_file(&missing, None, &scope);
     assert!(result.is_err());
@@ -177,7 +180,11 @@ fn read_dir_recursive() {
 fn read_dir_not_found_err() {
     let dir = TempDir::new().unwrap();
     let scope = make_scope(&dir);
-    let missing = dir.path().join("nonexistent").to_string_lossy().into_owned();
+    let missing = dir
+        .path()
+        .join("nonexistent")
+        .to_string_lossy()
+        .into_owned();
 
     let result = read_dir(&missing, false, &scope);
     assert!(result.is_err());

@@ -192,7 +192,10 @@ fn test_config_csp_strict_policy() {
         content_security_policy: Some(policy.clone()),
         ..Default::default()
     };
-    assert_eq!(config.content_security_policy.as_deref(), Some(policy.as_str()));
+    assert_eq!(
+        config.content_security_policy.as_deref(),
+        Some(policy.as_str())
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -442,8 +445,8 @@ fn test_config_full_roundtrip() {
         allow_new_window: true,
         allow_file_protocol: true,
         content_security_policy: Some("default-src 'self'".to_string()),
-    #[cfg(target_os = "windows")]
-            undecorated_shadow: true,
+        #[cfg(target_os = "windows")]
+        undecorated_shadow: true,
         ..Default::default()
     };
     let json = serde_json::to_string(&config).unwrap();

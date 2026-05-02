@@ -124,7 +124,8 @@ impl RuntimeManager {
 
     /// Register a message handler for an extension
     pub fn add_message_handler(&self, extension_id: &str, handler: MessageHandler) {
-        let mut handlers = self.message_handlers
+        let mut handlers = self
+            .message_handlers
             .entry(extension_id.to_string())
             .or_default();
         handlers.push(handler);
@@ -158,7 +159,8 @@ impl RuntimeManager {
 
     /// Store uninstall URL for an extension
     pub fn set_uninstall_url(&self, extension_id: &str, url: &str) {
-        self.uninstall_urls.insert(extension_id.to_string(), url.to_string());
+        self.uninstall_urls
+            .insert(extension_id.to_string(), url.to_string());
     }
 
     /// Get uninstall URL for an extension
@@ -266,12 +268,8 @@ impl ApiHandler for RuntimeApiHandler {
                 self.manager.reload_extension(extension_id);
                 Ok(serde_json::json!({}))
             }
-            "getBackgroundPage" => {
-                Ok(Value::Null)
-            }
-            "requestUpdateCheck" => {
-                Ok(serde_json::json!({"status": "no_update"}))
-            }
+            "getBackgroundPage" => Ok(Value::Null),
+            "requestUpdateCheck" => Ok(serde_json::json!({"status": "no_update"})),
             _ => Err(ExtensionError::ApiNotSupported(format!(
                 "runtime.{} is not supported",
                 method

@@ -248,7 +248,11 @@ fn test_python_error_page_xss_in_traceback() {
 
 #[rstest]
 #[case("ValueError", "invalid literal for int()", None)]
-#[case("RuntimeError", "maximum recursion depth exceeded", Some("  File x.py line 99\nRuntimeError"))]
+#[case(
+    "RuntimeError",
+    "maximum recursion depth exceeded",
+    Some("  File x.py line 99\nRuntimeError")
+)]
 #[case("AttributeError", "'NoneType' has no attribute 'x'", None)]
 fn test_python_error_page_variants(
     #[case] err_type: &str,
@@ -368,7 +372,11 @@ fn test_startup_error_page_troubleshooting_tips_present() {
 
 #[rstest]
 #[case("module 'maya' has no attribute 'cmds'", None, None)]
-#[case("syntax error in config.py", Some("SyntaxError at line 5"), Some("config:load"))]
+#[case(
+    "syntax error in config.py",
+    Some("SyntaxError at line 5"),
+    Some("config:load")
+)]
 #[case("", Some(""), Some(""))]
 fn test_startup_error_page_variants(
     #[case] msg: &str,

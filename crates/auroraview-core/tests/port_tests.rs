@@ -1,4 +1,4 @@
-﻿//! Port allocation tests
+//! Port allocation tests
 
 use std::net::TcpListener;
 
@@ -207,7 +207,11 @@ fn find_free_port_not_bound() {
     let port = allocator.find_free_port().unwrap();
     // If we can bind to it immediately, it was truly free
     let bind_result = std::net::TcpListener::bind(format!("127.0.0.1:{}", port));
-    assert!(bind_result.is_ok(), "found port {} should be bindable", port);
+    assert!(
+        bind_result.is_ok(),
+        "found port {} should be bindable",
+        port
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -227,21 +231,30 @@ fn is_port_available_port_zero_is_special() {
 
 #[test]
 fn port_error_no_free_port_same_start_end() {
-    let err = PortError::NoFreePort { start: 9000, end: 9000 };
+    let err = PortError::NoFreePort {
+        start: 9000,
+        end: 9000,
+    };
     let msg = err.to_string();
     assert!(msg.contains("9000"));
 }
 
 #[test]
 fn port_error_no_free_port_u16_max() {
-    let err = PortError::NoFreePort { start: 0, end: 65535 };
+    let err = PortError::NoFreePort {
+        start: 0,
+        end: 65535,
+    };
     let msg = err.to_string();
     assert!(msg.contains("65535"));
 }
 
 #[test]
 fn port_error_no_free_port_clone() {
-    let err = PortError::NoFreePort { start: 8000, end: 8100 };
+    let err = PortError::NoFreePort {
+        start: 8000,
+        end: 8100,
+    };
     let msg1 = err.to_string();
     // Just verify to_string is stable (same output)
     let msg2 = err.to_string();
@@ -257,7 +270,11 @@ fn port_allocator_default_range_coverage() {
     // Default allocator scans 9001..=9100
     let allocator = PortAllocator::default();
     if let Ok(port) = allocator.find_free_port() {
-        assert!((9001..9101).contains(&port), "default range port was {}", port);
+        assert!(
+            (9001..9101).contains(&port),
+            "default range port was {}",
+            port
+        );
     }
     // If range is full, it returns Err — both outcomes are acceptable
 }
@@ -353,7 +370,12 @@ fn find_free_port_in_range(#[case] start: u16, #[case] max: u16) {
     let allocator = PortAllocator::new(start, max);
     if let Ok(port) = allocator.find_free_port() {
         assert!(port >= start, "port {} below start {}", port, start);
-        assert!(port < start + max, "port {} above end {}", port, start + max);
+        assert!(
+            port < start + max,
+            "port {} above end {}",
+            port,
+            start + max
+        );
     }
 }
 
@@ -373,10 +395,17 @@ fn is_port_available_port_80_not_available_or_returns_bool() {
 
 #[test]
 fn port_error_display_describes_range() {
-    let err = PortError::NoFreePort { start: 12000, end: 13000 };
+    let err = PortError::NoFreePort {
+        start: 12000,
+        end: 13000,
+    };
     let msg = err.to_string();
     // Must mention both boundaries
-    assert!(msg.contains("12000") || msg.contains("13000"), "Display: {}", msg);
+    assert!(
+        msg.contains("12000") || msg.contains("13000"),
+        "Display: {}",
+        msg
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -401,7 +430,10 @@ fn two_allocators_different_ranges() {
 #[test]
 fn port_error_source_is_none() {
     use std::error::Error;
-    let err = PortError::NoFreePort { start: 8000, end: 8100 };
+    let err = PortError::NoFreePort {
+        start: 8000,
+        end: 8100,
+    };
     assert!(err.source().is_none());
 }
 
@@ -416,7 +448,13 @@ fn port_error_source_is_none() {
 fn non_overlapping_ranges(#[case] start: u16, #[case] max: u16) {
     let alloc = PortAllocator::new(start, max);
     if let Ok(p) = alloc.find_free_port() {
-        assert!(p >= start && p < start + max, "port={} out of [{}, {})", p, start, start + max);
+        assert!(
+            p >= start && p < start + max,
+            "port={} out of [{}, {})",
+            p,
+            start,
+            start + max
+        );
     }
 }
 
@@ -490,7 +528,10 @@ fn is_port_available_port_1_no_panic() {
 
 #[test]
 fn port_error_debug_contains_start() {
-    let err = PortError::NoFreePort { start: 3000, end: 4000 };
+    let err = PortError::NoFreePort {
+        start: 3000,
+        end: 4000,
+    };
     let debug = format!("{:?}", err);
     assert!(debug.contains("3000") || debug.contains("start"));
 }
@@ -508,7 +549,10 @@ fn independent_allocators_no_shared_state() {
     let r2 = a2.find_free_port();
     if let (Ok(p1), Ok(p2)) = (r1, r2) {
         // Ports from different ranges should not be equal
-        assert_ne!(p1, p2, "different range allocators should not return same port");
+        assert_ne!(
+            p1, p2,
+            "different range allocators should not return same port"
+        );
     }
 }
 
@@ -532,6 +576,9 @@ fn default_allocator_two_calls() {
 
 #[test]
 fn port_error_as_std_error() {
-    let err: Box<dyn std::error::Error> = Box::new(PortError::NoFreePort { start: 1000, end: 2000 });
+    let err: Box<dyn std::error::Error> = Box::new(PortError::NoFreePort {
+        start: 1000,
+        end: 2000,
+    });
     assert!(!err.to_string().is_empty());
 }

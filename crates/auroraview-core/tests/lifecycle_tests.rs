@@ -55,7 +55,10 @@ fn test_transition_result_is_success() {
 #[test]
 fn test_transition_result_eq() {
     assert_eq!(TransitionResult::Success, TransitionResult::Success);
-    assert_eq!(TransitionResult::InvalidState, TransitionResult::InvalidState);
+    assert_eq!(
+        TransitionResult::InvalidState,
+        TransitionResult::InvalidState
+    );
     assert_ne!(TransitionResult::Success, TransitionResult::InvalidState);
     assert_ne!(TransitionResult::Success, TransitionResult::AlreadyInState);
 }
@@ -417,10 +420,7 @@ fn test_observable_lifecycle_begin_destroy_notifies() {
     let result = lc.begin_destroy();
     assert!(result.is_success());
     assert_eq!(obs.event_count(), 3);
-    assert_eq!(
-        *obs.last_event.lock(),
-        Some(LifecycleEvent::DestroyStarted)
-    );
+    assert_eq!(*obs.last_event.lock(), Some(LifecycleEvent::DestroyStarted));
 }
 
 #[test]
@@ -580,7 +580,10 @@ fn test_atomic_lifecycle_is_active_states() {
 fn test_atomic_lifecycle_if_active_closure_called_once() {
     let lc = AtomicLifecycle::new_active();
     let mut count = 0;
-    let result = lc.if_active(|| { count += 1; count });
+    let result = lc.if_active(|| {
+        count += 1;
+        count
+    });
     assert_eq!(result, Some(1));
     assert_eq!(count, 1);
 }
@@ -589,7 +592,10 @@ fn test_atomic_lifecycle_if_active_closure_called_once() {
 fn test_atomic_lifecycle_if_not_closing_closure_called_once() {
     let lc = AtomicLifecycle::new();
     let mut called = 0;
-    let result = lc.if_not_closing(|| { called += 1; called });
+    let result = lc.if_not_closing(|| {
+        called += 1;
+        called
+    });
     assert_eq!(result, Some(1));
     assert_eq!(called, 1);
 }
@@ -598,8 +604,14 @@ fn test_atomic_lifecycle_if_not_closing_closure_called_once() {
 fn test_lifecycle_event_all_variants_eq() {
     assert_eq!(LifecycleEvent::Activated, LifecycleEvent::Activated);
     assert_ne!(LifecycleEvent::Activated, LifecycleEvent::Destroyed);
-    assert_eq!(LifecycleEvent::CloseRequested, LifecycleEvent::CloseRequested);
-    assert_eq!(LifecycleEvent::DestroyStarted, LifecycleEvent::DestroyStarted);
+    assert_eq!(
+        LifecycleEvent::CloseRequested,
+        LifecycleEvent::CloseRequested
+    );
+    assert_eq!(
+        LifecycleEvent::DestroyStarted,
+        LifecycleEvent::DestroyStarted
+    );
     assert_eq!(LifecycleEvent::Destroyed, LifecycleEvent::Destroyed);
 }
 

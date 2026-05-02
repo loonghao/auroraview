@@ -421,14 +421,14 @@ mod off_clear_tests {
         let handler = IpcHandler::new();
         handler.on("evt", |_m| Ok(serde_json::json!({})));
         assert_eq!(handler.registered_event_count(), 1);
-        
+
         handler.off("evt");
         assert_eq!(handler.registered_event_count(), 0);
-        
+
         handler.on("evt2", |_m| Ok(serde_json::json!({})));
         handler.on("evt3", |_m| Ok(serde_json::json!({})));
         assert_eq!(handler.registered_event_count(), 2);
-        
+
         handler.clear();
         assert_eq!(handler.registered_event_count(), 0);
     }

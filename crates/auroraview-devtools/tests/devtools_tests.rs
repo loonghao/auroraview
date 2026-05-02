@@ -888,8 +888,7 @@ fn console_message_debug_type() {
 
 #[test]
 fn console_message_with_source_fields() {
-    let msg = ConsoleMessage::log("traced")
-        .with_source("https://example.com/app.js", 10, 5);
+    let msg = ConsoleMessage::log("traced").with_source("https://example.com/app.js", 10, 5);
     assert_eq!(msg.source, Some("https://example.com/app.js".to_string()));
     assert_eq!(msg.line, Some(10));
     assert_eq!(msg.column, Some(5));

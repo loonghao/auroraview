@@ -3,13 +3,13 @@
 
 use crate::server::tools::AuroraViewMcpServer;
 use rmcp::{
-    RoleServer,
-    ServerHandler,
     handler::server::tool::ToolCallContext,
-    model::{CallToolResult, CallToolRequestParams, InitializeResult, ListToolsResult,
-        PaginatedRequestParams, ServerCapabilities},
+    model::{
+        CallToolRequestParams, CallToolResult, InitializeResult, ListToolsResult,
+        PaginatedRequestParams, ServerCapabilities,
+    },
     service::RequestContext,
-    ErrorData,
+    ErrorData, RoleServer, ServerHandler,
 };
 
 impl ServerHandler for AuroraViewMcpServer {
@@ -34,8 +34,7 @@ impl ServerHandler for AuroraViewMcpServer {
         &self,
         _req: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
-    ) -> impl std::future::Future<Output = Result<ListToolsResult, ErrorData>> + Send + '_
-    {
+    ) -> impl std::future::Future<Output = Result<ListToolsResult, ErrorData>> + Send + '_ {
         let tools = self.tool_router.list_all();
         async move {
             Ok(ListToolsResult {

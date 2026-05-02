@@ -287,9 +287,10 @@ fn test_ipc_router_call_missing_method_returns_none() {
 #[test]
 fn test_ipc_router_invoke_type() {
     let router = IpcRouter::new();
-    router.register("fs:read_file", |args| {
-        json!({"content": "file contents", "path": args["path"]})
-    });
+    router.register(
+        "fs:read_file",
+        |args| json!({"content": "file contents", "path": args["path"]}),
+    );
 
     let message = json!({
         "type": "invoke",
@@ -524,7 +525,8 @@ fn test_ipc_desktop_export_workflow() {
     });
 
     // 1. Start export
-    let start_msg = json!({"type":"call","id":"e1","method":"export.start","params":{"path":"/tmp/out.fbx"}});
+    let start_msg =
+        json!({"type":"call","id":"e1","method":"export.start","params":{"path":"/tmp/out.fbx"}});
     let r1 = router.handle(&start_msg.to_string()).unwrap();
     let resp1: IpcResponse = serde_json::from_str(&r1).unwrap();
     assert_eq!(resp1.result.unwrap()["status"], "started");
@@ -568,7 +570,8 @@ fn test_ipc_desktop_scene_state_machine() {
     });
 
     // Load
-    let load_msg = json!({"type":"call","id":"s1","method":"scene.load","params":{"name":"hero_rig"}});
+    let load_msg =
+        json!({"type":"call","id":"s1","method":"scene.load","params":{"name":"hero_rig"}});
     router.handle(&load_msg.to_string()).unwrap();
 
     // Check status

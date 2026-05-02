@@ -1,6 +1,8 @@
 //! Tests for AG-UI and A2UI protocol implementations
 
-use auroraview_ai_agent::protocol::a2ui::{builders, NotifyLevel, UIAction, UIComponentSpec, UIComponentType};
+use auroraview_ai_agent::protocol::a2ui::{
+    builders, NotifyLevel, UIAction, UIComponentSpec, UIComponentType,
+};
 use auroraview_ai_agent::protocol::agui::{
     AGUIContext, AGUIEmitter, AGUIEvent, AGUIMessage, AGUITool, AGUIToolCall, BaseEvent,
     CallbackEmitter, EventType, JsonPatchOp, NoOpEmitter,
@@ -178,7 +180,6 @@ fn test_notify_levels() {
         assert!(!json.is_empty());
     }
 
-
     // Default should be Info
     assert_eq!(NotifyLevel::default(), NotifyLevel::Info);
 }
@@ -229,7 +230,10 @@ fn agui_thinking_events_serialization() {
         assert!(!json.is_empty());
     }
     assert_eq!(events[0].event_type(), EventType::ThinkingTextMessageStart);
-    assert_eq!(events[1].event_type(), EventType::ThinkingTextMessageContent);
+    assert_eq!(
+        events[1].event_type(),
+        EventType::ThinkingTextMessageContent
+    );
     assert_eq!(events[2].event_type(), EventType::ThinkingTextMessageEnd);
     assert_eq!(events[3].event_type(), EventType::ThinkingStart);
     assert_eq!(events[4].event_type(), EventType::ThinkingEnd);
@@ -615,8 +619,7 @@ fn json_patch_all_ops_roundtrip() {
 
 #[test]
 fn ui_component_spec_with_id() {
-    let spec = UIComponentSpec::new(UIComponentType::Button)
-        .with_id("btn_submit");
+    let spec = UIComponentSpec::new(UIComponentType::Button).with_id("btn_submit");
     assert_eq!(spec.id.as_deref(), Some("btn_submit"));
 }
 
@@ -630,8 +633,7 @@ fn ui_component_spec_with_props() {
 #[test]
 fn ui_component_spec_with_child() {
     let child = UIComponentSpec::new(UIComponentType::Text);
-    let parent = UIComponentSpec::new(UIComponentType::Container)
-        .with_child(child);
+    let parent = UIComponentSpec::new(UIComponentType::Container).with_child(child);
     assert_eq!(parent.children.len(), 1);
 }
 
@@ -650,7 +652,10 @@ fn ui_component_spec_chained_builder() {
 fn ui_component_empty_children_not_serialized() {
     let spec = UIComponentSpec::new(UIComponentType::Text);
     let json = serde_json::to_string(&spec).unwrap();
-    assert!(!json.contains("children"), "empty children should be omitted");
+    assert!(
+        !json.contains("children"),
+        "empty children should be omitted"
+    );
 }
 
 #[test]
@@ -865,4 +870,3 @@ fn event_type_all_variants_mapped() {
         assert!(event.timestamp().is_none(), "default base has no timestamp");
     }
 }
-

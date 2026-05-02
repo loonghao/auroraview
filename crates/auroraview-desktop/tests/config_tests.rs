@@ -369,7 +369,10 @@ fn test_tray_menu_item_separator_is_separator() {
 
 #[test]
 fn test_desktop_config_fullscreen() {
-    let config = DesktopConfig { fullscreen: true, ..DesktopConfig::default() };
+    let config = DesktopConfig {
+        fullscreen: true,
+        ..DesktopConfig::default()
+    };
     assert!(config.fullscreen);
 }
 
@@ -387,25 +390,37 @@ fn test_desktop_config_visible_default_true() {
 
 #[test]
 fn test_desktop_config_maximized_builder() {
-    let config = DesktopConfig { maximized: true, ..DesktopConfig::default() };
+    let config = DesktopConfig {
+        maximized: true,
+        ..DesktopConfig::default()
+    };
     assert!(config.maximized);
 }
 
 #[test]
 fn test_desktop_config_minimized_builder() {
-    let config = DesktopConfig { minimized: true, ..DesktopConfig::default() };
+    let config = DesktopConfig {
+        minimized: true,
+        ..DesktopConfig::default()
+    };
     assert!(config.minimized);
 }
 
 #[test]
 fn test_desktop_config_context_menu_false() {
-    let config = DesktopConfig { context_menu: false, ..DesktopConfig::default() };
+    let config = DesktopConfig {
+        context_menu: false,
+        ..DesktopConfig::default()
+    };
     assert!(!config.context_menu);
 }
 
 #[test]
 fn test_desktop_config_hotkeys_false() {
-    let config = DesktopConfig { hotkeys: false, ..DesktopConfig::default() };
+    let config = DesktopConfig {
+        hotkeys: false,
+        ..DesktopConfig::default()
+    };
     assert!(!config.hotkeys);
 }
 
@@ -429,7 +444,10 @@ fn test_tray_menu_item_item_debug() {
 
 #[test]
 fn test_desktop_config_serde_fullscreen() {
-    let config = DesktopConfig { fullscreen: true, ..DesktopConfig::default() };
+    let config = DesktopConfig {
+        fullscreen: true,
+        ..DesktopConfig::default()
+    };
     let json = serde_json::to_string(&config).unwrap();
     let restored: DesktopConfig = serde_json::from_str(&json).unwrap();
     assert!(restored.fullscreen);

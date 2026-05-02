@@ -1,4 +1,4 @@
-﻿//! Message processor tests
+//! Message processor tests
 
 use auroraview_core::backend::{
     AtomicProcessorStats, MessagePriority, ProcessResult, ProcessingMode, ProcessorConfig,
@@ -32,10 +32,7 @@ fn process_result_error_stops() {
 #[test]
 fn process_result_eq() {
     assert_eq!(ProcessResult::Continue, ProcessResult::Continue);
-    assert_eq!(
-        ProcessResult::CloseRequested,
-        ProcessResult::CloseRequested
-    );
+    assert_eq!(ProcessResult::CloseRequested, ProcessResult::CloseRequested);
     assert_ne!(ProcessResult::Continue, ProcessResult::Error);
 }
 
@@ -543,7 +540,11 @@ fn process_result_close_requested_is_close() {
 
 #[test]
 fn message_priority_debug_non_empty() {
-    for p in &[MessagePriority::Low, MessagePriority::Normal, MessagePriority::High] {
+    for p in &[
+        MessagePriority::Low,
+        MessagePriority::Normal,
+        MessagePriority::High,
+    ] {
         let dbg = format!("{:?}", p);
         assert!(!dbg.is_empty());
     }

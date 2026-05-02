@@ -666,13 +666,25 @@ fn test_event_url_changed() {
 #[test]
 fn test_event_loading_changed_true() {
     let ev = TabEvent::loading_changed("t1".to_string(), true);
-    assert!(matches!(ev, TabEvent::LoadingChanged { is_loading: true, .. }));
+    assert!(matches!(
+        ev,
+        TabEvent::LoadingChanged {
+            is_loading: true,
+            ..
+        }
+    ));
 }
 
 #[test]
 fn test_event_loading_changed_false() {
     let ev = TabEvent::loading_changed("t1".to_string(), false);
-    assert!(matches!(ev, TabEvent::LoadingChanged { is_loading: false, .. }));
+    assert!(matches!(
+        ev,
+        TabEvent::LoadingChanged {
+            is_loading: false,
+            ..
+        }
+    ));
 }
 
 #[rstest]
@@ -736,16 +748,16 @@ fn test_group_with_color() {
 
 #[test]
 fn test_group_with_tabs() {
-    let group = auroraview_tabs::TabGroup::new("Work")
-        .with_tabs(vec!["t1".to_string(), "t2".to_string()]);
+    let group =
+        auroraview_tabs::TabGroup::new("Work").with_tabs(vec!["t1".to_string(), "t2".to_string()]);
     assert_eq!(group.len(), 2);
     assert!(group.contains(&"t1".to_string()));
 }
 
 #[test]
 fn test_group_add_tab_at_position() {
-    let mut group = auroraview_tabs::TabGroup::new("Work")
-        .with_tabs(vec!["t1".to_string(), "t2".to_string()]);
+    let mut group =
+        auroraview_tabs::TabGroup::new("Work").with_tabs(vec!["t1".to_string(), "t2".to_string()]);
     group.add_tab_at("t0".to_string(), 0);
     assert_eq!(group.tab_ids[0], "t0");
 }
@@ -795,8 +807,11 @@ fn test_group_toggle_collapsed() {
 
 #[test]
 fn test_group_reorder_tab_to_end() {
-    let mut group = auroraview_tabs::TabGroup::new("G")
-        .with_tabs(vec!["a".to_string(), "b".to_string(), "c".to_string()]);
+    let mut group = auroraview_tabs::TabGroup::new("G").with_tabs(vec![
+        "a".to_string(),
+        "b".to_string(),
+        "c".to_string(),
+    ]);
     group.reorder_tab(&"a".to_string(), 100); // beyond end
     assert_eq!(group.tab_ids, vec!["b", "c", "a"]);
 }
@@ -857,7 +872,10 @@ fn test_tab_state_serde_with_favicon() {
     state.set_favicon(Some("https://example.com/favicon.ico".to_string()));
     let json = serde_json::to_string(&state).unwrap();
     let back: TabState = serde_json::from_str(&json).unwrap();
-    assert_eq!(back.favicon, Some("https://example.com/favicon.ico".to_string()));
+    assert_eq!(
+        back.favicon,
+        Some("https://example.com/favicon.ico".to_string())
+    );
 }
 
 #[test]
@@ -1124,8 +1142,12 @@ fn test_manager_multiple_event_handlers() {
     let c1 = counter1.clone();
     let c2 = counter2.clone();
 
-    manager.on_event(move |_| { c1.fetch_add(1, Ordering::SeqCst); });
-    manager.on_event(move |_| { c2.fetch_add(1, Ordering::SeqCst); });
+    manager.on_event(move |_| {
+        c1.fetch_add(1, Ordering::SeqCst);
+    });
+    manager.on_event(move |_| {
+        c2.fetch_add(1, Ordering::SeqCst);
+    });
 
     manager.create("https://example.com");
     // Both handlers should fire on Created event

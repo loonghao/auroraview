@@ -7,7 +7,7 @@ use uuid::Uuid;
 pub struct WebViewId(pub String);
 
 impl WebViewId {
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self(Uuid::new_v4().to_string())
     }
@@ -122,7 +122,7 @@ impl std::fmt::Display for ScreenshotData {
 }
 
 impl ScreenshotData {
-    #[must_use] 
+    #[must_use]
     pub fn new_placeholder(width: u32, height: u32) -> Self {
         Self {
             data: String::new(),
@@ -133,7 +133,7 @@ impl ScreenshotData {
     }
 
     /// Create `ScreenshotData` from raw image bytes (PNG/JPEG/WebP).
-    #[must_use] 
+    #[must_use]
     pub fn from_bytes(bytes: &[u8], width: u32, height: u32, format: &str) -> Self {
         let data = base64::engine::general_purpose::STANDARD.encode(bytes);
         Self {
@@ -163,7 +163,7 @@ impl std::fmt::Display for JsResult {
 }
 
 impl JsResult {
-    #[must_use] 
+    #[must_use]
     pub fn ok(value: serde_json::Value) -> Self {
         Self { value, error: None }
     }
@@ -224,7 +224,7 @@ impl Default for McpServerConfig {
 
 impl McpServerConfig {
     /// Set the port number.
-    #[must_use] 
+    #[must_use]
     pub fn with_port(mut self, port: u16) -> Self {
         self.port = port;
         self
@@ -237,7 +237,7 @@ impl McpServerConfig {
     }
 
     /// Enable or disable mDNS broadcast.
-    #[must_use] 
+    #[must_use]
     pub fn with_mdns(mut self, enabled: bool) -> Self {
         self.enable_mdns = enabled;
         self
@@ -247,7 +247,7 @@ impl McpServerConfig {
     ///
     /// When enabled, clients must authenticate via OAuth 2.0
     /// to access MCP endpoints.
-    #[must_use] 
+    #[must_use]
     pub fn with_oauth(mut self, enabled: bool) -> Self {
         self.enable_oauth = enabled;
         self
@@ -260,7 +260,7 @@ impl McpServerConfig {
     }
 
     /// Set the maximum number of concurrent `WebView` instances.
-    #[must_use] 
+    #[must_use]
     pub fn with_max_webviews(mut self, max: usize) -> Self {
         self.max_webviews = Some(max);
         self
@@ -288,7 +288,7 @@ impl McpServerConfig {
     }
 
     /// Return `true` if the configuration is valid.
-    #[must_use] 
+    #[must_use]
     pub fn is_valid(&self) -> bool {
         self.validate().is_ok()
     }
@@ -439,14 +439,7 @@ mod tests {
 
     #[test]
     fn mcp_server_config_with_all() {
-        let cfg = McpServerConfig::with_all(
-            7891,
-            "0.0.0.0",
-            "my-mcp",
-            true,
-            false,
-            Some(10),
-        );
+        let cfg = McpServerConfig::with_all(7891, "0.0.0.0", "my-mcp", true, false, Some(10));
         assert_eq!(cfg.port, 7891);
         assert_eq!(cfg.host, "0.0.0.0");
         assert_eq!(cfg.service_name, "my-mcp");

@@ -84,9 +84,9 @@ fn cleanup_stats_debug_output() {
     };
     let debug_str = format!("{:?}", stats);
     assert!(debug_str.contains("CleanupStats"));
-    assert!(debug_str.contains("15"));   // total_dirs
-    assert!(debug_str.contains("10"));   // alive_dirs
-    assert!(debug_str.contains("5"));    // stale_dirs
+    assert!(debug_str.contains("15")); // total_dirs
+    assert!(debug_str.contains("10")); // alive_dirs
+    assert!(debug_str.contains("5")); // stale_dirs
     assert!(debug_str.contains("4096")); // stale_size_bytes
 }
 
@@ -190,7 +190,11 @@ fn get_cleanup_stats_concurrent_calls() {
 
     // Spawn multiple threads to call get_cleanup_stats concurrently
     let handles: Vec<_> = (0..8)
-        .map(|_| thread::spawn(|| { get_cleanup_stats(); }))
+        .map(|_| {
+            thread::spawn(|| {
+                get_cleanup_stats();
+            })
+        })
         .collect();
 
     for handle in handles {
@@ -258,7 +262,11 @@ fn get_webview_base_dir_is_absolute_path() {
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     {
         if let Some(path) = get_webview_base_dir() {
-            assert!(path.is_absolute(), "Base dir should be absolute: {:?}", path);
+            assert!(
+                path.is_absolute(),
+                "Base dir should be absolute: {:?}",
+                path
+            );
         }
     }
 }
@@ -273,7 +281,10 @@ fn get_process_data_dir_consistent_across_calls() {
     {
         let dir1 = get_process_data_dir();
         let dir2 = get_process_data_dir();
-        assert_eq!(dir1, dir2, "Process data dir should be stable within the same process");
+        assert_eq!(
+            dir1, dir2,
+            "Process data dir should be stable within the same process"
+        );
     }
 }
 
@@ -282,7 +293,11 @@ fn get_process_data_dir_is_absolute_path() {
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     {
         if let Some(path) = get_process_data_dir() {
-            assert!(path.is_absolute(), "Process data dir should be absolute: {:?}", path);
+            assert!(
+                path.is_absolute(),
+                "Process data dir should be absolute: {:?}",
+                path
+            );
         }
     }
 }
@@ -314,7 +329,10 @@ fn get_cleanup_stats_stale_size_is_nonnegative() {
     let stats = get_cleanup_stats();
     // stale_size_bytes is u64 so always >= 0; if no stale dirs, should be 0
     if stats.stale_dirs == 0 {
-        assert_eq!(stats.stale_size_bytes, 0, "no stale dirs → size should be 0");
+        assert_eq!(
+            stats.stale_size_bytes, 0,
+            "no stale dirs → size should be 0"
+        );
     }
 }
 

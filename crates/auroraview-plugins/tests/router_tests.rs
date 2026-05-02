@@ -398,7 +398,11 @@ fn concurrent_mixed_plugin_dispatch() {
     }
 
     let errs = errors.lock().unwrap();
-    assert!(errs.is_empty(), "Concurrent mixed dispatch errors: {:?}", errs);
+    assert!(
+        errs.is_empty(),
+        "Concurrent mixed dispatch errors: {:?}",
+        errs
+    );
 }
 
 // ─── rstest parameterized ─────────────────────────────────────────────────────
@@ -550,7 +554,11 @@ fn request_parse_various_plugin_names() {
     for plugin in &["fs", "clipboard", "shell", "process", "dialog"] {
         let invoke = format!("plugin:{}|do_something", plugin);
         let req = PluginRequest::from_invoke(&invoke, serde_json::json!({}));
-        assert!(req.is_some(), "Failed to parse invoke for plugin '{}'", plugin);
+        assert!(
+            req.is_some(),
+            "Failed to parse invoke for plugin '{}'",
+            plugin
+        );
         let req = req.unwrap();
         assert_eq!(req.plugin, *plugin);
         assert_eq!(req.command, "do_something");

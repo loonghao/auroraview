@@ -942,5 +942,3 @@ mod concurrent_arc_mutex_tests {
         assert_eq!(held_lock_count(), 0);
     }
 }
-
-

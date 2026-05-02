@@ -6,9 +6,9 @@
 #[cfg(feature = "python-bindings")]
 use pyo3::prelude::*;
 
+use crossbeam_channel::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, ThreadId};
-use crossbeam_channel::{self, Receiver, Sender};
 
 // --- Core Types ---
 
@@ -176,10 +176,7 @@ impl std::fmt::Display for UeWebViewConfig {
         write!(
             f,
             "UeWebViewConfig {{ {}x{}, mode: {}, dev_tools: {} }}",
-            self.initial_size.0,
-            self.initial_size.1,
-            self.embed_mode,
-            self.dev_tools
+            self.initial_size.0, self.initial_size.1, self.embed_mode, self.dev_tools
         )
     }
 }
@@ -329,9 +326,9 @@ mod python {
         fn create_webview(&self, url: &str) -> PyResult<u64> {
             match self.inner.create_webview(url) {
                 Ok(handle) => Ok(handle.0),
-                Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(
-                    format!("Failed to create WebView: {e}")
-                )),
+                Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(format!(
+                    "Failed to create WebView: {e}"
+                ))),
             }
         }
     }
@@ -428,7 +425,10 @@ mod tests {
     #[test]
     fn ue_embed_mode_display() {
         assert_eq!(format!("{}", UeEmbedMode::SlateWidget), "SlateWidget");
-        assert_eq!(format!("{}", UeEmbedMode::NativeChildWindow), "NativeChildWindow");
+        assert_eq!(
+            format!("{}", UeEmbedMode::NativeChildWindow),
+            "NativeChildWindow"
+        );
         assert_eq!(format!("{}", UeEmbedMode::FloatingWindow), "FloatingWindow");
     }
 

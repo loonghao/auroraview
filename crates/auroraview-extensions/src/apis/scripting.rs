@@ -118,7 +118,8 @@ pub struct ScriptingManager {
     registered_scripts: DashMap<String, Vec<RegisteredContentScript>>,
     /// Callback for script execution
     #[allow(clippy::type_complexity)]
-    on_execute: RwLock<Option<Box<dyn Fn(&str, &ScriptInjection) -> Vec<InjectionResult> + Send + Sync>>>,
+    on_execute:
+        RwLock<Option<Box<dyn Fn(&str, &ScriptInjection) -> Vec<InjectionResult> + Send + Sync>>>,
     /// Callback for CSS injection
     #[allow(clippy::type_complexity)]
     on_insert_css: RwLock<Option<Box<dyn Fn(&str, &CssInjection) + Send + Sync>>>,
@@ -211,7 +212,8 @@ impl ScriptingManager {
         extension_id: &str,
         scripts: Vec<RegisteredContentScript>,
     ) {
-        let mut ext_scripts = self.registered_scripts
+        let mut ext_scripts = self
+            .registered_scripts
             .entry(extension_id.to_string())
             .or_default();
         ext_scripts.extend(scripts);

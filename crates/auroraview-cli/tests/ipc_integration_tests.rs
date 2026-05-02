@@ -346,7 +346,10 @@ mod jsonrpc_format_tests {
         assert_eq!(r["id"], "req_1");
         assert_eq!(r["ok"], false);
         assert_eq!(r["error"]["name"], "NotFound");
-        assert!(r["error"]["message"].as_str().unwrap().contains("not found"));
+        assert!(r["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("not found"));
     }
 
     #[test]
@@ -422,7 +425,12 @@ mod jsonrpc_format_tests {
 
     #[test]
     fn call_method_namespace_dot() {
-        let namespaces = ["api.echo", "tool.apply", "scene.export", "dcc.maya.get_selection"];
+        let namespaces = [
+            "api.echo",
+            "tool.apply",
+            "scene.export",
+            "dcc.maya.get_selection",
+        ];
         for ns in &namespaces {
             let msg = make_call("id", ns, serde_json::json!(null));
             assert_eq!(msg["method"].as_str().unwrap(), *ns);

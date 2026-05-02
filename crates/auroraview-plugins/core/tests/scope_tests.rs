@@ -184,9 +184,7 @@ fn shell_scope_deny_overrides_allow_all() {
 
 #[test]
 fn shell_scope_deny_overrides_explicit_allow() {
-    let scope = ShellScope::new()
-        .allow_command("git")
-        .deny_command("git");
+    let scope = ShellScope::new().allow_command("git").deny_command("git");
     assert!(!scope.is_command_allowed("git"));
 }
 
@@ -195,8 +193,20 @@ fn shell_scope_deny_overrides_explicit_allow() {
 #[test]
 fn scope_config_new_enables_default_plugins() {
     let config = ScopeConfig::new();
-    for plugin in &["fs", "clipboard", "shell", "dialog", "process", "browser_bridge", "extensions"] {
-        assert!(config.is_plugin_enabled(plugin), "{} should be enabled", plugin);
+    for plugin in &[
+        "fs",
+        "clipboard",
+        "shell",
+        "dialog",
+        "process",
+        "browser_bridge",
+        "extensions",
+    ] {
+        assert!(
+            config.is_plugin_enabled(plugin),
+            "{} should be enabled",
+            plugin
+        );
     }
 }
 

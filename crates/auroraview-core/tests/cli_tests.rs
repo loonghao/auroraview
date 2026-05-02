@@ -1,4 +1,4 @@
-﻿//! Tests for CLI utilities
+//! Tests for CLI utilities
 
 use auroraview_core::cli::{normalize_url, rewrite_html_for_custom_protocol};
 use rstest::rstest;
@@ -270,7 +270,10 @@ fn rewrite_multiple_same_resources() {
     let result = rewrite_html_for_custom_protocol(html);
     // Both occurrences should be rewritten
     let count = result.matches("auroraview://logo.png").count();
-    assert_eq!(count, 2, "Both identical relative paths should be rewritten");
+    assert_eq!(
+        count, 2,
+        "Both identical relative paths should be rewritten"
+    );
 }
 
 #[rstest]
@@ -411,7 +414,8 @@ fn rewrite_empty_body() {
 
 #[rstest]
 fn rewrite_preserves_absolute_https_url() {
-    let html = r#"<html><body><script src="https://cdn.example.com/lib.js"></script></body></html>"#;
+    let html =
+        r#"<html><body><script src="https://cdn.example.com/lib.js"></script></body></html>"#;
     let result = rewrite_html_for_custom_protocol(html);
     // Absolute HTTPS URLs should not be rewritten
     assert!(result.contains("https://cdn.example.com/lib.js"));

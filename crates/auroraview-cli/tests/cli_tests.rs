@@ -1,4 +1,4 @@
-﻿//! Integration tests for CLI
+//! Integration tests for CLI
 
 use std::path::PathBuf;
 use std::process::Command;
@@ -321,7 +321,6 @@ fn cli_info_output_contains_version_and_commands() {
     );
 }
 
-
 #[test]
 fn cli_run_help_contains_watch_flag() {
     let output = Command::new(cli_binary())
@@ -330,7 +329,10 @@ fn cli_run_help_contains_watch_flag() {
         .expect("Failed to run CLI");
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("--watch"), "run --help should mention --watch");
+    assert!(
+        stdout.contains("--watch"),
+        "run --help should mention --watch"
+    );
 }
 
 #[test]
@@ -341,7 +343,10 @@ fn cli_run_help_contains_poll_interval() {
         .expect("Failed to run CLI");
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("--poll-interval"), "run --help should mention --poll-interval-ms");
+    assert!(
+        stdout.contains("--poll-interval"),
+        "run --help should mention --poll-interval-ms"
+    );
 }
 
 #[test]
@@ -431,7 +436,11 @@ fn cli_multiple_unknown_subcommands_fail() {
             .args([*cmd])
             .status()
             .expect("Failed to run CLI");
-        assert!(!status.success(), "Unknown subcommand '{}' should fail", cmd);
+        assert!(
+            !status.success(),
+            "Unknown subcommand '{}' should fail",
+            cmd
+        );
     }
 }
 
@@ -461,7 +470,10 @@ fn cli_run_help_mentions_html_option() {
         .expect("Failed to run CLI");
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("--html"), "--html flag should be listed in run --help");
+    assert!(
+        stdout.contains("--html"),
+        "--html flag should be listed in run --help"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -546,7 +558,10 @@ fn cli_run_help_mentions_title() {
         .expect("Failed to run CLI");
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("--title"), "run --help should mention --title");
+    assert!(
+        stdout.contains("--title"),
+        "run --help should mention --title"
+    );
 }
 
 #[test]
@@ -571,7 +586,10 @@ fn cli_run_help_mentions_width() {
         .expect("Failed to run CLI");
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("--width") || stdout.contains("width"), "run --help should mention --width");
+    assert!(
+        stdout.contains("--width") || stdout.contains("width"),
+        "run --help should mention --width"
+    );
 }
 
 #[test]
@@ -582,7 +600,10 @@ fn cli_run_help_mentions_height() {
         .expect("Failed to run CLI");
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("--height") || stdout.contains("height"), "run --help should mention --height");
+    assert!(
+        stdout.contains("--height") || stdout.contains("height"),
+        "run --help should mention --height"
+    );
 }
 
 #[test]
@@ -668,7 +689,9 @@ fn cli_info_output_contains_dependencies() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("Dependencies") || stdout.contains("dependencies") || stdout.contains("Cargo"),
+        stdout.contains("Dependencies")
+            || stdout.contains("dependencies")
+            || stdout.contains("Cargo"),
         "info should mention dependencies: {}",
         stdout
     );

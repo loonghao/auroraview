@@ -1,9 +1,8 @@
 //! Integration tests for action system and provider types
 
 use auroraview_ai_agent::{
-    Action, ActionContext, ActionRegistry, ActionResult,
-    ChatOptions, CompletionResponse, ModelInfo, ProviderType, StreamEvent, ToolCall, ToolDef,
-    UsageStats,
+    Action, ActionContext, ActionRegistry, ActionResult, ChatOptions, CompletionResponse,
+    ModelInfo, ProviderType, StreamEvent, ToolCall, ToolDef, UsageStats,
 };
 use rstest::rstest;
 use serde_json::{json, Value};
@@ -119,7 +118,10 @@ fn search_action_builds_correct_url(#[case] engine: &str, #[case] domain: &str) 
     let args = json!({"query": "rust", "engine": engine});
     let result = action.execute(args, &ctx).unwrap();
     assert!(result.success);
-    let url = result.data.unwrap()["search_url"].as_str().unwrap().to_string();
+    let url = result.data.unwrap()["search_url"]
+        .as_str()
+        .unwrap()
+        .to_string();
     assert!(url.contains(domain), "URL {url} should contain {domain}");
 }
 
@@ -129,7 +131,10 @@ fn search_action_defaults_to_google() {
     let action = registry.get("search").unwrap();
     let ctx = ActionContext::new();
     let result = action.execute(json!({"query": "rust"}), &ctx).unwrap();
-    let url = result.data.unwrap()["search_url"].as_str().unwrap().to_string();
+    let url = result.data.unwrap()["search_url"]
+        .as_str()
+        .unwrap()
+        .to_string();
     assert!(url.contains("google.com"));
 }
 
@@ -245,7 +250,10 @@ fn scroll_action_custom_amount() {
     let registry = ActionRegistry::with_defaults();
     let action = registry.get("scroll").unwrap();
     let result = action
-        .execute(json!({"direction": "down", "amount": 100}), &ActionContext::new())
+        .execute(
+            json!({"direction": "down", "amount": 100}),
+            &ActionContext::new(),
+        )
         .unwrap();
     assert_eq!(result.data.unwrap()["amount"], 100);
 }
@@ -278,7 +286,14 @@ fn registry_with_defaults_has_six_actions() {
 #[test]
 fn registry_with_defaults_contains_expected_names() {
     let r = ActionRegistry::with_defaults();
-    for name in ["navigate", "search", "click", "type_text", "screenshot", "scroll"] {
+    for name in [
+        "navigate",
+        "search",
+        "click",
+        "type_text",
+        "screenshot",
+        "scroll",
+    ] {
         assert!(r.contains(name), "should contain '{name}'");
     }
 }
@@ -357,8 +372,15 @@ impl Action for PingAction {
     fn parameters(&self) -> Value {
         json!({"type": "object", "properties": {"host": {"type": "string"}}, "required": ["host"]})
     }
-    fn execute(&self, args: Value, _ctx: &ActionContext) -> Result<ActionResult, auroraview_ai_agent::AIError> {
-        let host = args.get("host").and_then(|v| v.as_str()).unwrap_or("localhost");
+    fn execute(
+        &self,
+        args: Value,
+        _ctx: &ActionContext,
+    ) -> Result<ActionResult, auroraview_ai_agent::AIError> {
+        let host = args
+            .get("host")
+            .and_then(|v| v.as_str())
+            .unwrap_or("localhost");
         Ok(ActionResult::ok(json!({"pong": host})))
     }
 }

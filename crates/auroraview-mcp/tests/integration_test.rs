@@ -20,14 +20,7 @@ use base64::Engine;
 
 #[test]
 fn mcp_server_config_with_all() {
-    let cfg = McpServerConfig::with_all(
-        7890,
-        "127.0.0.1",
-        "auroraview-mcp",
-        true,
-        false,
-        Some(5),
-    );
+    let cfg = McpServerConfig::with_all(7890, "127.0.0.1", "auroraview-mcp", true, false, Some(5));
 
     assert_eq!(cfg.port, 7890);
     assert_eq!(cfg.max_webviews, Some(5));
@@ -303,7 +296,10 @@ fn cdp_adapter_config_fields() {
 fn screenshot_data_from_bytes() {
     let bytes = vec![1, 2, 3, 4, 5];
     let data = auroraview_mcp::types::ScreenshotData::from_bytes(&bytes, 800, 600, "png");
-    assert_eq!(data.data, base64::engine::general_purpose::STANDARD.encode(&bytes));
+    assert_eq!(
+        data.data,
+        base64::engine::general_purpose::STANDARD.encode(&bytes)
+    );
     assert_eq!(data.width, 800);
     assert_eq!(data.height, 600);
     assert_eq!(data.format, "png");
@@ -396,14 +392,23 @@ fn load_url_params_validation() {
         url: "https://example.com".to_string(),
     };
     // Valid URL schemes
-    assert!(params.url.starts_with("http://") || params.url.starts_with("https://") || params.url.starts_with("file://"));
+    assert!(
+        params.url.starts_with("http://")
+            || params.url.starts_with("https://")
+            || params.url.starts_with("file://")
+    );
 }
 
 #[test]
 fn load_url_params_invalid_scheme() {
-    let invalid_urls = vec!["ftp://example.com", "javascript:alert(1)", "data:text/html,<h1>test</h1>"];
+    let invalid_urls = vec![
+        "ftp://example.com",
+        "javascript:alert(1)",
+        "data:text/html,<h1>test</h1>",
+    ];
     for url in invalid_urls {
-        let scheme_ok = url.starts_with("http://") || url.starts_with("https://") || url.starts_with("file://");
+        let scheme_ok =
+            url.starts_with("http://") || url.starts_with("https://") || url.starts_with("file://");
         assert!(!scheme_ok, "URL should be invalid: {url}");
     }
 }

@@ -19,11 +19,7 @@
 //! This module is only compiled when the `python-bindings` Cargo feature is
 //! enabled (e.g. via `maturin build --features python-bindings`).
 
-use crate::{
-    agui::AguiEvent,
-    runner::McpRunner,
-    types::McpServerConfig,
-};
+use crate::{agui::AguiEvent, runner::McpRunner, types::McpServerConfig};
 use std::sync::{Arc, Mutex};
 use tokio::runtime::Runtime;
 
@@ -46,7 +42,7 @@ pub struct PyMcpConfig {
 }
 
 impl PyMcpConfig {
-    #[must_use] 
+    #[must_use]
     pub fn new(
         host: String,
         port: u16,
@@ -136,19 +132,19 @@ impl PyMcpServer {
     /// Create a server from a [`PyMcpConfig`] (Python-friendly configuration).
     ///
     /// Equivalent to `PyMcpServer::from_config(py_config.into())`.
-    #[must_use] 
+    #[must_use]
     pub fn from_config_py(py_config: PyMcpConfig) -> Self {
         Self::from_config(py_config.into())
     }
 
     /// Port this server listens on.
-    #[must_use] 
+    #[must_use]
     pub fn port(&self) -> u16 {
         self.config.port
     }
 
     /// Host address this server binds to.
-    #[must_use] 
+    #[must_use]
     pub fn host(&self) -> &str {
         &self.config.host
     }
@@ -168,7 +164,9 @@ impl PyMcpServer {
 
         let runtime = Runtime::new().map_err(|e| e.to_string())?;
         let runner = McpRunner::new(self.config.clone());
-        runtime.block_on(runner.start()).map_err(|e| e.to_string())?;
+        runtime
+            .block_on(runner.start())
+            .map_err(|e| e.to_string())?;
         *lock = Some(RunnerState { runtime, runner });
         Ok(())
     }
@@ -183,7 +181,7 @@ impl PyMcpServer {
     }
 
     /// Return `true` if the server is currently running.
-    #[must_use] 
+    #[must_use]
     pub fn is_running(&self) -> bool {
         let lock = match self.state.lock() {
             Ok(g) => g,
@@ -263,12 +261,7 @@ impl PyMcpServer {
     /// # Errors
     ///
     /// Returns `Err` if the server is not currently running.
-    pub fn emit_step(
-        &self,
-        run_id: &str,
-        step_name: &str,
-        step_id: &str,
-    ) -> Result<(), String> {
+    pub fn emit_step(&self, run_id: &str, step_name: &str, step_id: &str) -> Result<(), String> {
         let lock = self.state.lock().map_err(|e| e.to_string())?;
         if let Some(state) = lock.as_ref() {
             state.runner.emit_agui_step(run_id, step_name, step_id);
@@ -290,13 +283,13 @@ impl PyMcpServer {
     }
 
     /// Return the MCP endpoint URL (e.g. `http://127.0.0.1:7890/mcp`).
-    #[must_use] 
+    #[must_use]
     pub fn mcp_url(&self) -> String {
         format!("http://{}:{}/mcp", self.config.host, self.config.port)
     }
 
     /// Return the AG-UI SSE endpoint URL.
-    #[must_use] 
+    #[must_use]
     pub fn agui_url(&self) -> String {
         format!(
             "http://{}:{}/agui/events",
@@ -536,12 +529,7 @@ mod pyo3_impl {
         /// ```python
         /// server.emit_step("run-1", "export_scene", "step-001")
         /// ```
-        fn emit_step(
-            &self,
-            run_id: &str,
-            step_name: &str,
-            step_id: &str,
-        ) -> PyResult<()> {
+        fn emit_step(&self, run_id: &str, step_name: &str, step_id: &str) -> PyResult<()> {
             self.inner
                 .emit_step(run_id, step_name, step_id)
                 .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))

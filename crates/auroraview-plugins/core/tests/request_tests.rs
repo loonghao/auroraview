@@ -41,10 +41,10 @@ fn request_from_invoke_valid(
 }
 
 #[rstest]
-#[case("fs|read_file")]        // missing "plugin:" prefix
-#[case("plugin:fs")]           // missing "|command"
-#[case("")]                    // empty
-#[case("plugin:")]             // missing plugin and command
+#[case("fs|read_file")] // missing "plugin:" prefix
+#[case("plugin:fs")] // missing "|command"
+#[case("")] // empty
+#[case("plugin:")] // missing plugin and command
 fn request_from_invoke_invalid(#[case] invoke: &str) {
     let req = PluginRequest::from_invoke(invoke, json!({}));
     assert!(req.is_none(), "expected None for input: {}", invoke);
@@ -283,8 +283,7 @@ fn request_serde_no_id_deserialize() {
 
 #[test]
 fn response_serde_err_preserves_all_fields() {
-    let resp = PluginResponse::err("desc", "ERR_CODE")
-        .with_id(Some("id-xyz".to_string()));
+    let resp = PluginResponse::err("desc", "ERR_CODE").with_id(Some("id-xyz".to_string()));
     let json_str = serde_json::to_string(&resp).unwrap();
     let deserialized: PluginResponse = serde_json::from_str(&json_str).unwrap();
     assert!(!deserialized.success);

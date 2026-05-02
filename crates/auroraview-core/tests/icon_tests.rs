@@ -1,8 +1,8 @@
 //! Icon loading tests
 
 use auroraview_core::icon::{
-    compress_png, load_icon_rgba, png_bytes_to_ico, png_to_ico,
-    CompressionLevel, CompressionResult, IcoConfig, IconData, DEFAULT_ICO_SIZES,
+    compress_png, load_icon_rgba, png_bytes_to_ico, png_to_ico, CompressionLevel,
+    CompressionResult, IcoConfig, IconData, DEFAULT_ICO_SIZES,
 };
 use rstest::rstest;
 use std::io::Write;
@@ -11,7 +11,12 @@ use tempfile::{NamedTempFile, TempDir};
 fn create_test_png_size(width: u32, height: u32) -> NamedTempFile {
     let mut file = NamedTempFile::with_suffix(".png").unwrap();
     let img = image::RgbaImage::from_fn(width, height, |x, y| {
-        image::Rgba([(x * 255 / width.max(1)) as u8, (y * 255 / height.max(1)) as u8, 128, 255])
+        image::Rgba([
+            (x * 255 / width.max(1)) as u8,
+            (y * 255 / height.max(1)) as u8,
+            128,
+            255,
+        ])
     });
     let mut cursor = std::io::Cursor::new(Vec::new());
     img.write_to(&mut cursor, image::ImageFormat::Png).unwrap();
@@ -377,8 +382,8 @@ fn icon_data_pixel_values_red() {
     // 1×1 red opaque pixel: RGBA = (255, 0, 0, 255)
     assert_eq!(icon.rgba.len(), 4);
     assert_eq!(icon.rgba[0], 255); // R
-    assert_eq!(icon.rgba[1], 0);   // G
-    assert_eq!(icon.rgba[2], 0);   // B
+    assert_eq!(icon.rgba[1], 0); // G
+    assert_eq!(icon.rgba[2], 0); // B
     assert_eq!(icon.rgba[3], 255); // A
 }
 
@@ -436,7 +441,10 @@ fn ico_config_with_empty_sizes() {
 #[test]
 fn ico_config_default_contains_256() {
     let cfg = IcoConfig::default();
-    assert!(cfg.sizes.contains(&256), "default IcoConfig should include size 256");
+    assert!(
+        cfg.sizes.contains(&256),
+        "default IcoConfig should include size 256"
+    );
 }
 
 // ============================================================================

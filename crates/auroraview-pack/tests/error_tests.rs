@@ -90,7 +90,10 @@ fn display_resource_edit() {
 #[rstest]
 fn display_vx_ensure_failed() {
     let e = PackError::VxEnsureFailed("node >= 20 required".to_string());
-    assert_eq!(e.to_string(), "vx.ensure validation failed: node >= 20 required");
+    assert_eq!(
+        e.to_string(),
+        "vx.ensure validation failed: node >= 20 required"
+    );
 }
 
 // ============================================================================
@@ -223,7 +226,9 @@ fn clone_toml_parse_becomes_config() {
     let toml_err: toml::de::Error = toml::from_str::<toml::Value>("[[invalid").unwrap_err();
     let e = PackError::TomlParse(toml_err);
     let c = e.clone();
-    assert!(c.to_string().contains("TOML parse error") || c.to_string().contains("Configuration error"));
+    assert!(
+        c.to_string().contains("TOML parse error") || c.to_string().contains("Configuration error")
+    );
 }
 
 /// Json variant clones to Config
@@ -272,7 +277,6 @@ fn pack_result_ok() {
     let r: PackResult<u32> = Ok(42);
     assert!(matches!(r, Ok(42)));
 }
-
 
 #[rstest]
 fn pack_result_err() {

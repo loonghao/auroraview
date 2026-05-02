@@ -1,4 +1,4 @@
-﻿//! JSON utility tests
+//! JSON utility tests
 
 use auroraview_core::json::{
     from_bytes, from_slice, from_str, from_value, serialize_to_js_literal, to_js_literal,
@@ -190,7 +190,9 @@ fn to_value_nested_struct() {
     struct Outer {
         inner: Inner,
     }
-    let o = Outer { inner: Inner { x: 99 } };
+    let o = Outer {
+        inner: Inner { x: 99 },
+    };
     let value = to_value(&o).unwrap();
     assert_eq!(value["inner"]["x"], 99);
 }
@@ -412,7 +414,10 @@ fn to_js_literal_array_of_strings() {
 fn to_js_literal_float_value() {
     let value = serde_json::json!(2.71);
     let lit = to_js_literal(&value);
-    assert!(lit.contains("2.71") || lit.contains("2.7"), "float should appear in literal");
+    assert!(
+        lit.contains("2.71") || lit.contains("2.7"),
+        "float should appear in literal"
+    );
 }
 
 #[test]
@@ -482,7 +487,11 @@ fn to_value_and_from_value_roundtrip() {
         enabled: bool,
         count: u32,
     }
-    let orig = Config { name: "test".to_string(), enabled: true, count: 42 };
+    let orig = Config {
+        name: "test".to_string(),
+        enabled: true,
+        count: 42,
+    };
     let value = to_value(&orig).unwrap();
     let restored: Config = from_value(value).unwrap();
     assert_eq!(orig, restored);

@@ -1,4 +1,4 @@
-﻿//! Signal-slot system tests
+//! Signal-slot system tests
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -293,7 +293,10 @@ fn channel_bridge_basic() {
     let (bridge, receiver) = ChannelBridge::new("test_ch");
 
     bridge
-        .emit("page:load", serde_json::json!({"url": "https://example.com"}))
+        .emit(
+            "page:load",
+            serde_json::json!({"url": "https://example.com"}),
+        )
         .unwrap();
 
     let msg = receiver.recv().unwrap();
@@ -306,9 +309,7 @@ fn channel_bridge_multiple_messages() {
     let (bridge, receiver) = ChannelBridge::new("multi_ch");
 
     for i in 0..5u64 {
-        bridge
-            .emit("tick", serde_json::json!({"i": i}))
-            .unwrap();
+        bridge.emit("tick", serde_json::json!({"i": i})).unwrap();
     }
 
     for i in 0..5u64 {
@@ -503,7 +504,9 @@ fn event_bus_with_channel_bridge() {
 
     bus.emit("nav:go", serde_json::json!({"url": "https://example.com"}));
 
-    let msg = receiver.recv_timeout(std::time::Duration::from_millis(200)).unwrap();
+    let msg = receiver
+        .recv_timeout(std::time::Duration::from_millis(200))
+        .unwrap();
     assert_eq!(msg.event, "nav:go");
 }
 
@@ -717,13 +720,19 @@ fn webview_signals_lifecycle() {
     let minimized = Arc::new(AtomicUsize::new(0));
 
     let c = closed.clone();
-    signals.closed.connect(move |_| { c.fetch_add(1, Ordering::SeqCst); });
+    signals.closed.connect(move |_| {
+        c.fetch_add(1, Ordering::SeqCst);
+    });
 
     let f = focused.clone();
-    signals.focused.connect(move |_| { f.fetch_add(1, Ordering::SeqCst); });
+    signals.focused.connect(move |_| {
+        f.fetch_add(1, Ordering::SeqCst);
+    });
 
     let m = minimized.clone();
-    signals.minimized.connect(move |_| { m.fetch_add(1, Ordering::SeqCst); });
+    signals.minimized.connect(move |_| {
+        m.fetch_add(1, Ordering::SeqCst);
+    });
 
     signals.closed.emit(());
     signals.focused.emit(());
@@ -749,7 +758,9 @@ fn signal_single_connect_and_emit() {
     let signal = Signal::<u32>::new();
     let value = Arc::new(std::sync::Mutex::new(0u32));
     let v = value.clone();
-    let _conn = signal.connect(move |n| { *v.lock().unwrap() = n; });
+    let _conn = signal.connect(move |n| {
+        *v.lock().unwrap() = n;
+    });
     signal.emit(99);
     assert_eq!(*value.lock().unwrap(), 99);
 }
@@ -760,8 +771,12 @@ fn signal_two_connects_both_called() {
     let count = Arc::new(AtomicUsize::new(0));
     let c1 = count.clone();
     let c2 = count.clone();
-    let _conn1 = signal.connect(move |_| { c1.fetch_add(1, Ordering::SeqCst); });
-    let _conn2 = signal.connect(move |_| { c2.fetch_add(1, Ordering::SeqCst); });
+    let _conn1 = signal.connect(move |_| {
+        c1.fetch_add(1, Ordering::SeqCst);
+    });
+    let _conn2 = signal.connect(move |_| {
+        c2.fetch_add(1, Ordering::SeqCst);
+    });
     signal.emit(0);
     assert_eq!(count.load(Ordering::SeqCst), 2);
 }
@@ -782,7 +797,9 @@ fn event_bus_multiple_handlers_same_event_r15() {
 
     for _ in 0..5 {
         let c = count.clone();
-        bus.on("multi_r15", move |_| { c.fetch_add(1, Ordering::SeqCst); });
+        bus.on("multi_r15", move |_| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
     }
 
     bus.emit("multi_r15", serde_json::json!(null));
@@ -794,7 +811,9 @@ fn webview_signals_custom_event_fires() {
     let signals = WebViewSignals::new();
     let count = Arc::new(AtomicUsize::new(0));
     let c = count.clone();
-    signals.on("scene_loaded_r15", move |_| { c.fetch_add(1, Ordering::SeqCst); });
+    signals.on("scene_loaded_r15", move |_| {
+        c.fetch_add(1, Ordering::SeqCst);
+    });
     signals.emit_custom("scene_loaded_r15", serde_json::json!({}));
     assert_eq!(count.load(Ordering::SeqCst), 1);
 }
@@ -809,5 +828,3 @@ fn event_bus_clear_removes_all_handlers_r15() {
     bus.clear();
     assert_eq!(bus.event_count(), 0);
 }
-
-

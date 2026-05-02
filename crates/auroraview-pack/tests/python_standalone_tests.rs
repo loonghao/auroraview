@@ -372,10 +372,7 @@ fn standalone_version_accessor(#[case] version: &str) {
 #[case("x86_64-unknown-linux-gnu", "3.12")]
 #[case("x86_64-apple-darwin", "3.10")]
 #[case("aarch64-apple-darwin", "3.11")]
-fn cached_path_filename_contains_version_and_triple(
-    #[case] triple: &str,
-    #[case] version: &str,
-) {
+fn cached_path_filename_contains_version_and_triple(#[case] triple: &str, #[case] version: &str) {
     let temp = tempfile::tempdir().unwrap();
     let config = PythonStandaloneConfig {
         version: version.to_string(),
@@ -480,7 +477,11 @@ fn download_url_contains_install_only() {
     };
     let standalone = PythonStandalone::new(config).unwrap();
     let url = standalone.download_url();
-    assert!(url.contains("install_only"), "URL should contain 'install_only': {}", url);
+    assert!(
+        url.contains("install_only"),
+        "URL should contain 'install_only': {}",
+        url
+    );
 }
 
 #[rstest]
@@ -493,7 +494,11 @@ fn download_url_contains_cpython_prefix() {
     };
     let standalone = PythonStandalone::new(config).unwrap();
     let url = standalone.download_url();
-    assert!(url.contains("cpython-"), "URL should contain 'cpython-': {}", url);
+    assert!(
+        url.contains("cpython-"),
+        "URL should contain 'cpython-': {}",
+        url
+    );
 }
 
 #[rstest]
@@ -526,7 +531,11 @@ fn standalone_invalid_targets(#[case] triple: &str) {
         cache_dir: None,
     };
     let result = PythonStandalone::new(config);
-    assert!(result.is_err(), "Should fail for invalid target '{}'", triple);
+    assert!(
+        result.is_err(),
+        "Should fail for invalid target '{}'",
+        triple
+    );
 }
 
 // ============================================================================
@@ -583,5 +592,3 @@ fn runtime_meta_large_archive_size() {
     let parsed: PythonRuntimeMeta = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed.archive_size, u64::MAX);
 }
-
-

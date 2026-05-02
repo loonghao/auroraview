@@ -51,8 +51,7 @@ fn test_resolve_whitespace_url_error() {
 
 #[test]
 fn test_resolve_crx_url() {
-    let result =
-        resolve_extension_source_url("https://example.com/extension.crx").unwrap();
+    let result = resolve_extension_source_url("https://example.com/extension.crx").unwrap();
     assert_eq!(result.kind, ExtensionSourceKind::Crx);
     assert_eq!(result.download_url, "https://example.com/extension.crx");
     assert!(result.store_extension_id.is_none());
@@ -68,10 +67,7 @@ fn test_resolve_generic_archive_url() {
 #[test]
 fn test_resolve_chrome_web_store_url() {
     let ext_id = "abcdefghijklmnopqrstuvwxyzabcdef";
-    let url = format!(
-        "https://chromewebstore.google.com/detail/my-ext/{}",
-        ext_id
-    );
+    let url = format!("https://chromewebstore.google.com/detail/my-ext/{}", ext_id);
     let result = resolve_extension_source_url(&url).unwrap();
     assert_eq!(result.kind, ExtensionSourceKind::Crx);
     assert_eq!(result.store_extension_id, Some(ext_id.to_string()));
@@ -159,27 +155,15 @@ fn test_suffix_query_params_stripped() {
 #[test]
 fn test_extract_chrome_webstore_id() {
     let ext_id = "abcdefghijklmnopqrstuvwxyzabcdef";
-    let url = format!(
-        "https://chromewebstore.google.com/detail/name/{}",
-        ext_id
-    );
-    assert_eq!(
-        extract_store_extension_id(&url),
-        Some(ext_id.to_string())
-    );
+    let url = format!("https://chromewebstore.google.com/detail/name/{}", ext_id);
+    assert_eq!(extract_store_extension_id(&url), Some(ext_id.to_string()));
 }
 
 #[test]
 fn test_extract_old_chrome_store_id() {
     let ext_id = "abcdefghijklmnopqrstuvwxyzabcdef";
-    let url = format!(
-        "https://chrome.google.com/webstore/detail/name/{}",
-        ext_id
-    );
-    assert_eq!(
-        extract_store_extension_id(&url),
-        Some(ext_id.to_string())
-    );
+    let url = format!("https://chrome.google.com/webstore/detail/name/{}", ext_id);
+    assert_eq!(extract_store_extension_id(&url), Some(ext_id.to_string()));
 }
 
 #[test]

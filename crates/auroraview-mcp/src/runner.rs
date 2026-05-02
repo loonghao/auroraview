@@ -8,11 +8,10 @@ use crate::{
 };
 use axum::Router;
 use rmcp::transport::streamable_http_server::{
-    StreamableHttpServerConfig, StreamableHttpService,
-    session::local::LocalSessionManager,
+    session::local::LocalSessionManager, StreamableHttpServerConfig, StreamableHttpService,
 };
 use std::sync::Arc;
-use tokio::sync::{Mutex, oneshot};
+use tokio::sync::{oneshot, Mutex};
 use tokio_util::sync::CancellationToken;
 use tracing::{info, warn};
 
@@ -33,8 +32,7 @@ impl McpRunner {
     #[must_use]
     pub fn new(config: McpServerConfig) -> Self {
         let agui_bus = AguiBus::new();
-        let server = AuroraViewMcpServer::new(config.clone())
-            .with_agui_bus(agui_bus.clone());
+        let server = AuroraViewMcpServer::new(config.clone()).with_agui_bus(agui_bus.clone());
         let broadcaster = if config.enable_mdns {
             MdnsBroadcaster::new()
                 .map_err(|e| warn!("mDNS init failed: {e}"))
@@ -63,7 +61,7 @@ impl McpRunner {
     /// `McpRunner::new(McpServerConfig::default().with_port(port).with_max_webviews(max))`.
     ///
     /// mDNS is disabled (useful for tests and isolated DCC sessions).
-    #[must_use] 
+    #[must_use]
     pub fn with_capacity(port: u16, max: usize) -> Self {
         let config = McpServerConfig::default()
             .with_port(port)
@@ -79,27 +77,25 @@ impl McpRunner {
     ///
     /// Use this when you want `dcc-mcp-client` to auto-discover the server
     /// via mDNS without building a full [`McpServerConfig`] manually.
-    #[must_use] 
+    #[must_use]
     pub fn with_mdns_port(port: u16) -> Self {
-        let config = McpServerConfig::default()
-            .with_port(port)
-            .with_mdns(true);
+        let config = McpServerConfig::default().with_port(port).with_mdns(true);
         Self::new(config)
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn server(&self) -> &AuroraViewMcpServer {
         &self.server
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn config(&self) -> &McpServerConfig {
         &self.config
     }
 
     /// Return a reference to the AG-UI event bus.
     /// Use `bus.emit(event)` to publish events to all SSE subscribers.
-    #[must_use] 
+    #[must_use]
     pub fn agui_bus(&self) -> &AguiBus {
         &self.agui_bus
     }
@@ -117,9 +113,7 @@ impl McpRunner {
     /// Returns [`McpError::InvalidConfig`] if the configuration is invalid
     /// (e.g. `port == 0`, empty `host`, or empty `service_name`).
     pub async fn start(&self) -> Result<()> {
-        self.config
-            .validate()
-            .map_err(McpError::InvalidConfig)?;
+        self.config.validate().map_err(McpError::InvalidConfig)?;
 
         let mut lock = self.shutdown_tx.lock().await;
         if lock.is_some() {
@@ -161,12 +155,11 @@ impl McpRunner {
         tokio::spawn({
             let cancel = cancel.clone();
             async move {
-                let serve = axum::serve(tcp, router)
-                    .with_graceful_shutdown(async move {
-                        // shutdown when either the oneshot fires or token cancelled
-                        let _ = rx.await;
-                        cancel.cancel();
-                    });
+                let serve = axum::serve(tcp, router).with_graceful_shutdown(async move {
+                    // shutdown when either the oneshot fires or token cancelled
+                    let _ = rx.await;
+                    cancel.cancel();
+                });
                 if let Err(e) = serve.await {
                     warn!("MCP server error: {e}");
                 }
@@ -223,7 +216,11 @@ impl McpRunner {
     /// Returns `Err(...)` if no `WebView` with the given ID exists.
     pub fn update_cdp_endpoint(&self, id: &str, endpoint: &str) -> std::result::Result<(), String> {
         let wid = id.parse::<WebViewId>().unwrap(); // Infallible
-        if self.server.registry().update_cdp_endpoint(&wid, endpoint.to_string()) {
+        if self
+            .server
+            .registry()
+            .update_cdp_endpoint(&wid, endpoint.to_string())
+        {
             Ok(())
         } else {
             Err(format!("WebView {id} not found"))
@@ -240,11 +237,7 @@ fn build_mcp_service(
     _cancel: CancellationToken,
 ) -> StreamableHttpService<AuroraViewMcpServer, LocalSessionManager> {
     let config = StreamableHttpServerConfig::default();
-    StreamableHttpService::new(
-        move || Ok(server.clone()),
-        Default::default(),
-        config,
-    )
+    StreamableHttpService::new(move || Ok(server.clone()), Default::default(), config)
 }
 
 /// Build the AG-UI SSE router.
@@ -254,10 +247,7 @@ fn build_mcp_service(
 fn agui_router(bus: AguiBus) -> Router {
     use axum::{
         extract::Query,
-        response::{
-            Sse,
-            sse::Event,
-        },
+        response::{sse::Event, Sse},
     };
     use futures::StreamExt;
     use serde::Deserialize;
@@ -270,37 +260,34 @@ fn agui_router(bus: AguiBus) -> Router {
 
     Router::new().route(
         "/agui/events",
-        axum::routing::get(
-            move |Query(q): Query<AguiQuery>| {
-                let bus = bus.clone();
-                async move {
-                    let rx = bus.subscribe();
-                    let run_filter: Option<String> = q.run_id;
-                    let stream = BroadcastStream::new(rx)
-                        .filter_map(move |msg| {
-                            let run_filter = run_filter.clone();
-                            async move {
-                                let event = msg.ok()?;
-                                // Apply optional run_id filter
-                                if let Some(rid) = run_filter.as_deref() {
-                                    if event.run_id() != rid {
-                                        return None;
-                                    }
-                                }
-                                let data = serde_json::to_string(&event).ok()?;
-                                Some(Ok::<Event, std::convert::Infallible>(
-                                    Event::default().data(data),
-                                ))
+        axum::routing::get(move |Query(q): Query<AguiQuery>| {
+            let bus = bus.clone();
+            async move {
+                let rx = bus.subscribe();
+                let run_filter: Option<String> = q.run_id;
+                let stream = BroadcastStream::new(rx).filter_map(move |msg| {
+                    let run_filter = run_filter.clone();
+                    async move {
+                        let event = msg.ok()?;
+                        // Apply optional run_id filter
+                        if let Some(rid) = run_filter.as_deref() {
+                            if event.run_id() != rid {
+                                return None;
                             }
-                        });
-                    Sse::new(stream).keep_alive(
-                        axum::response::sse::KeepAlive::new()
-                            .interval(std::time::Duration::from_secs(15))
-                            .text("keep-alive"),
-                    )
-                }
-            },
-        ),
+                        }
+                        let data = serde_json::to_string(&event).ok()?;
+                        Some(Ok::<Event, std::convert::Infallible>(
+                            Event::default().data(data),
+                        ))
+                    }
+                });
+                Sse::new(stream).keep_alive(
+                    axum::response::sse::KeepAlive::new()
+                        .interval(std::time::Duration::from_secs(15))
+                        .text("keep-alive"),
+                )
+            }
+        }),
     )
 }
 
@@ -313,7 +300,7 @@ fn agui_router(bus: AguiBus) -> Router {
 /// - `POST /oauth/token` — token endpoint
 fn oauth_router(oauth_store: OAuthStore) -> Router {
     use axum::{
-        extract::{State, Json, Query},
+        extract::{Json, Query, State},
         http::StatusCode,
     };
     use serde::{Deserialize, Serialize};
@@ -485,10 +472,10 @@ mod tests {
         let runner = McpRunner::new(McpServerConfig::default());
         let registry = runner.server().registry();
         let id = registry.register(&WebViewConfig::default());
-        
+
         let result = runner.update_cdp_endpoint(&id.0, "http://127.0.0.1:9222");
         assert!(result.is_ok());
-        
+
         let info = registry.get(&id).unwrap();
         assert_eq!(info.cdp_endpoint, Some("http://127.0.0.1:9222".to_string()));
     }

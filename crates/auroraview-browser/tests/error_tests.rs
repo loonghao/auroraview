@@ -73,10 +73,7 @@ fn debug_contains_variant_names() {
             "ExtensionNotFound",
             BrowserError::ExtensionNotFound("x".into()),
         ),
-        (
-            "WebViewCreation",
-            BrowserError::WebViewCreation("x".into()),
-        ),
+        ("WebViewCreation", BrowserError::WebViewCreation("x".into())),
         ("WindowCreation", BrowserError::WindowCreation("x".into())),
         ("Navigation", BrowserError::Navigation("x".into())),
         ("InvalidUrl", BrowserError::InvalidUrl("x".into())),
@@ -119,7 +116,10 @@ fn from_serde_json_error() {
     let json_err = serde_json::from_str::<serde_json::Value>("not-json").unwrap_err();
     let browser_err: BrowserError = json_err.into();
     let msg = browser_err.to_string();
-    assert!(msg.contains("Serialization") || msg.contains("expected"), "{msg}");
+    assert!(
+        msg.contains("Serialization") || msg.contains("expected"),
+        "{msg}"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -132,7 +132,6 @@ fn result_alias_ok() {
     let r: Result<u32> = Ok(42);
     assert!(matches!(r, Ok(42)));
 }
-
 
 #[rstest]
 fn result_alias_err() {
@@ -291,7 +290,11 @@ fn from_io_various_kinds(#[case] kind: std::io::ErrorKind, #[case] msg: &str) {
 #[case(BrowserError::Extension("ext".into()))]
 fn all_variants_non_empty_display(#[case] err: BrowserError) {
     let s = err.to_string();
-    assert!(!s.is_empty(), "Display output should not be empty: {:?}", err);
+    assert!(
+        !s.is_empty(),
+        "Display output should not be empty: {:?}",
+        err
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -349,10 +352,22 @@ fn io_error_source_preserved() {
 fn variant_messages_distinct_prefixes() {
     let pairs: &[(&str, BrowserError)] = &[
         ("Tab not found", BrowserError::TabNotFound("x".into())),
-        ("Bookmark not found", BrowserError::BookmarkNotFound("x".into())),
-        ("Extension not found", BrowserError::ExtensionNotFound("x".into())),
-        ("WebView creation failed", BrowserError::WebViewCreation("x".into())),
-        ("Window creation failed", BrowserError::WindowCreation("x".into())),
+        (
+            "Bookmark not found",
+            BrowserError::BookmarkNotFound("x".into()),
+        ),
+        (
+            "Extension not found",
+            BrowserError::ExtensionNotFound("x".into()),
+        ),
+        (
+            "WebView creation failed",
+            BrowserError::WebViewCreation("x".into()),
+        ),
+        (
+            "Window creation failed",
+            BrowserError::WindowCreation("x".into()),
+        ),
         ("Navigation failed", BrowserError::Navigation("x".into())),
         ("Invalid URL", BrowserError::InvalidUrl("x".into())),
         ("Extension error", BrowserError::Extension("x".into())),

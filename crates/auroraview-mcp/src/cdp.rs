@@ -204,9 +204,7 @@ impl CdpClient {
                 .get("text")
                 .and_then(serde_json::Value::as_str)
                 .unwrap_or("unknown error");
-            return Err(CdpError::Remote(format!(
-                "JavaScript exception: {msg}"
-            )));
+            return Err(CdpError::Remote(format!("JavaScript exception: {msg}")));
         }
         let value = result
             .get("result")

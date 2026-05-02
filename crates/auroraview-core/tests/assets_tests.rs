@@ -289,7 +289,11 @@ fn test_plugin_names_length_matches_valid_plugins() {
     let names = plugin_names();
     // Each name should have a corresponding JS
     for name in names {
-        assert!(get_plugin_js(name).is_some(), "Plugin '{}' should have JS", name);
+        assert!(
+            get_plugin_js(name).is_some(),
+            "Plugin '{}' should have JS",
+            name
+        );
     }
 }
 
@@ -303,15 +307,25 @@ fn test_build_load_url_script_nonempty() {
 fn test_build_load_url_script_contains_url() {
     let url = "https://my-dcc-tool.internal/app";
     let script = build_load_url_script(url);
-    assert!(script.contains(url) || script.contains("my-dcc-tool"), "Script should reference URL: {}", script);
+    assert!(
+        script.contains(url) || script.contains("my-dcc-tool"),
+        "Script should reference URL: {}",
+        script
+    );
 }
 
 #[test]
 fn test_build_error_page_is_valid_html_structure() {
     let html = build_error_page(404, "Not Found", "Page not found", None, None);
     // Should be valid HTML structure
-    assert!(html.contains("<html") || html.contains("<!DOCTYPE"), "Error page should be HTML");
-    assert!(html.contains("</html>") || html.contains("</body>"), "Error page should close properly");
+    assert!(
+        html.contains("<html") || html.contains("<!DOCTYPE"),
+        "Error page should be HTML"
+    );
+    assert!(
+        html.contains("</html>") || html.contains("</body>"),
+        "Error page should close properly"
+    );
 }
 
 #[test]

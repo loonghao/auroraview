@@ -501,7 +501,10 @@ fn test_navigation_state_all_variants_debug() {
     let names = ["Started", "InProgress", "Completed", "Failed"];
     for (state, expected) in states.iter().zip(names.iter()) {
         let debug_str = format!("{:?}", state);
-        assert!(debug_str.contains(expected), "Expected {expected} in {debug_str}");
+        assert!(
+            debug_str.contains(expected),
+            "Expected {expected} in {debug_str}"
+        );
     }
 }
 
@@ -529,7 +532,10 @@ fn test_navigation_event_in_progress() {
 
 #[test]
 fn test_load_progress_zero() {
-    let progress = LoadProgress { percent: 0, is_complete: false };
+    let progress = LoadProgress {
+        percent: 0,
+        is_complete: false,
+    };
     assert_eq!(progress.percent, 0);
     assert!(!progress.is_complete);
 }
@@ -537,7 +543,10 @@ fn test_load_progress_zero() {
 #[test]
 fn test_load_progress_partial() {
     for pct in [25u8, 50, 75, 99] {
-        let progress = LoadProgress { percent: pct, is_complete: false };
+        let progress = LoadProgress {
+            percent: pct,
+            is_complete: false,
+        };
         assert_eq!(progress.percent, pct);
         assert!(!progress.is_complete);
     }

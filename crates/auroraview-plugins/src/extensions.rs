@@ -1685,7 +1685,7 @@ impl ExtensionsPlugin {
                      This requires opening an external browser window for OAuth redirects. \
                      Workaround: extensions can open the auth URL in a new WebView window \
                      and intercept the redirect URL manually. \
-                     Track progress at: https://github.com/loonghao/auroraview/issues"
+                     Track progress at: https://github.com/loonghao/auroraview/issues",
                 ))
             }
             "getProfileUserInfo" => Ok(serde_json::json!({

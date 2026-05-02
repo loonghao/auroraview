@@ -5,18 +5,18 @@ use crate::{
     agui::AguiBus,
     cdp::CdpClient,
     registry::WebViewRegistry,
-    types::{JsResult, McpServerConfig, ScreenshotData, WebViewConfig, WebViewId},
     server::types::*,
+    types::{JsResult, McpServerConfig, ScreenshotData, WebViewConfig, WebViewId},
 };
-use std::sync::Arc;
-use tokio::runtime::Runtime;
 use rmcp::{
     handler::server::{
         router::tool::ToolRouter,
         wrapper::{Json, Parameters},
     },
-    tool_router, tool,
+    tool, tool_router,
 };
+use std::sync::Arc;
+use tokio::runtime::Runtime;
 use tracing::{debug, info};
 use uuid::Uuid;
 
@@ -70,27 +70,20 @@ impl AuroraViewMcpServer {
                         let fut = CdpClient::connect(cdp_ep);
                         match rt.block_on(fut) {
                             Ok(mut client) => {
-                                let capture_fut = client.capture_screenshot(
-                                    "png",
-                                    std::time::Duration::from_secs(10),
-                                );
+                                let capture_fut = client
+                                    .capture_screenshot("png", std::time::Duration::from_secs(10));
                                 match rt.block_on(capture_fut) {
-                                    Ok(bytes) => {
-                                        ScreenshotData::from_bytes(
-                                            &bytes,
-                                            info.width,
-                                            info.height,
-                                            "png",
-                                        )
-                                    }
+                                    Ok(bytes) => ScreenshotData::from_bytes(
+                                        &bytes,
+                                        info.width,
+                                        info.height,
+                                        "png",
+                                    ),
                                     Err(e) => {
                                         tracing::warn!(
                                             "CDP screenshot failed: {e}, falling back to placeholder"
                                         );
-                                        ScreenshotData::new_placeholder(
-                                            info.width,
-                                            info.height,
-                                        )
+                                        ScreenshotData::new_placeholder(info.width, info.height)
                                     }
                                 }
                             }
@@ -153,7 +146,9 @@ impl AuroraViewMcpServer {
         }
 
         info!("load_url: id={id} url={}", params.0.url);
-        let updated = self.registry.update_url(&id.parse::<WebViewId>().unwrap(), &params.0.url);
+        let updated = self
+            .registry
+            .update_url(&id.parse::<WebViewId>().unwrap(), &params.0.url);
         let result = Json(SuccessOutput {
             ok: updated,
             message: if updated {
@@ -178,7 +173,10 @@ impl AuroraViewMcpServer {
         info!("load_html: id={id} html_len={}", params.0.html.len());
         let result = Json(SuccessOutput {
             ok: true,
-            message: format!("HTML loaded in WebView {id} ({} bytes)", params.0.html.len()),
+            message: format!(
+                "HTML loaded in WebView {id} ({} bytes)",
+                params.0.html.len()
+            ),
         });
         self.emit_tool_end(&call_id, &id);
         result
@@ -205,38 +203,37 @@ impl AuroraViewMcpServer {
 
         debug!("eval_js: id={id}");
 
-        let result_data =
-            if let Some(info) = self.registry.get(&id.parse::<WebViewId>().unwrap()) {
-                if let Some(ref cdp_ep) = info.cdp_endpoint {
-                    debug!("eval_js: connecting to CDP endpoint: {cdp_ep}");
-                    match Runtime::new() {
-                        Ok(rt) => {
-                            let fut = CdpClient::connect(cdp_ep);
-                            match rt.block_on(fut) {
-                                Ok(mut client) => {
-                                    let eval_fut =
-                                        client.evaluate_script(&params.0.script, std::time::Duration::from_secs(10));
-                                    match rt.block_on(eval_fut) {
-                                        Ok(value) => JsResult::ok(value),
-                                        Err(e) => JsResult::err(format!("CDP eval error: {e}")),
-                                    }
-                                }
-                                Err(e) => {
-                                    JsResult::err(format!("CDP connect error: {e}"))
+        let result_data = if let Some(info) = self.registry.get(&id.parse::<WebViewId>().unwrap()) {
+            if let Some(ref cdp_ep) = info.cdp_endpoint {
+                debug!("eval_js: connecting to CDP endpoint: {cdp_ep}");
+                match Runtime::new() {
+                    Ok(rt) => {
+                        let fut = CdpClient::connect(cdp_ep);
+                        match rt.block_on(fut) {
+                            Ok(mut client) => {
+                                let eval_fut = client.evaluate_script(
+                                    &params.0.script,
+                                    std::time::Duration::from_secs(10),
+                                );
+                                match rt.block_on(eval_fut) {
+                                    Ok(value) => JsResult::ok(value),
+                                    Err(e) => JsResult::err(format!("CDP eval error: {e}")),
                                 }
                             }
+                            Err(e) => JsResult::err(format!("CDP connect error: {e}")),
                         }
-                        Err(e) => JsResult::err(format!("Failed to create runtime: {e}")),
                     }
-                } else {
-                    JsResult::err(
-                        "No CDP endpoint available for this WebView. Is the WebView running?"
-                            .to_string(),
-                    )
+                    Err(e) => JsResult::err(format!("Failed to create runtime: {e}")),
                 }
             } else {
-                JsResult::err(format!("WebView {id} not found"))
-            };
+                JsResult::err(
+                    "No CDP endpoint available for this WebView. Is the WebView running?"
+                        .to_string(),
+                )
+            }
+        } else {
+            JsResult::err(format!("WebView {id} not found"))
+        };
 
         let result = Json(JsResultOutput {
             id: id.clone(),
@@ -278,7 +275,10 @@ impl AuroraViewMcpServer {
             .registry
             .get(&id.parse::<WebViewId>().unwrap())
             .map_or(0, |v| v.hwnd);
-        let result = Json(HwndOutput { id: id.clone(), hwnd });
+        let result = Json(HwndOutput {
+            id: id.clone(),
+            hwnd,
+        });
         self.emit_tool_end(&call_id, &id);
         result
     }
@@ -318,10 +318,7 @@ impl AuroraViewMcpServer {
         name = "create_webview",
         description = "Create a new WebView window with the given configuration."
     )]
-    fn create_webview(
-        &self,
-        params: Parameters<CreateWebViewParams>,
-    ) -> Json<SuccessOutput> {
+    fn create_webview(&self, params: Parameters<CreateWebViewParams>) -> Json<SuccessOutput> {
         let call_id = Uuid::new_v4().to_string();
         self.emit_tool_start("create_webview", &call_id, "server");
         let config = WebViewConfig {
@@ -355,10 +352,7 @@ impl AuroraViewMcpServer {
         name = "close_webview",
         description = "Close a WebView window by its ID and release resources."
     )]
-    fn close_webview(
-        &self,
-        params: Parameters<CloseWebViewParams>,
-    ) -> Json<SuccessOutput> {
+    fn close_webview(&self, params: Parameters<CloseWebViewParams>) -> Json<SuccessOutput> {
         let call_id = Uuid::new_v4().to_string();
         self.emit_tool_start("close_webview", &call_id, &params.0.id);
         let wid = params.0.id.parse::<WebViewId>().unwrap();

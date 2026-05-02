@@ -108,7 +108,6 @@ fn png_to_ico_nonexistent_input() {
     assert!(err_msg.contains("nonexistent") || !err_msg.is_empty());
 }
 
-
 // ============================================================================
 // PNG bytes to ICO tests
 // ============================================================================
@@ -256,7 +255,9 @@ fn compression_level_debug() {
 fn compress_png_various_levels(#[case] level: u8) {
     let png_file = create_test_png(64);
     let temp_dir = TempDir::new().unwrap();
-    let output_path = temp_dir.path().join(format!("compressed_level{}.png", level));
+    let output_path = temp_dir
+        .path()
+        .join(format!("compressed_level{}.png", level));
 
     let result = compress_png(png_file.path(), &output_path, level).unwrap();
 
@@ -380,7 +381,10 @@ fn compression_result_compressed_size_positive() {
     let out_path = temp_dir.path().join("check_compressed.png");
 
     let result = compress_png(png_file.path(), &out_path, 5).unwrap();
-    assert!(result.compressed_size > 0, "compressed_size must be positive");
+    assert!(
+        result.compressed_size > 0,
+        "compressed_size must be positive"
+    );
 }
 
 #[rstest]
@@ -503,7 +507,6 @@ fn png_to_ico_many_sizes(#[case] sizes: &[u32]) {
     assert!(size > 0);
 }
 
-
 #[rstest]
 fn compress_and_resize_preserves_aspect_when_downscaling() {
     // 512x512 downscaled to max 128 should fit within 128x128
@@ -513,8 +516,16 @@ fn compress_and_resize_preserves_aspect_when_downscaling() {
 
     let result = compress_and_resize(png_file.path(), &out_path, 128, 5).unwrap();
 
-    assert!(result.width <= 128, "width {} should be <= 128", result.width);
-    assert!(result.height <= 128, "height {} should be <= 128", result.height);
+    assert!(
+        result.width <= 128,
+        "width {} should be <= 128",
+        result.width
+    );
+    assert!(
+        result.height <= 128,
+        "height {} should be <= 128",
+        result.height
+    );
 }
 
 // ============================================================================

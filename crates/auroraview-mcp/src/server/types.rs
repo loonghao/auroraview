@@ -1,7 +1,7 @@
 // Parameter and output types for AuroraViewMcpServer tools.
 
-use serde::{Deserialize, Serialize};
 use schemars;
+use serde::{Deserialize, Serialize};
 
 // --- Parameter types ---
 

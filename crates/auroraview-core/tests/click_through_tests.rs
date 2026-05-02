@@ -76,7 +76,6 @@ mod interactive_region_tests {
         assert_eq!(region, copied);
     }
 
-
     #[rstest]
     fn test_region_zero_size() {
         let region = InteractiveRegion::new(5, 5, 0, 0);
@@ -106,7 +105,12 @@ mod interactive_region_tests {
     #[case(0, 0, 10, 10)]
     #[case(100, 200, 50, 75)]
     #[case(-10, -20, 30, 40)]
-    fn test_region_fields_via_rstest(#[case] x: i32, #[case] y: i32, #[case] w: i32, #[case] h: i32) {
+    fn test_region_fields_via_rstest(
+        #[case] x: i32,
+        #[case] y: i32,
+        #[case] w: i32,
+        #[case] h: i32,
+    ) {
         let r = InteractiveRegion::new(x, y, w, h);
         assert_eq!(r.x, x);
         assert_eq!(r.y, y);
@@ -201,7 +205,10 @@ mod click_through_config_tests {
         // When disabled, all coords are interactive (click-through is not applied)
         let config = ClickThroughConfig::new().with_enabled(false);
         for (x, y) in &[(0, 0), (999, 999), (-1, -1), (5000, 5000)] {
-            assert!(config.is_interactive(*x, *y), "disabled config should always return true");
+            assert!(
+                config.is_interactive(*x, *y),
+                "disabled config should always return true"
+            );
         }
     }
 
@@ -223,7 +230,9 @@ mod click_through_config_tests {
 
     #[rstest]
     fn test_config_with_many_regions() {
-        let regions: Vec<_> = (0..100).map(|i| InteractiveRegion::new(i * 10, 0, 10, 10)).collect();
+        let regions: Vec<_> = (0..100)
+            .map(|i| InteractiveRegion::new(i * 10, 0, 10, 10))
+            .collect();
         let config = ClickThroughConfig::new()
             .with_enabled(true)
             .with_regions(regions);

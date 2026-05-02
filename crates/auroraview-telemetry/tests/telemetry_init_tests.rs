@@ -202,7 +202,6 @@ fn test_is_initialized_returns_bool() {
     let _ = Telemetry::is_initialized();
 }
 
-
 #[test]
 fn test_init_accept_any_service_name() {
     if !Telemetry::is_initialized() {
@@ -362,7 +361,10 @@ fn test_config_otlp_endpoint_can_be_set() {
         otlp_endpoint: Some("http://localhost:4317".to_string()),
         ..TelemetryConfig::default()
     };
-    assert_eq!(config.otlp_endpoint.as_deref(), Some("http://localhost:4317"));
+    assert_eq!(
+        config.otlp_endpoint.as_deref(),
+        Some("http://localhost:4317")
+    );
 }
 
 #[test]
@@ -436,7 +438,10 @@ fn test_config_serde_preserves_otlp_endpoint() {
     };
     let json = serde_json::to_string(&config).unwrap();
     let restored: TelemetryConfig = serde_json::from_str(&json).unwrap();
-    assert_eq!(restored.otlp_endpoint.as_deref(), Some("http://otlp.example.com:4317"));
+    assert_eq!(
+        restored.otlp_endpoint.as_deref(),
+        Some("http://otlp.example.com:4317")
+    );
 }
 
 #[test]
@@ -468,4 +473,3 @@ fn test_disabled_config_service_name_custom() {
     assert!(!config.enabled);
     assert_eq!(config.service_name, "maya-tool-test");
 }
-

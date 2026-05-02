@@ -444,7 +444,10 @@ fn user_event_all_variants_can_be_constructed() {
         UserEvent::DragWindow,
         UserEvent::EvalJs("test".to_string()),
         UserEvent::WakeUp,
-        UserEvent::PluginEvent { event: "e".to_string(), data: "{}".to_string() },
+        UserEvent::PluginEvent {
+            event: "e".to_string(),
+            data: "{}".to_string(),
+        },
     ];
     assert_eq!(_events.len(), 7);
 }
@@ -455,11 +458,11 @@ fn user_event_eval_js_empty_then_nonempty() {
     let nonempty = UserEvent::EvalJs("code()".to_string());
     match empty {
         UserEvent::EvalJs(s) => assert!(s.is_empty()),
-        _ => panic!()
+        _ => panic!(),
     }
     match nonempty {
         UserEvent::EvalJs(s) => assert!(!s.is_empty()),
-        _ => panic!()
+        _ => panic!(),
     }
 }
 

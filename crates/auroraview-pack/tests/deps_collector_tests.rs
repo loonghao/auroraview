@@ -200,12 +200,17 @@ fn file_hash_cache_serde_roundtrip() {
     let cache_path = temp.path().join("serde_cache.json");
 
     let mut cache = FileHashCache::new();
-    cache.hashes.insert("a.py".to_string(), "hash_a".to_string());
+    cache
+        .hashes
+        .insert("a.py".to_string(), "hash_a".to_string());
 
     cache.save(&cache_path).unwrap();
     let loaded = FileHashCache::load(&cache_path).unwrap();
     assert_eq!(loaded.version, 1);
-    assert_eq!(loaded.hashes.get("a.py").map(String::as_str), Some("hash_a"));
+    assert_eq!(
+        loaded.hashes.get("a.py").map(String::as_str),
+        Some("hash_a")
+    );
 }
 
 #[test]
@@ -368,8 +373,13 @@ fn file_hash_cache_new_has_no_hashes() {
 #[test]
 fn file_hash_cache_insert_and_get() {
     let mut cache = FileHashCache::new();
-    cache.hashes.insert("key.py".to_string(), "abc123".to_string());
-    assert_eq!(cache.hashes.get("key.py").map(String::as_str), Some("abc123"));
+    cache
+        .hashes
+        .insert("key.py".to_string(), "abc123".to_string());
+    assert_eq!(
+        cache.hashes.get("key.py").map(String::as_str),
+        Some("abc123")
+    );
 }
 
 #[test]
@@ -385,7 +395,9 @@ fn file_hash_cache_clone_independent() {
 #[test]
 fn file_hash_cache_remove_existing_key() {
     let mut cache = FileHashCache::new();
-    cache.hashes.insert("a.py".to_string(), "hash_a".to_string());
+    cache
+        .hashes
+        .insert("a.py".to_string(), "hash_a".to_string());
     assert!(cache.hashes.contains_key("a.py"));
     cache.remove("a.py");
     assert!(!cache.hashes.contains_key("a.py"));

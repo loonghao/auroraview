@@ -103,7 +103,6 @@ fn fallback_loading_html() -> String {
         .to_string()
 }
 
-
 /// Get the error HTML page content
 ///
 /// Returns a Next.js-style error overlay with full diagnostics,
@@ -233,7 +232,6 @@ fn fallback_error_html() -> String {
 </html>"#
         .to_string()
 }
-
 
 /// Get the browser controller HTML page content
 ///

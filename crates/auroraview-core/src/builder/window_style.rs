@@ -36,8 +36,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
     SetWindowLongW, SetWindowPos, GWLP_HWNDPARENT, GWLP_WNDPROC, GWL_EXSTYLE, GWL_STYLE,
     SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WNDPROC, WS_BORDER,
     WS_CAPTION, WS_CHILD, WS_CLIPCHILDREN, WS_DLGFRAME, WS_EX_CLIENTEDGE, WS_EX_CONTEXTHELP,
-    WS_EX_DLGMODALFRAME, WS_EX_STATICEDGE, WS_EX_TOOLWINDOW, WS_EX_WINDOWEDGE,
-    WS_POPUP, WS_THICKFRAME,
+    WS_EX_DLGMODALFRAME, WS_EX_STATICEDGE, WS_EX_TOOLWINDOW, WS_EX_WINDOWEDGE, WS_POPUP,
+    WS_THICKFRAME,
 };
 
 /// Options for applying child window style
@@ -90,8 +90,8 @@ pub struct ChildWindowStyleResult {
 /// Uses unsafe Win32 subclassing APIs.
 #[cfg(target_os = "windows")]
 pub fn subclass_for_zero_nc_area(hwnd: isize) {
-    use std::collections::HashMap;
     use parking_lot::Mutex;
+    use std::collections::HashMap;
     use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
     use windows::Win32::UI::WindowsAndMessaging::DefWindowProcW;
 
@@ -121,7 +121,8 @@ pub fn subclass_for_zero_nc_area(hwnd: isize) {
         }
 
         // Forward everything else to the original WndProc.
-        let original = ORIGINAL_WNDPROCS.lock()
+        let original = ORIGINAL_WNDPROCS
+            .lock()
             .as_ref()
             .and_then(|map| map.get(&(hwnd.0 as isize)).copied());
 

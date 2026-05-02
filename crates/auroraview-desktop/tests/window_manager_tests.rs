@@ -67,9 +67,7 @@ fn created_window_not_visible() {
 #[rstest]
 fn created_window_has_correct_title() {
     let mgr = WindowManager::new();
-    let id = mgr
-        .create(DesktopConfig::new().title("My Title"))
-        .unwrap();
+    let id = mgr.create(DesktopConfig::new().title("My Title")).unwrap();
     let info = mgr.get(&id).unwrap();
     assert_eq!(info.title, "My Title");
 }
@@ -291,9 +289,7 @@ fn set_title_nonexistent_errors() {
 #[rstest]
 fn router_shared_across_windows() {
     let router = Arc::new(IpcRouter::new());
-    router.register("ping", |_| {
-        serde_json::json!({"pong": true})
-    });
+    router.register("ping", |_| serde_json::json!({"pong": true}));
     let mgr = WindowManager::with_router(router);
     let r = mgr.router();
     assert!(r.has_handler("ping"));
@@ -335,7 +331,8 @@ fn window_manager_send_sync() {
 fn create_10_windows_all_listed() {
     let mgr = WindowManager::new();
     for i in 0..10 {
-        mgr.create(DesktopConfig::new().title(format!("Win-{i}"))).unwrap();
+        mgr.create(DesktopConfig::new().title(format!("Win-{i}")))
+            .unwrap();
     }
     assert_eq!(mgr.count(), 10);
     assert_eq!(mgr.list().len(), 10);
@@ -345,7 +342,10 @@ fn create_10_windows_all_listed() {
 fn close_all_windows_empties_manager() {
     let mgr = WindowManager::new();
     let ids: Vec<_> = (0..5)
-        .map(|i| mgr.create(DesktopConfig::new().title(format!("W{i}"))).unwrap())
+        .map(|i| {
+            mgr.create(DesktopConfig::new().title(format!("W{i}")))
+                .unwrap()
+        })
         .collect();
     for id in &ids {
         mgr.close(id).unwrap();

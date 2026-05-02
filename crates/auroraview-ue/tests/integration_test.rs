@@ -3,8 +3,8 @@
 //! These tests verify the UE integration types and utilities.
 
 use auroraview_ue::{
-    GameThreadId, UeGameThreadExecutor, SlateWidgetHandle, UeEmbedMode,
-    UeIntegration, UeWebViewConfig,
+    GameThreadId, SlateWidgetHandle, UeEmbedMode, UeGameThreadExecutor, UeIntegration,
+    UeWebViewConfig,
 };
 
 // ---------------------------------------------------------------------------
@@ -46,12 +46,12 @@ fn executor_execute_on_game_thread() {
     let (executor, _rx) = UeGameThreadExecutor::new();
     let result = std::sync::Arc::new(std::sync::Mutex::new(None));
     let result_clone = result.clone();
-    
+
     executor.execute(move || {
         let mut r = result_clone.lock().unwrap();
         *r = Some(42);
     });
-    
+
     // Since we're on GameThread, it should execute immediately
     let r = result.lock().unwrap();
     assert_eq!(*r, Some(42));
@@ -78,7 +78,7 @@ fn slate_widget_handle_partial_eq() {
     let h1 = SlateWidgetHandle(123);
     let h2 = SlateWidgetHandle(123);
     let h3 = SlateWidgetHandle(456);
-    
+
     assert_eq!(h1, h2);
     assert_ne!(h1, h3);
 }
@@ -94,7 +94,7 @@ fn embed_mode_variants() {
         UeEmbedMode::NativeChildWindow,
         UeEmbedMode::FloatingWindow,
     ];
-    
+
     // Just verify they can be constructed
     for mode in &modes {
         let _ = *mode; // Copy
@@ -122,7 +122,7 @@ fn webview_config_custom() {
         dev_tools: true,
         init_script: Some("console.log('hello')".to_string()),
     };
-    
+
     assert_eq!(cfg.initial_size, (1024, 768));
     assert_eq!(cfg.embed_mode, UeEmbedMode::NativeChildWindow);
     assert!(cfg.dev_tools);
@@ -191,13 +191,13 @@ fn integration_create_webview_on_game_thread() {
 fn ue_error_display() {
     let err1 = auroraview_ue::UeError::NotOnGameThread;
     assert_eq!(err1.to_string(), "operation must be on GameThread");
-    
+
     let err2 = auroraview_ue::UeError::InvalidHandle;
     assert_eq!(err2.to_string(), "invalid Slate widget handle");
-    
+
     let err3 = auroraview_ue::UeError::WebViewCreationFailed("test".into());
     assert!(err3.to_string().contains("test"));
-    
+
     let err4 = auroraview_ue::UeError::ObjectCollected;
     assert_eq!(err4.to_string(), "UE object was garbage collected");
 }

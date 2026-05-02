@@ -41,21 +41,30 @@ fn runtime_contains_aurora_entry_point() {
 fn runtime_contains_reconstruct_key() {
     let gen = default_generator();
     let code = gen.generate_python_runtime(&default_key());
-    assert!(code.contains("def _reconstruct_key"), "should define _reconstruct_key");
+    assert!(
+        code.contains("def _reconstruct_key"),
+        "should define _reconstruct_key"
+    );
 }
 
 #[test]
 fn runtime_contains_aes_decrypt() {
     let gen = default_generator();
     let code = gen.generate_python_runtime(&default_key());
-    assert!(code.contains("def _aes_decrypt"), "should define _aes_decrypt");
+    assert!(
+        code.contains("def _aes_decrypt"),
+        "should define _aes_decrypt"
+    );
 }
 
 #[test]
 fn runtime_contains_protect_module() {
     let gen = default_generator();
     let code = gen.generate_python_runtime(&default_key());
-    assert!(code.contains("_protect_module"), "should call _protect_module");
+    assert!(
+        code.contains("_protect_module"),
+        "should call _protect_module"
+    );
 }
 
 #[test]
@@ -117,22 +126,37 @@ fn runtime_no_anti_debug_when_disabled() {
     assert!(!cfg.anti_debug);
     let gen = RuntimeGenerator::new(cfg);
     let code = gen.generate_python_runtime(&default_key());
-    assert!(!code.contains("_check_debugger"), "should not contain debugger check");
-    assert!(!code.contains("_anti_debug"), "should not contain anti_debug call");
+    assert!(
+        !code.contains("_check_debugger"),
+        "should not contain debugger check"
+    );
+    assert!(
+        !code.contains("_anti_debug"),
+        "should not contain anti_debug call"
+    );
 }
 
 #[test]
 fn runtime_has_anti_debug_when_enabled() {
-    let cfg = ProtectConfig { anti_debug: true, ..ProtectConfig::default() };
+    let cfg = ProtectConfig {
+        anti_debug: true,
+        ..ProtectConfig::default()
+    };
     let gen = RuntimeGenerator::new(cfg);
     let code = gen.generate_python_runtime(&default_key());
-    assert!(code.contains("_check_debugger"), "should contain _check_debugger");
+    assert!(
+        code.contains("_check_debugger"),
+        "should contain _check_debugger"
+    );
     assert!(code.contains("_anti_debug"), "should contain _anti_debug");
 }
 
 #[test]
 fn anti_debug_code_checks_sys_gettrace() {
-    let cfg = ProtectConfig { anti_debug: true, ..ProtectConfig::default() };
+    let cfg = ProtectConfig {
+        anti_debug: true,
+        ..ProtectConfig::default()
+    };
     let gen = RuntimeGenerator::new(cfg);
     let code = gen.generate_python_runtime(&default_key());
     assert!(code.contains("sys.gettrace()"), "should check sys.gettrace");
@@ -140,7 +164,10 @@ fn anti_debug_code_checks_sys_gettrace() {
 
 #[test]
 fn anti_debug_code_lists_debugger_modules() {
-    let cfg = ProtectConfig { anti_debug: true, ..ProtectConfig::default() };
+    let cfg = ProtectConfig {
+        anti_debug: true,
+        ..ProtectConfig::default()
+    };
     let gen = RuntimeGenerator::new(cfg);
     let code = gen.generate_python_runtime(&default_key());
     assert!(code.contains("pydevd"), "should check for pydevd");
@@ -157,15 +184,24 @@ fn runtime_no_integrity_check_when_disabled() {
     assert!(!cfg.integrity_check);
     let gen = RuntimeGenerator::new(cfg);
     let code = gen.generate_python_runtime(&default_key());
-    assert!(!code.contains("_verify_integrity"), "should not contain integrity check");
+    assert!(
+        !code.contains("_verify_integrity"),
+        "should not contain integrity check"
+    );
 }
 
 #[test]
 fn runtime_has_integrity_check_when_enabled() {
-    let cfg = ProtectConfig { integrity_check: true, ..ProtectConfig::default() };
+    let cfg = ProtectConfig {
+        integrity_check: true,
+        ..ProtectConfig::default()
+    };
     let gen = RuntimeGenerator::new(cfg);
     let code = gen.generate_python_runtime(&default_key());
-    assert!(code.contains("_verify_integrity"), "should contain _verify_integrity");
+    assert!(
+        code.contains("_verify_integrity"),
+        "should contain _verify_integrity"
+    );
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -178,21 +214,33 @@ fn runtime_no_expiration_check_when_not_set() {
     assert!(cfg.expires_at.is_none());
     let gen = RuntimeGenerator::new(cfg);
     let code = gen.generate_python_runtime(&default_key());
-    assert!(!code.contains("_check_expiration"), "should not have expiration check");
+    assert!(
+        !code.contains("_check_expiration"),
+        "should not have expiration check"
+    );
 }
 
 #[test]
 fn runtime_has_expiration_when_date_set() {
-    let cfg = ProtectConfig { expires_at: Some("2030-12-31T00:00:00".to_string()), ..ProtectConfig::default() };
+    let cfg = ProtectConfig {
+        expires_at: Some("2030-12-31T00:00:00".to_string()),
+        ..ProtectConfig::default()
+    };
     let gen = RuntimeGenerator::new(cfg);
     let code = gen.generate_python_runtime(&default_key());
-    assert!(code.contains("_check_expiration"), "should have expiration check");
+    assert!(
+        code.contains("_check_expiration"),
+        "should have expiration check"
+    );
     assert!(code.contains("2030-12-31"), "should embed the expiry date");
 }
 
 #[test]
 fn runtime_expiration_contains_datetime_import() {
-    let cfg = ProtectConfig { expires_at: Some("2025-06-01T00:00:00".to_string()), ..ProtectConfig::default() };
+    let cfg = ProtectConfig {
+        expires_at: Some("2025-06-01T00:00:00".to_string()),
+        ..ProtectConfig::default()
+    };
     let gen = RuntimeGenerator::new(cfg);
     let code = gen.generate_python_runtime(&default_key());
     assert!(code.contains("from datetime import datetime"));
@@ -208,29 +256,47 @@ fn runtime_no_machine_bind_when_empty() {
     assert!(cfg.bind_machines.is_empty());
     let gen = RuntimeGenerator::new(cfg);
     let code = gen.generate_python_runtime(&default_key());
-    assert!(!code.contains("_check_machine_binding"), "should not have machine binding");
+    assert!(
+        !code.contains("_check_machine_binding"),
+        "should not have machine binding"
+    );
 }
 
 #[test]
 fn runtime_has_machine_bind_when_set() {
-    let cfg = ProtectConfig { bind_machines: vec!["abc123def456".to_string()], ..ProtectConfig::default() };
+    let cfg = ProtectConfig {
+        bind_machines: vec!["abc123def456".to_string()],
+        ..ProtectConfig::default()
+    };
     let gen = RuntimeGenerator::new(cfg);
     let code = gen.generate_python_runtime(&default_key());
-    assert!(code.contains("_check_machine_binding"), "should have machine binding");
+    assert!(
+        code.contains("_check_machine_binding"),
+        "should have machine binding"
+    );
     assert!(code.contains("abc123def456"), "should embed machine ID");
 }
 
 #[test]
 fn runtime_machine_bind_lists_get_machine_id() {
-    let cfg = ProtectConfig { bind_machines: vec!["deadbeef00000000".to_string()], ..ProtectConfig::default() };
+    let cfg = ProtectConfig {
+        bind_machines: vec!["deadbeef00000000".to_string()],
+        ..ProtectConfig::default()
+    };
     let gen = RuntimeGenerator::new(cfg);
     let code = gen.generate_python_runtime(&default_key());
-    assert!(code.contains("_get_machine_id"), "should define _get_machine_id");
+    assert!(
+        code.contains("_get_machine_id"),
+        "should define _get_machine_id"
+    );
 }
 
 #[test]
 fn runtime_machine_bind_multiple_machines() {
-    let cfg = ProtectConfig { bind_machines: vec!["machine_a".to_string(), "machine_b".to_string()], ..ProtectConfig::default() };
+    let cfg = ProtectConfig {
+        bind_machines: vec!["machine_a".to_string(), "machine_b".to_string()],
+        ..ProtectConfig::default()
+    };
     let gen = RuntimeGenerator::new(cfg);
     let code = gen.generate_python_runtime(&default_key());
     assert!(code.contains("machine_a"), "should embed machine_a");
@@ -251,7 +317,10 @@ fn runtime_checks_pass_when_all_disabled() {
 
 #[test]
 fn runtime_checks_includes_anti_debug_call_when_enabled() {
-    let cfg = ProtectConfig { anti_debug: true, ..ProtectConfig::default() };
+    let cfg = ProtectConfig {
+        anti_debug: true,
+        ..ProtectConfig::default()
+    };
     let gen = RuntimeGenerator::new(cfg);
     let code = gen.generate_python_runtime(&default_key());
     // The __aurora__ function body should contain _anti_debug()
@@ -260,7 +329,10 @@ fn runtime_checks_includes_anti_debug_call_when_enabled() {
 
 #[test]
 fn runtime_checks_includes_enforce_expiration_when_set() {
-    let cfg = ProtectConfig { expires_at: Some("2099-01-01T00:00:00".to_string()), ..ProtectConfig::default() };
+    let cfg = ProtectConfig {
+        expires_at: Some("2099-01-01T00:00:00".to_string()),
+        ..ProtectConfig::default()
+    };
     let gen = RuntimeGenerator::new(cfg);
     let code = gen.generate_python_runtime(&default_key());
     assert!(code.contains("_enforce_expiration()"));
@@ -268,7 +340,10 @@ fn runtime_checks_includes_enforce_expiration_when_set() {
 
 #[test]
 fn runtime_checks_includes_machine_bind_when_set() {
-    let cfg = ProtectConfig { bind_machines: vec!["abc".to_string()], ..ProtectConfig::default() };
+    let cfg = ProtectConfig {
+        bind_machines: vec!["abc".to_string()],
+        ..ProtectConfig::default()
+    };
     let gen = RuntimeGenerator::new(cfg);
     let code = gen.generate_python_runtime(&default_key());
     assert!(code.contains("_enforce_machine_binding()"));
@@ -313,7 +388,10 @@ fn bootstrap_x25519_contains_algorithm_label() {
         EccAlgorithm::X25519,
         &empty_modules(),
     );
-    assert!(code.contains("x25519"), "should embed algorithm name x25519");
+    assert!(
+        code.contains("x25519"),
+        "should embed algorithm name x25519"
+    );
 }
 
 #[test]
@@ -335,7 +413,10 @@ fn bootstrap_contains_aurora_load_function() {
         EccAlgorithm::X25519,
         &empty_modules(),
     );
-    assert!(code.contains("def __aurora_load__"), "should define __aurora_load__");
+    assert!(
+        code.contains("def __aurora_load__"),
+        "should define __aurora_load__"
+    );
 }
 
 #[test]
@@ -346,7 +427,10 @@ fn bootstrap_contains_aurora_exec_function() {
         EccAlgorithm::X25519,
         &empty_modules(),
     );
-    assert!(code.contains("def __aurora_exec__"), "should define __aurora_exec__");
+    assert!(
+        code.contains("def __aurora_exec__"),
+        "should define __aurora_exec__"
+    );
 }
 
 #[test]
@@ -357,7 +441,10 @@ fn bootstrap_contains_aurora_list_function() {
         EccAlgorithm::X25519,
         &empty_modules(),
     );
-    assert!(code.contains("def __aurora_list__"), "should define __aurora_list__");
+    assert!(
+        code.contains("def __aurora_list__"),
+        "should define __aurora_list__"
+    );
 }
 
 #[test]
@@ -368,7 +455,10 @@ fn bootstrap_contains_reconstruct_key() {
         EccAlgorithm::X25519,
         &empty_modules(),
     );
-    assert!(code.contains("def _rk("), "should define _rk() to reconstruct key");
+    assert!(
+        code.contains("def _rk("),
+        "should define _rk() to reconstruct key"
+    );
 }
 
 #[test]
@@ -383,7 +473,10 @@ fn bootstrap_key_parts_have_correct_count_32_bytes() {
     // _KP should have 4 bytes(...) entries
     let kp_count = code.matches("bytes([").count();
     // 4 _KP + 4 _XK = 8 minimum (may vary if other parts use same syntax)
-    assert!(kp_count >= 8, "should have at least 8 bytes([]) entries for 32-byte key");
+    assert!(
+        kp_count >= 8,
+        "should have at least 8 bytes([]) entries for 32-byte key"
+    );
 }
 
 #[test]
@@ -443,7 +536,10 @@ fn bootstrap_different_algorithms_produce_different_code() {
 fn bootstrap_contains_ecdh_decrypt(#[case] algo: EccAlgorithm) {
     let gen = default_generator();
     let code = gen.generate_bytecode_bootstrap(&dummy_private_key_32(), algo, &empty_modules());
-    assert!(code.contains("_decrypt_aes_key"), "should define _decrypt_aes_key");
+    assert!(
+        code.contains("_decrypt_aes_key"),
+        "should define _decrypt_aes_key"
+    );
 }
 
 #[test]
@@ -454,7 +550,10 @@ fn bootstrap_contains_protect_bootstrap_call() {
         EccAlgorithm::X25519,
         &empty_modules(),
     );
-    assert!(code.contains("_protect_bootstrap()"), "should call _protect_bootstrap");
+    assert!(
+        code.contains("_protect_bootstrap()"),
+        "should call _protect_bootstrap"
+    );
 }
 
 #[test]
@@ -466,8 +565,10 @@ fn bootstrap_with_empty_modules_has_empty_json() {
         &empty_modules(),
     );
     // Empty modules list serializes to "[]"
-    assert!(code.contains("_MODULES_DATA = '[]'") || code.contains("[]"), 
-            "should embed empty modules JSON");
+    assert!(
+        code.contains("_MODULES_DATA = '[]'") || code.contains("[]"),
+        "should embed empty modules JSON"
+    );
 }
 
 #[test]
@@ -489,7 +590,10 @@ fn bootstrap_is_valid_utf8() {
 
 #[test]
 fn runtime_generator_new_with_config() {
-    let cfg = ProtectConfig { anti_debug: true, ..ProtectConfig::default() };
+    let cfg = ProtectConfig {
+        anti_debug: true,
+        ..ProtectConfig::default()
+    };
     let gen = RuntimeGenerator::new(cfg);
     // Should be able to call generate without panic
     let code = gen.generate_python_runtime(&default_key());
@@ -499,7 +603,10 @@ fn runtime_generator_new_with_config() {
 #[test]
 fn runtime_generator_accepts_all_protection_methods() {
     for method in [ProtectionMethod::Py2Pyd, ProtectionMethod::Bytecode] {
-        let cfg = ProtectConfig { method, ..ProtectConfig::default() };
+        let cfg = ProtectConfig {
+            method,
+            ..ProtectConfig::default()
+        };
         let gen = RuntimeGenerator::new(cfg);
         let code = gen.generate_python_runtime(&default_key());
         assert!(!code.is_empty());

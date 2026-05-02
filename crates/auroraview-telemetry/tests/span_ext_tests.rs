@@ -176,7 +176,6 @@ fn concurrent_set_webview_id_no_panic() {
 
     let handles: Vec<_> = (0..8)
         .map(|i| {
-
             thread::spawn(move || {
                 let span = span!(Level::INFO, "concurrent-span");
                 span.set_webview_id(&format!("panel-{i}"));
@@ -375,11 +374,7 @@ fn set_error_unicode_in_message() {
 #[case("blender-widget", "blender-4.0", "export_gltf")]
 #[case("nuke-panel", "nuke-14", "comp_render")]
 #[case("3dsmax-view", "3dsmax-2025", "modifier_apply")]
-fn set_all_attributes_dcc_variants(
-    #[case] id: &str,
-    #[case] app: &str,
-    #[case] op: &str,
-) {
+fn set_all_attributes_dcc_variants(#[case] id: &str, #[case] app: &str, #[case] op: &str) {
     let span = span!(Level::INFO, "dcc-variant");
     span.set_webview_id(id);
     span.set_app_name(app);

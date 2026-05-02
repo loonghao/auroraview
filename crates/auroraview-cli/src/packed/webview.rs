@@ -804,8 +804,10 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
 
     // Build initialization script with JS bridge and optional CSP policy
     // CSP is injected as a <meta> tag before any page scripts run
-    let mut init_script =
-        build_packed_init_script_with_csp(config.content_security_policy.as_deref(), config.window.strict_csp);
+    let mut init_script = build_packed_init_script_with_csp(
+        config.content_security_policy.as_deref(),
+        config.window.strict_csp,
+    );
 
     // Append user-defined JavaScript injection (from [inject] js_code in manifest)
     if let Some(ref js_code) = config.inject_js {

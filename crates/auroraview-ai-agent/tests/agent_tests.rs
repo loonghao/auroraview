@@ -123,7 +123,10 @@ fn config_system_prompt_empty() {
 #[test]
 fn config_system_prompt_unicode() {
     let config = AIConfig::openai().with_system_prompt("你是一个有用的助手。");
-    assert_eq!(config.system_prompt, Some("你是一个有用的助手。".to_string()));
+    assert_eq!(
+        config.system_prompt,
+        Some("你是一个有用的助手。".to_string())
+    );
 }
 
 #[test]
@@ -195,10 +198,7 @@ fn agent_creation_anthropic() {
 fn agent_creation_with_system_prompt() {
     let config = AIConfig::openai().with_system_prompt("Be helpful");
     let agent = AIAgent::new(config);
-    assert_eq!(
-        agent.config().system_prompt,
-        Some("Be helpful".to_string())
-    );
+    assert_eq!(agent.config().system_prompt, Some("Be helpful".to_string()));
 }
 
 // ============================================================================
@@ -274,7 +274,9 @@ async fn current_session_after_new() {
 
 #[test]
 fn config_clone() {
-    let config = AIConfig::openai().with_temperature(0.3).with_max_tokens(512);
+    let config = AIConfig::openai()
+        .with_temperature(0.3)
+        .with_max_tokens(512);
     let cloned = config.clone();
     assert_eq!(cloned.model, config.model);
     assert_eq!(cloned.temperature, config.temperature);
@@ -385,7 +387,10 @@ async fn action_names_contains_type() {
     let names = agent.action_names().await;
     // Should contain at least one of the standard tools
     let has_tool = names.iter().any(|n| {
-        n.contains("navigate") || n.contains("click") || n.contains("search") || n.contains("screenshot")
+        n.contains("navigate")
+            || n.contains("click")
+            || n.contains("search")
+            || n.contains("screenshot")
     });
     assert!(has_tool, "Expected at least one tool in: {:?}", names);
 }
@@ -439,9 +444,13 @@ fn config_system_prompt_overwrite() {
 
 #[test]
 fn config_streaming_toggle() {
-    let c1 = AIConfig::openai().with_streaming(true).with_streaming(false);
+    let c1 = AIConfig::openai()
+        .with_streaming(true)
+        .with_streaming(false);
     assert!(!c1.stream);
-    let c2 = AIConfig::openai().with_streaming(false).with_streaming(true);
+    let c2 = AIConfig::openai()
+        .with_streaming(false)
+        .with_streaming(true);
     assert!(c2.stream);
 }
 
@@ -553,9 +562,7 @@ async fn concurrent_sessions() {
     let mut handles = Vec::new();
     for _ in 0..4 {
         let a = Arc::clone(&agent);
-        handles.push(tokio::spawn(async move {
-            a.new_session().await
-        }));
+        handles.push(tokio::spawn(async move { a.new_session().await }));
     }
 
     let sessions: Vec<_> = futures::future::join_all(handles)
@@ -569,5 +576,3 @@ async fn concurrent_sessions() {
         assert!(s.messages.is_empty());
     }
 }
-
-

@@ -43,7 +43,11 @@ fn make_manifest(
     )
 }
 
-fn create_extension_dir(parent: &TempDir, dir_name: &str, manifest_json: &str) -> std::path::PathBuf {
+fn create_extension_dir(
+    parent: &TempDir,
+    dir_name: &str,
+    manifest_json: &str,
+) -> std::path::PathBuf {
     let ext_dir = parent.path().join(dir_name);
     fs::create_dir_all(&ext_dir).unwrap();
     fs::write(ext_dir.join("manifest.json"), manifest_json).unwrap();
@@ -670,7 +674,10 @@ async fn generate_api_polyfill_permission_includes_api(
     #[case] expected_snippet: &str,
 ) {
     let tmp = TempDir::new().unwrap();
-    let dir_name = format!("perm-{}", permission.to_lowercase().replace("sidepanel", "sp"));
+    let dir_name = format!(
+        "perm-{}",
+        permission.to_lowercase().replace("sidepanel", "sp")
+    );
     let manifest = make_manifest("PermExt", "1.0.0", &[permission], None, None);
     let ext_dir = create_extension_dir(&tmp, &dir_name, &manifest);
 

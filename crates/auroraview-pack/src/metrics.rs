@@ -293,6 +293,3 @@ impl PackedMetrics {
         }
     }
 }
-
-
-

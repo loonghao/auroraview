@@ -153,7 +153,11 @@ fn unknown_command_returns_error(#[case] cmd: &str) {
 fn write_text_missing_text_field() {
     let plugin = ClipboardPlugin::new();
     let scope = ScopeConfig::new();
-    let result = plugin.handle("write_text", serde_json::json!({ "invalid": "args" }), &scope);
+    let result = plugin.handle(
+        "write_text",
+        serde_json::json!({ "invalid": "args" }),
+        &scope,
+    );
     assert!(result.is_err());
 }
 
@@ -238,7 +242,6 @@ fn concurrent_write_text_invalid() {
     }
 }
 
-
 // ---------------------------------------------------------------------------
 // R11 Extensions
 // ---------------------------------------------------------------------------
@@ -262,7 +265,11 @@ fn write_text_options_is_send_sync() {
 #[case("write_text")]
 fn each_valid_command_is_in_commands_list(#[case] cmd: &str) {
     let plugin = ClipboardPlugin::new();
-    assert!(plugin.commands().contains(&cmd), "{} should be in commands", cmd);
+    assert!(
+        plugin.commands().contains(&cmd),
+        "{} should be in commands",
+        cmd
+    );
 }
 
 #[rstest]
@@ -275,7 +282,11 @@ fn case_sensitive_command_lookup_fails(#[case] cmd: &str) {
     let plugin = ClipboardPlugin::new();
     let scope = ScopeConfig::new();
     let result = plugin.handle(cmd, serde_json::json!({}), &scope);
-    assert!(result.is_err(), "Command '{}' should fail case-sensitive check", cmd);
+    assert!(
+        result.is_err(),
+        "Command '{}' should fail case-sensitive check",
+        cmd
+    );
 }
 
 #[test]
@@ -325,7 +336,9 @@ fn write_text_options_only_spaces() {
 fn unknown_command_error_code_not_empty() {
     let plugin = ClipboardPlugin::new();
     let scope = ScopeConfig::new();
-    let err = plugin.handle("nope", serde_json::json!({}), &scope).unwrap_err();
+    let err = plugin
+        .handle("nope", serde_json::json!({}), &scope)
+        .unwrap_err();
     assert!(!err.code().is_empty());
 }
 
@@ -371,8 +384,12 @@ fn unknown_command_error_is_source_diagnostic() {
     let plugin = ClipboardPlugin::new();
     let scope = ScopeConfig::new();
     // Verify that error from unknown command is deterministic
-    let err1 = plugin.handle("bad_cmd", serde_json::json!({}), &scope).unwrap_err();
-    let err2 = plugin.handle("bad_cmd", serde_json::json!({}), &scope).unwrap_err();
+    let err1 = plugin
+        .handle("bad_cmd", serde_json::json!({}), &scope)
+        .unwrap_err();
+    let err2 = plugin
+        .handle("bad_cmd", serde_json::json!({}), &scope)
+        .unwrap_err();
     assert_eq!(err1.code(), err2.code());
 }
 
@@ -384,7 +401,6 @@ fn plugin_multiple_instances_same_commands() {
         assert_eq!(p.commands(), first_cmds);
     }
 }
-
 
 #[test]
 #[ignore = "Requires display server"]
@@ -437,11 +453,7 @@ fn clipboard_write_empty_text() {
     let plugin = ClipboardPlugin::new();
     let scope = ScopeConfig::new();
 
-    let result = plugin.handle(
-        "write_text",
-        serde_json::json!({ "text": "" }),
-        &scope,
-    );
+    let result = plugin.handle("write_text", serde_json::json!({ "text": "" }), &scope);
     assert!(result.is_ok());
     let data = result.unwrap();
     assert_eq!(data["success"], true);
@@ -469,16 +481,24 @@ fn clipboard_write_unicode() {
 fn unknown_command_error_message_contains_command() {
     let plugin = ClipboardPlugin::new();
     let scope = ScopeConfig::new();
-    let err = plugin.handle("totally_unknown", serde_json::json!({}), &scope).unwrap_err();
+    let err = plugin
+        .handle("totally_unknown", serde_json::json!({}), &scope)
+        .unwrap_err();
     let msg = err.to_string();
-    assert!(msg.contains("totally_unknown"), "Error should mention the unknown command: {}", msg);
+    assert!(
+        msg.contains("totally_unknown"),
+        "Error should mention the unknown command: {}",
+        msg
+    );
 }
 
 #[test]
 fn unknown_command_error_code_is_command_not_found() {
     let plugin = ClipboardPlugin::new();
     let scope = ScopeConfig::new();
-    let err = plugin.handle("nope", serde_json::json!({}), &scope).unwrap_err();
+    let err = plugin
+        .handle("nope", serde_json::json!({}), &scope)
+        .unwrap_err();
     assert_eq!(err.code(), "COMMAND_NOT_FOUND");
 }
 
@@ -486,25 +506,43 @@ fn unknown_command_error_code_is_command_not_found() {
 fn write_text_missing_text_field_error_message() {
     let plugin = ClipboardPlugin::new();
     let scope = ScopeConfig::new();
-    let err = plugin.handle("write_text", serde_json::json!({ "invalid": "args" }), &scope).unwrap_err();
+    let err = plugin
+        .handle(
+            "write_text",
+            serde_json::json!({ "invalid": "args" }),
+            &scope,
+        )
+        .unwrap_err();
     let msg = err.to_string();
-    assert!(msg.contains("text") || msg.contains("missing"), "Error should mention missing field: {}", msg);
+    assert!(
+        msg.contains("text") || msg.contains("missing"),
+        "Error should mention missing field: {}",
+        msg
+    );
 }
 
 #[test]
 fn write_text_wrong_type_error_message() {
     let plugin = ClipboardPlugin::new();
     let scope = ScopeConfig::new();
-    let err = plugin.handle("write_text", serde_json::json!({ "text": 123 }), &scope).unwrap_err();
+    let err = plugin
+        .handle("write_text", serde_json::json!({ "text": 123 }), &scope)
+        .unwrap_err();
     let msg = err.to_string();
-    assert!(msg.contains("text") || msg.contains("string") || msg.contains("type"), "Error should mention type mismatch: {}", msg);
+    assert!(
+        msg.contains("text") || msg.contains("string") || msg.contains("type"),
+        "Error should mention type mismatch: {}",
+        msg
+    );
 }
 
 #[test]
 fn write_text_null_args_error_message() {
     let plugin = ClipboardPlugin::new();
     let scope = ScopeConfig::new();
-    let err = plugin.handle("write_text", serde_json::json!(null), &scope).unwrap_err();
+    let err = plugin
+        .handle("write_text", serde_json::json!(null), &scope)
+        .unwrap_err();
     let msg = err.to_string();
     assert!(!msg.is_empty(), "Error message should not be empty");
 }
@@ -562,7 +600,11 @@ fn concurrent_write_text_valid_args() {
             let p = Arc::clone(&plugin);
             let s = scope.clone();
             std::thread::spawn(move || {
-                p.handle("write_text", serde_json::json!({ "text": format!("thread-{}", i) }), &s)
+                p.handle(
+                    "write_text",
+                    serde_json::json!({ "text": format!("thread-{}", i) }),
+                    &s,
+                )
             })
         })
         .collect();
@@ -599,7 +641,9 @@ fn unknown_command_multiple_threads_same_error_code() {
             let s = scope.clone();
             std::thread::spawn(move || {
                 let cmd = format!("unknown_{}", i);
-                p.handle(&cmd, serde_json::json!({}), &s).unwrap_err().code()
+                p.handle(&cmd, serde_json::json!({}), &s)
+                    .unwrap_err()
+                    .code()
             })
         })
         .collect();

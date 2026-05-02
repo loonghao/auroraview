@@ -94,7 +94,13 @@ fn window_info_negative_hwnd() {
 #[case(99999, "Large HWND", 9999)]
 #[case(0, "", 0)]
 fn window_info_various(#[case] hwnd: isize, #[case] title: &str, #[case] pid: u32) {
-    let info = WindowInfo::new(hwnd, title.to_string(), pid, "proc".to_string(), "".to_string());
+    let info = WindowInfo::new(
+        hwnd,
+        title.to_string(),
+        pid,
+        "proc".to_string(),
+        "".to_string(),
+    );
     assert_eq!(info.hwnd, hwnd);
     assert_eq!(info.title, title);
     assert_eq!(info.pid, pid);
@@ -104,7 +110,13 @@ fn window_info_various(#[case] hwnd: isize, #[case] title: &str, #[case] pid: u3
 // From<ActiveWindow>
 // ============================================================================
 
-fn make_active_window(title: &str, window_id: &str, pid: u64, path: &str, app: &str) -> ActiveWindow {
+fn make_active_window(
+    title: &str,
+    window_id: &str,
+    pid: u64,
+    path: &str,
+    app: &str,
+) -> ActiveWindow {
     ActiveWindow {
         title: title.to_string(),
         window_id: window_id.to_string(),
@@ -229,15 +241,27 @@ fn repr_contains_process_name() {
         "C:/Maya/bin/maya.exe".to_string(),
     );
     let repr = info.repr();
-    assert!(repr.contains("maya.exe"), "repr should contain process_name: {repr}");
+    assert!(
+        repr.contains("maya.exe"),
+        "repr should contain process_name: {repr}"
+    );
 }
 
 #[test]
 fn repr_format_single_quotes_around_title() {
-    let info = WindowInfo::new(1, "Blender".to_string(), 2, "blender".to_string(), "/usr/bin/blender".to_string());
+    let info = WindowInfo::new(
+        1,
+        "Blender".to_string(),
+        2,
+        "blender".to_string(),
+        "/usr/bin/blender".to_string(),
+    );
     let repr = info.repr();
     // The format is: title='...'
-    assert!(repr.contains("title='Blender'"), "repr format mismatch: {repr}");
+    assert!(
+        repr.contains("title='Blender'"),
+        "repr format mismatch: {repr}"
+    );
 }
 
 // ============================================================================
@@ -334,7 +358,13 @@ fn window_info_process_name_empty() {
 
 #[test]
 fn window_info_large_hwnd() {
-    let info = WindowInfo::new(isize::MAX, "Max".to_string(), u32::MAX, "p".to_string(), "/".to_string());
+    let info = WindowInfo::new(
+        isize::MAX,
+        "Max".to_string(),
+        u32::MAX,
+        "p".to_string(),
+        "/".to_string(),
+    );
     assert_eq!(info.hwnd, isize::MAX);
     assert_eq!(info.pid, u32::MAX);
 }
@@ -345,7 +375,13 @@ fn window_info_large_hwnd() {
 #[case("3dsmax.exe", "C:/Autodesk/3dsMax2025/3dsmax.exe", "3ds Max 2025")]
 #[case("blender.exe", "C:/Blender/blender.exe", "Blender 4.0")]
 fn dcc_application_window_info(#[case] proc: &str, #[case] path: &str, #[case] title: &str) {
-    let info = WindowInfo::new(1000, title.to_string(), 500, proc.to_string(), path.to_string());
+    let info = WindowInfo::new(
+        1000,
+        title.to_string(),
+        500,
+        proc.to_string(),
+        path.to_string(),
+    );
     assert_eq!(info.process_name, proc);
     assert_eq!(info.process_path, path);
     let repr = info.repr();
@@ -360,7 +396,13 @@ fn window_info_eq_reflexive() {
 
 #[test]
 fn window_info_clone_independence() {
-    let info = WindowInfo::new(5, "Original".to_string(), 10, "p".to_string(), "/p".to_string());
+    let info = WindowInfo::new(
+        5,
+        "Original".to_string(),
+        10,
+        "p".to_string(),
+        "/p".to_string(),
+    );
     let cloned = info.clone();
     // Modifying cloned does not affect original
     assert_eq!(info.title, "Original");
@@ -400,7 +442,13 @@ fn from_active_window_extracts_pid() {
 #[test]
 fn concurrent_window_info_clone() {
     use std::sync::Arc;
-    let info = Arc::new(WindowInfo::new(1, "Shared".to_string(), 1, "p".to_string(), "/".to_string()));
+    let info = Arc::new(WindowInfo::new(
+        1,
+        "Shared".to_string(),
+        1,
+        "p".to_string(),
+        "/".to_string(),
+    ));
     let handles: Vec<_> = (0..8)
         .map(|_| {
             let info_ref = Arc::clone(&info);
@@ -426,7 +474,13 @@ fn hwnd_parse_extended(#[case] window_id: &str, #[case] expected: isize) {
 
 #[test]
 fn window_info_repr_contains_hwnd_label() {
-    let info = WindowInfo::new(777, "App".to_string(), 10, "app".to_string(), "/app".to_string());
+    let info = WindowInfo::new(
+        777,
+        "App".to_string(),
+        10,
+        "app".to_string(),
+        "/app".to_string(),
+    );
     let repr = info.repr();
     assert!(repr.contains("hwnd=777"));
 }
@@ -441,7 +495,15 @@ fn window_info_ne_all_different() {
 #[test]
 fn window_info_collection_of_10() {
     let windows: Vec<WindowInfo> = (0..10)
-        .map(|i| WindowInfo::new(i as isize, format!("Window {i}"), i as u32, "proc".to_string(), "/p".to_string()))
+        .map(|i| {
+            WindowInfo::new(
+                i as isize,
+                format!("Window {i}"),
+                i as u32,
+                "proc".to_string(),
+                "/p".to_string(),
+            )
+        })
         .collect();
     assert_eq!(windows.len(), 10);
     for (i, w) in windows.iter().enumerate() {

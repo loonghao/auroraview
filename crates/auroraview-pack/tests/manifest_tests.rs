@@ -425,10 +425,7 @@ allow_new_window = true
 url = "https://example.com"
 "#;
     let manifest = Manifest::parse(toml).unwrap();
-    assert_eq!(
-        manifest.get_user_agent().as_deref(),
-        Some("MyBrowser/1.0")
-    );
+    assert_eq!(manifest.get_user_agent().as_deref(), Some("MyBrowser/1.0"));
     assert!(manifest.get_allow_new_window());
 }
 
@@ -686,8 +683,14 @@ identifier = "com.example.bundle"
 "#;
     let manifest = Manifest::parse(toml).unwrap();
     // package.identifier takes precedence in get_identifier()
-    assert_eq!(manifest.get_identifier(), Some("com.example.test".to_string()));
-    assert_eq!(manifest.bundle.copyright.as_deref(), Some("© 2025 Example Corp"));
+    assert_eq!(
+        manifest.get_identifier(),
+        Some("com.example.test".to_string())
+    );
+    assert_eq!(
+        manifest.bundle.copyright.as_deref(),
+        Some("© 2025 Example Corp")
+    );
 }
 
 #[test]
@@ -705,7 +708,10 @@ identifier = "com.example.bundle-only"
 "#;
     let manifest = Manifest::parse(toml).unwrap();
     // No package.identifier → uses bundle.identifier
-    assert_eq!(manifest.get_identifier(), Some("com.example.bundle-only".to_string()));
+    assert_eq!(
+        manifest.get_identifier(),
+        Some("com.example.bundle-only".to_string())
+    );
 }
 
 #[test]
@@ -809,7 +815,10 @@ url = "https://example.com"
 content_security_policy = "default-src 'self'"
 "#;
     let manifest = Manifest::parse(toml).unwrap();
-    let sec = manifest.security.as_ref().expect("security section missing");
+    let sec = manifest
+        .security
+        .as_ref()
+        .expect("security section missing");
     assert_eq!(
         sec.content_security_policy.as_deref(),
         Some("default-src 'self'")
@@ -911,10 +920,7 @@ dest = "resources/scripts"
     assert_eq!(hooks.after_pack, vec!["echo done"]);
     assert_eq!(hooks.collect.len(), 1);
     assert_eq!(hooks.collect[0].source, "./scripts/*.py");
-    assert_eq!(
-        hooks.collect[0].dest.as_deref(),
-        Some("resources/scripts")
-    );
+    assert_eq!(hooks.collect[0].dest.as_deref(), Some("resources/scripts"));
 }
 
 // ============================================================================

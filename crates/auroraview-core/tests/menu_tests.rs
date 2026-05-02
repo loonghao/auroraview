@@ -220,7 +220,6 @@ fn menu_many_items() {
             format!("tools.t{}", i),
             None,
         ));
-
     }
     assert_eq!(menu.items.len(), 10);
 }
@@ -291,7 +290,12 @@ fn menu_item_type_debug() {
 
 #[test]
 fn menu_action_id_formats() {
-    let ids = ["file.new", "edit.copy", "dcc.maya.run_mel", "tool.apply_modifier"];
+    let ids = [
+        "file.new",
+        "edit.copy",
+        "dcc.maya.run_mel",
+        "tool.apply_modifier",
+    ];
     for id in ids {
         let action = MenuAction::new(id, "Label");
         assert_eq!(action.action_id, id);
@@ -358,9 +362,7 @@ fn menu_bar_with_edit_menu_has_items() {
 
 #[test]
 fn menu_with_only_separators() {
-    let menu = Menu::new("Sep")
-        .add_separator()
-        .add_separator();
+    let menu = Menu::new("Sep").add_separator().add_separator();
     assert_eq!(menu.items.len(), 2);
     for item in &menu.items {
         assert!(matches!(item.item_type, MenuItemType::Separator));

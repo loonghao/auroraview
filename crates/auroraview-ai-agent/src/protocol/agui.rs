@@ -451,7 +451,6 @@ pub struct AGUIContext {
     pub value: JsonValue,
 }
 
-
 /// AG-UI Event emitter trait
 pub trait AGUIEmitter: Send + Sync {
     /// Emit an AG-UI event

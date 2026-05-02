@@ -201,7 +201,6 @@ fn test_sentry_config_clone() {
     assert!((config.sentry_sample_rate - cloned.sentry_sample_rate).abs() < f32::EPSILON);
 }
 
-
 #[test]
 fn test_sentry_capture_level_case_variations() {
     // Both uppercase and lowercase should not panic
@@ -262,7 +261,11 @@ fn test_config_partial_update_preserves_defaults() {
 fn test_sentry_dsn_none_serde() {
     let config = TelemetryConfig::default();
     let json = serde_json::to_string(&config).unwrap();
-    assert!(json.contains("null") || !json.contains("sentry_dsn") || json.contains("\"sentry_dsn\":null"));
+    assert!(
+        json.contains("null")
+            || !json.contains("sentry_dsn")
+            || json.contains("\"sentry_dsn\":null")
+    );
 }
 
 // ============================================================================
@@ -308,8 +311,14 @@ fn test_telemetry_config_clone_independence() {
     };
     let mut cloned = config.clone();
     cloned.sentry_dsn = Some("https://cloned@sentry.io/2".to_string());
-    assert_eq!(config.sentry_dsn.as_deref(), Some("https://orig@sentry.io/1"));
-    assert_eq!(cloned.sentry_dsn.as_deref(), Some("https://cloned@sentry.io/2"));
+    assert_eq!(
+        config.sentry_dsn.as_deref(),
+        Some("https://orig@sentry.io/1")
+    );
+    assert_eq!(
+        cloned.sentry_dsn.as_deref(),
+        Some("https://cloned@sentry.io/2")
+    );
 }
 
 // ============================================================================
@@ -327,7 +336,10 @@ fn test_sentry_capture_message_does_not_panic() {
 #[test]
 fn test_sentry_config_dsn_none_by_default() {
     let config = TelemetryConfig::default();
-    assert!(config.sentry_dsn.is_none(), "sentry_dsn should default to None");
+    assert!(
+        config.sentry_dsn.is_none(),
+        "sentry_dsn should default to None"
+    );
 }
 
 #[test]
@@ -376,7 +388,10 @@ fn test_sentry_config_serde_roundtrip_all_fields() {
     assert_eq!(restored.sentry_environment, config.sentry_environment);
     assert_eq!(restored.sentry_release, config.sentry_release);
     assert!((restored.sentry_sample_rate - config.sentry_sample_rate).abs() < f32::EPSILON);
-    assert!((restored.sentry_traces_sample_rate - config.sentry_traces_sample_rate).abs() < f32::EPSILON);
+    assert!(
+        (restored.sentry_traces_sample_rate - config.sentry_traces_sample_rate).abs()
+            < f32::EPSILON
+    );
 }
 
 #[test]
@@ -474,7 +489,9 @@ fn test_sentry_config_sample_rate_near_boundary() {
 #[test]
 fn test_sentry_capture_multiple_levels_sequential() {
     // Sequential calls with different levels should all be safe
-    let levels = ["trace", "debug", "info", "warning", "warn", "error", "fatal", "critical", ""];
+    let levels = [
+        "trace", "debug", "info", "warning", "warn", "error", "fatal", "critical", "",
+    ];
     for level in &levels {
         let _r = Telemetry::capture_sentry_message("sequential-test", level);
     }
@@ -506,7 +523,10 @@ fn test_sentry_config_serde_roundtrip_partial_fields() {
     };
     let json = serde_json::to_string(&config).unwrap();
     let restored: TelemetryConfig = serde_json::from_str(&json).unwrap();
-    assert_eq!(restored.sentry_dsn.as_deref(), Some("https://partial@sentry.io/5"));
+    assert_eq!(
+        restored.sentry_dsn.as_deref(),
+        Some("https://partial@sentry.io/5")
+    );
     assert!(restored.sentry_environment.is_none());
     assert!(restored.sentry_release.is_none());
 }
@@ -544,7 +564,10 @@ fn test_sentry_config_environment_long_string() {
         sentry_environment: Some(long_env.clone()),
         ..TelemetryConfig::default()
     };
-    assert_eq!(config.sentry_environment.as_deref(), Some(long_env.as_str()));
+    assert_eq!(
+        config.sentry_environment.as_deref(),
+        Some(long_env.as_str())
+    );
 }
 
 #[test]

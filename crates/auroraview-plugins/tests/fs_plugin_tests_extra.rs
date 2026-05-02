@@ -16,16 +16,24 @@ use auroraview_plugins::{PluginHandler, ScopeConfig};
 fn unknown_command_error_message_contains_command() {
     let plugin = FsPlugin::new();
     let scope = ScopeConfig::permissive();
-    let err = plugin.handle("totally_unknown", serde_json::json!({}), &scope).unwrap_err();
+    let err = plugin
+        .handle("totally_unknown", serde_json::json!({}), &scope)
+        .unwrap_err();
     let msg = err.to_string();
-    assert!(msg.contains("totally_unknown"), "Error should mention the unknown command: {}", msg);
+    assert!(
+        msg.contains("totally_unknown"),
+        "Error should mention the unknown command: {}",
+        msg
+    );
 }
 
 #[test]
 fn unknown_command_error_code_is_command_not_found() {
     let plugin = FsPlugin::new();
     let scope = ScopeConfig::permissive();
-    let err = plugin.handle("nope", serde_json::json!({}), &scope).unwrap_err();
+    let err = plugin
+        .handle("nope", serde_json::json!({}), &scope)
+        .unwrap_err();
     assert_eq!(err.code(), "COMMAND_NOT_FOUND");
 }
 
@@ -33,25 +41,43 @@ fn unknown_command_error_code_is_command_not_found() {
 fn read_file_missing_path_error_message() {
     let plugin = FsPlugin::new();
     let scope = ScopeConfig::permissive();
-    let err = plugin.handle("read_file", serde_json::json!({ "invalid": "args" }), &scope).unwrap_err();
+    let err = plugin
+        .handle(
+            "read_file",
+            serde_json::json!({ "invalid": "args" }),
+            &scope,
+        )
+        .unwrap_err();
     let msg = err.to_string();
-    assert!(msg.contains("path") || msg.contains("missing"), "Error should mention missing field: {}", msg);
+    assert!(
+        msg.contains("path") || msg.contains("missing"),
+        "Error should mention missing field: {}",
+        msg
+    );
 }
 
 #[test]
 fn write_file_missing_contents_error_message() {
     let plugin = FsPlugin::new();
     let scope = ScopeConfig::permissive();
-    let err = plugin.handle("write_file", serde_json::json!({ "path": "/test" }), &scope).unwrap_err();
+    let err = plugin
+        .handle("write_file", serde_json::json!({ "path": "/test" }), &scope)
+        .unwrap_err();
     let msg = err.to_string();
-    assert!(msg.contains("contents") || msg.contains("missing"), "Error should mention missing field: {}", msg);
+    assert!(
+        msg.contains("contents") || msg.contains("missing"),
+        "Error should mention missing field: {}",
+        msg
+    );
 }
 
 #[test]
 fn read_file_null_args_error_message() {
     let plugin = FsPlugin::new();
     let scope = ScopeConfig::permissive();
-    let err = plugin.handle("read_file", serde_json::json!(null), &scope).unwrap_err();
+    let err = plugin
+        .handle("read_file", serde_json::json!(null), &scope)
+        .unwrap_err();
     let msg = err.to_string();
     assert!(!msg.is_empty(), "Error message should not be empty");
 }
@@ -60,7 +86,9 @@ fn read_file_null_args_error_message() {
 fn write_file_null_args_error_message() {
     let plugin = FsPlugin::new();
     let scope = ScopeConfig::permissive();
-    let err = plugin.handle("write_file", serde_json::json!(null), &scope).unwrap_err();
+    let err = plugin
+        .handle("write_file", serde_json::json!(null), &scope)
+        .unwrap_err();
     let msg = err.to_string();
     assert!(!msg.is_empty(), "Error message should not be empty");
 }
@@ -69,18 +97,30 @@ fn write_file_null_args_error_message() {
 fn copy_missing_from_error_message() {
     let plugin = FsPlugin::new();
     let scope = ScopeConfig::permissive();
-    let err = plugin.handle("copy", serde_json::json!({ "to": "/dst" }), &scope).unwrap_err();
+    let err = plugin
+        .handle("copy", serde_json::json!({ "to": "/dst" }), &scope)
+        .unwrap_err();
     let msg = err.to_string();
-    assert!(msg.contains("from") || msg.contains("missing"), "Error should mention missing field: {}", msg);
+    assert!(
+        msg.contains("from") || msg.contains("missing"),
+        "Error should mention missing field: {}",
+        msg
+    );
 }
 
 #[test]
 fn rename_missing_from_error_message() {
     let plugin = FsPlugin::new();
     let scope = ScopeConfig::permissive();
-    let err = plugin.handle("rename", serde_json::json!({ "to": "/dst" }), &scope).unwrap_err();
+    let err = plugin
+        .handle("rename", serde_json::json!({ "to": "/dst" }), &scope)
+        .unwrap_err();
     let msg = err.to_string();
-    assert!(msg.contains("from") || msg.contains("missing"), "Error should mention missing field: {}", msg);
+    assert!(
+        msg.contains("from") || msg.contains("missing"),
+        "Error should mention missing field: {}",
+        msg
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -113,7 +153,9 @@ fn unknown_command_multiple_threads_same_error_code() {
             let s = scope.clone();
             thread::spawn(move || {
                 let cmd = format!("unknown_{}", i);
-                p.handle(&cmd, serde_json::json!({}), &s).unwrap_err().code()
+                p.handle(&cmd, serde_json::json!({}), &s)
+                    .unwrap_err()
+                    .code()
             })
         })
         .collect();
@@ -128,7 +170,9 @@ fn unknown_command_multiple_threads_same_error_code() {
 fn read_file_empty_path_error() {
     let plugin = FsPlugin::new();
     let scope = ScopeConfig::permissive();
-    let err = plugin.handle("read_file", serde_json::json!({ "path": "" }), &scope).unwrap_err();
+    let err = plugin
+        .handle("read_file", serde_json::json!({ "path": "" }), &scope)
+        .unwrap_err();
     let msg = err.to_string();
     assert!(!msg.is_empty(), "Error message should not be empty");
 }

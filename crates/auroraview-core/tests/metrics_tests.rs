@@ -1,4 +1,4 @@
-﻿//! Metrics tests
+//! Metrics tests
 
 use std::thread;
 use std::time::Duration as StdDuration;
@@ -214,7 +214,9 @@ fn shown_time_as_total_interactive() {
     let report = metrics.format_report();
     let expected_ms = shown.as_millis();
     // The report should contain the duration value for shown_time
-    assert!(report.contains(&format!("{}ms", expected_ms)) || report.contains(&format!("{:?}", shown)));
+    assert!(
+        report.contains(&format!("{}ms", expected_ms)) || report.contains(&format!("{:?}", shown))
+    );
 }
 
 #[test]
@@ -478,7 +480,10 @@ fn format_report_no_html_mark_not_in_report() {
     metrics.mark_window();
     // html not marked
     let report = metrics.format_report();
-    assert!(!report.contains("HTML loaded"), "HTML line should not appear when not marked");
+    assert!(
+        !report.contains("HTML loaded"),
+        "HTML line should not appear when not marked"
+    );
 }
 
 #[test]
@@ -487,7 +492,10 @@ fn format_report_no_js_mark_not_in_report() {
     metrics.mark_window();
     // js not marked
     let report = metrics.format_report();
-    assert!(!report.contains("JavaScript initialized"), "JS line should not appear when not marked");
+    assert!(
+        !report.contains("JavaScript initialized"),
+        "JS line should not appear when not marked"
+    );
 }
 
 // ============================================================================

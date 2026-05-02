@@ -28,8 +28,15 @@ fn process_plugin_default_name() {
 fn process_plugin_commands_contains_all() {
     let plugin = ProcessPlugin::new();
     let commands = plugin.commands();
-    for cmd in &["spawn_ipc", "spawn_ipc_channel", "kill", "kill_all", "send", "send_json", "list"]
-    {
+    for cmd in &[
+        "spawn_ipc",
+        "spawn_ipc_channel",
+        "kill",
+        "kill_all",
+        "send",
+        "send_json",
+        "list",
+    ] {
         assert!(commands.contains(cmd), "missing command: {cmd}");
     }
 }
@@ -48,7 +55,9 @@ fn process_plugin_commands_count() {
 fn list_empty_returns_empty_array() {
     let plugin = ProcessPlugin::new();
     let scope = ScopeConfig::permissive();
-    let result = plugin.handle("list", serde_json::json!({}), &scope).unwrap();
+    let result = plugin
+        .handle("list", serde_json::json!({}), &scope)
+        .unwrap();
     assert_eq!(result["processes"], serde_json::json!([]));
 }
 
@@ -56,7 +65,9 @@ fn list_empty_returns_empty_array() {
 fn list_any_valid_json_succeeds() {
     let plugin = ProcessPlugin::new();
     let scope = ScopeConfig::permissive();
-    let result = plugin.handle("list", serde_json::json!(null), &scope).unwrap();
+    let result = plugin
+        .handle("list", serde_json::json!(null), &scope)
+        .unwrap();
     assert!(result["processes"].is_array());
 }
 
@@ -311,8 +322,7 @@ fn spawn_ipc_options_serialization_roundtrip() {
 
 #[test]
 fn kill_options_deserialization() {
-    let opts: KillOptions =
-        serde_json::from_value(serde_json::json!({ "pid": 1234 })).unwrap();
+    let opts: KillOptions = serde_json::from_value(serde_json::json!({ "pid": 1234 })).unwrap();
     assert_eq!(opts.pid, 1234);
 }
 
@@ -409,7 +419,9 @@ fn concurrent_kill_nonexistent_no_panic() {
             let s = scope.clone();
             thread::spawn(move || {
                 let pid = 900_000 + i as u32;
-                let result = p.handle("kill", serde_json::json!({ "pid": pid }), &s).unwrap();
+                let result = p
+                    .handle("kill", serde_json::json!({ "pid": pid }), &s)
+                    .unwrap();
                 assert!(result["success"].as_bool().unwrap());
             })
         })
@@ -426,15 +438,13 @@ fn concurrent_kill_nonexistent_no_panic() {
 
 #[test]
 fn kill_options_max_pid() {
-    let opts: KillOptions =
-        serde_json::from_value(serde_json::json!({ "pid": u32::MAX })).unwrap();
+    let opts: KillOptions = serde_json::from_value(serde_json::json!({ "pid": u32::MAX })).unwrap();
     assert_eq!(opts.pid, u32::MAX);
 }
 
 #[test]
 fn kill_options_pid_zero() {
-    let opts: KillOptions =
-        serde_json::from_value(serde_json::json!({ "pid": 0 })).unwrap();
+    let opts: KillOptions = serde_json::from_value(serde_json::json!({ "pid": 0 })).unwrap();
     assert_eq!(opts.pid, 0);
 }
 
@@ -474,13 +484,17 @@ fn send_options_empty_data() {
 #[test]
 fn send_options_unicode_data() {
     let opts: SendOptions =
-        serde_json::from_value(serde_json::json!({ "pid": 7, "data": "你好\nこんにちは" })).unwrap();
+        serde_json::from_value(serde_json::json!({ "pid": 7, "data": "你好\nこんにちは" }))
+            .unwrap();
     assert!(opts.data.contains("你好"));
 }
 
 #[test]
 fn send_options_serde_roundtrip() {
-    let original = SendOptions { pid: 99, data: "hello".to_string() };
+    let original = SendOptions {
+        pid: 99,
+        data: "hello".to_string(),
+    };
     let json = serde_json::to_value(&original).unwrap();
     let restored: SendOptions = serde_json::from_value(json).unwrap();
     assert_eq!(restored.pid, 99);
@@ -511,7 +525,8 @@ fn send_json_options_nested_object_data() {
     let opts: SendJsonOptions = serde_json::from_value(serde_json::json!({
         "pid": 3,
         "data": { "level1": { "level2": { "value": 42 } } }
-    })).unwrap();
+    }))
+    .unwrap();
     assert_eq!(opts.data["level1"]["level2"]["value"], 42);
 }
 
@@ -522,7 +537,12 @@ fn send_json_options_nested_object_data() {
 #[test]
 fn spawn_ipc_options_many_env_vars() {
     let env: serde_json::Value = (0..10)
-        .map(|i| (format!("VAR_{}", i), serde_json::json!(format!("val_{}", i))))
+        .map(|i| {
+            (
+                format!("VAR_{}", i),
+                serde_json::json!(format!("val_{}", i)),
+            )
+        })
         .collect::<serde_json::Map<_, _>>()
         .into();
     let json = serde_json::json!({ "command": "test", "env": env });
@@ -533,7 +553,8 @@ fn spawn_ipc_options_many_env_vars() {
 #[test]
 fn spawn_ipc_options_show_console_true() {
     let opts: SpawnIpcOptions =
-        serde_json::from_value(serde_json::json!({ "command": "cmd", "showConsole": true })).unwrap();
+        serde_json::from_value(serde_json::json!({ "command": "cmd", "showConsole": true }))
+            .unwrap();
     assert!(opts.show_console);
 }
 

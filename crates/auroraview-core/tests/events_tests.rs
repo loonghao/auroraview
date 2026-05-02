@@ -119,7 +119,13 @@ fn ext_page_ready() {
 }
 
 #[rstest]
-#[case(Some(50), Some("loading"), Some("step1"), Some("in progress"), Some("ok"))]
+#[case(
+    Some(50),
+    Some("loading"),
+    Some("step1"),
+    Some("in progress"),
+    Some("ok")
+)]
 #[case(Some(100), None, None, None, None)]
 #[case(None, None, None, None, None)]
 fn ext_loading_update(
@@ -304,10 +310,7 @@ fn core_user_event_clone() {
         data: "data".to_string(),
     };
     let cloned = original.clone();
-    assert_eq!(
-        format!("{:?}", original),
-        format!("{:?}", cloned)
-    );
+    assert_eq!(format!("{:?}", original), format!("{:?}", cloned));
 }
 
 #[test]
@@ -317,10 +320,7 @@ fn extended_user_event_clone() {
         source: "test".to_string(),
     };
     let cloned = original.clone();
-    assert_eq!(
-        format!("{:?}", original),
-        format!("{:?}", cloned)
-    );
+    assert_eq!(format!("{:?}", original), format!("{:?}", cloned));
 }
 
 #[test]
@@ -329,8 +329,11 @@ fn extended_python_ready_clone() {
         handlers: vec!["h1".to_string(), "h2".to_string()],
     };
     let cloned = original.clone();
-    if let (ExtendedUserEvent::PythonReady { handlers: h1 },
-              ExtendedUserEvent::PythonReady { handlers: h2 }) = (original, cloned) {
+    if let (
+        ExtendedUserEvent::PythonReady { handlers: h1 },
+        ExtendedUserEvent::PythonReady { handlers: h2 },
+    ) = (original, cloned)
+    {
         assert_eq!(h1, h2);
     }
 }
@@ -507,7 +510,14 @@ fn ext_loading_update_all_none() {
         step_text: None,
         step_status: None,
     };
-    if let ExtendedUserEvent::LoadingUpdate { progress, text, step_id, step_text, step_status } = ev {
+    if let ExtendedUserEvent::LoadingUpdate {
+        progress,
+        text,
+        step_id,
+        step_text,
+        step_status,
+    } = ev
+    {
         assert!(progress.is_none());
         assert!(text.is_none());
         assert!(step_id.is_none());
@@ -525,7 +535,13 @@ fn ext_loading_update_all_some() {
         step_text: Some("Initializing plugins".to_string()),
         step_status: Some("running".to_string()),
     };
-    if let ExtendedUserEvent::LoadingUpdate { progress, text, step_id, .. } = ev {
+    if let ExtendedUserEvent::LoadingUpdate {
+        progress,
+        text,
+        step_id,
+        ..
+    } = ev
+    {
         assert_eq!(progress, Some(75));
         assert_eq!(text.as_deref(), Some("Loading..."));
         assert_eq!(step_id.as_deref(), Some("step-3"));
@@ -559,7 +575,9 @@ fn ext_tray_menu_click_unicode_label() {
 #[test]
 fn ext_python_ready_many_handlers() {
     let handlers: Vec<String> = (0..100).map(|i| format!("api.method_{i}")).collect();
-    let ev = ExtendedUserEvent::PythonReady { handlers: handlers.clone() };
+    let ev = ExtendedUserEvent::PythonReady {
+        handlers: handlers.clone(),
+    };
     if let ExtendedUserEvent::PythonReady { handlers: h } = ev {
         assert_eq!(h.len(), 100);
         assert_eq!(h[0], "api.method_0");
@@ -639,7 +657,10 @@ fn ext_show_error_with_details() {
         details: Some("Traceback:\n  line 42".to_string()),
         source: "python".to_string(),
     };
-    if let ExtendedUserEvent::ShowError { details, source, .. } = ev {
+    if let ExtendedUserEvent::ShowError {
+        details, source, ..
+    } = ev
+    {
         assert!(details.unwrap().contains("line 42"));
         assert_eq!(source, "python");
     }

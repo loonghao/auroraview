@@ -110,7 +110,11 @@ fn bundle_nested_directories() {
     fs::create_dir_all(temp.path().join("assets/images")).unwrap();
     fs::create_dir_all(temp.path().join("src/components")).unwrap();
     fs::write(temp.path().join("index.html"), "<html></html>").unwrap();
-    fs::write(temp.path().join("assets/images/logo.png"), b"\x89PNG".as_ref()).unwrap();
+    fs::write(
+        temp.path().join("assets/images/logo.png"),
+        b"\x89PNG".as_ref(),
+    )
+    .unwrap();
     fs::write(temp.path().join("src/components/app.js"), "export {}").unwrap();
 
     let bundle = BundleBuilder::new(temp.path()).build().unwrap();
@@ -157,7 +161,10 @@ fn bundle_path_separators_normalized() {
     let name = &bundle.assets()[0].0;
 
     // Path separators must be forward slashes regardless of platform
-    assert!(!name.contains('\\'), "path should use forward slashes: {name}");
+    assert!(
+        !name.contains('\\'),
+        "path should use forward slashes: {name}"
+    );
     assert!(name.contains('/'));
 }
 
@@ -389,7 +396,10 @@ fn asset_bundle_add_unicode_name() {
 fn asset_bundle_many_files() {
     let mut bundle = AssetBundle::new();
     for i in 0..50 {
-        bundle.add(format!("file_{}.js", i), format!("var x{};", i).into_bytes());
+        bundle.add(
+            format!("file_{}.js", i),
+            format!("var x{};", i).into_bytes(),
+        );
     }
     assert_eq!(bundle.len(), 50);
     assert!(bundle.total_size() > 0);
@@ -479,7 +489,10 @@ fn bundle_assets_names_no_backslash() {
 
     let bundle = BundleBuilder::new(temp.path()).build().unwrap();
     for (name, _) in bundle.assets() {
-        assert!(!name.contains('\\'), "Path should use forward slashes: {name}");
+        assert!(
+            !name.contains('\\'),
+            "Path should use forward slashes: {name}"
+        );
     }
 }
 
@@ -529,7 +542,8 @@ fn bundle_excludes_node_modules() {
     let names: Vec<&str> = bundle.assets().iter().map(|(n, _)| n.as_str()).collect();
     assert!(
         !names.iter().any(|n| n.contains("node_modules")),
-        "node_modules should be excluded, got: {:?}", names
+        "node_modules should be excluded, got: {:?}",
+        names
     );
 }
 
@@ -549,4 +563,3 @@ fn bundle_with_all_web_types() {
     let bundle = BundleBuilder::new(temp.path()).build().unwrap();
     assert!(bundle.len() >= 4, "should include most web types");
 }
-

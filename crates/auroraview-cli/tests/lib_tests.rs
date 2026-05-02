@@ -2,7 +2,9 @@
 //!
 //! These tests verify the core library functions.
 
-use auroraview_cli::{load_window_icon, load_window_icon_from_bytes, normalize_url, ICON_PNG_BYTES};
+use auroraview_cli::{
+    load_window_icon, load_window_icon_from_bytes, normalize_url, ICON_PNG_BYTES,
+};
 use rstest::rstest;
 
 // =============================================================================
@@ -135,7 +137,6 @@ fn test_normalize_url_deeply_nested_path() {
     assert!(result.contains("/a/b/c/d"));
 }
 
-
 #[test]
 fn test_normalize_url_returns_string_result() {
     let result: anyhow::Result<String> = normalize_url("example.com");
@@ -197,7 +198,12 @@ fn test_load_window_icon_from_bytes_full_png_succeeds() {
 #[case("127.0.0.1:3000")]
 fn test_normalize_url_localhost_variants(#[case] url: &str) {
     let result = normalize_url(url);
-    assert!(result.is_ok(), "Expected Ok for url={}, got {:?}", url, result);
+    assert!(
+        result.is_ok(),
+        "Expected Ok for url={}, got {:?}",
+        url,
+        result
+    );
 }
 
 #[test]
@@ -211,7 +217,11 @@ fn test_normalize_url_no_double_slash_in_path() {
     let result = normalize_url("example.com/path").unwrap();
     // Should not have double slashes in path portion
     let after_scheme = result.split("://").nth(1).unwrap_or("");
-    assert!(!after_scheme.contains("//"), "No double slashes expected: {}", result);
+    assert!(
+        !after_scheme.contains("//"),
+        "No double slashes expected: {}",
+        result
+    );
 }
 
 #[rstest]
@@ -222,7 +232,12 @@ fn test_normalize_url_absolute_url_unchanged_scheme(#[case] url: &str) {
     let result = normalize_url(url).unwrap();
     // Scheme should be preserved
     let expected_scheme = url.split("://").next().unwrap();
-    assert!(result.starts_with(expected_scheme), "Scheme mismatch: expected {} in {}", expected_scheme, result);
+    assert!(
+        result.starts_with(expected_scheme),
+        "Scheme mismatch: expected {} in {}",
+        expected_scheme,
+        result
+    );
 }
 
 #[test]
@@ -281,7 +296,12 @@ fn test_normalize_url_ipv4() {
 #[case("http://localhost:7890/mcp")]
 fn test_normalize_url_dcc_tool_urls(#[case] url: &str) {
     let result = normalize_url(url);
-    assert!(result.is_ok(), "Expected Ok for dcc url={}, got {:?}", url, result);
+    assert!(
+        result.is_ok(),
+        "Expected Ok for dcc url={}, got {:?}",
+        url,
+        result
+    );
     let normalized = result.unwrap();
     assert!(!normalized.is_empty());
 }
@@ -330,7 +350,11 @@ fn test_icon_png_bytes_first_two_bytes() {
 
 #[test]
 fn test_icon_png_bytes_length_at_least_200() {
-    assert!(ICON_PNG_BYTES.len() >= 200, "Icon PNG should be at least 200 bytes, got {}", ICON_PNG_BYTES.len());
+    assert!(
+        ICON_PNG_BYTES.len() >= 200,
+        "Icon PNG should be at least 200 bytes, got {}",
+        ICON_PNG_BYTES.len()
+    );
 }
 
 #[test]
@@ -401,6 +425,3 @@ fn normalize_url_https_preserves_path() {
         Err(_) => {}
     }
 }
-
-
-

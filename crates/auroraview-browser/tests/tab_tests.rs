@@ -240,7 +240,11 @@ fn tab_state_serde_roundtrip() {
 
 #[test]
 fn security_state_serde_roundtrip() {
-    for variant in &[SecurityState::Secure, SecurityState::Insecure, SecurityState::Neutral] {
+    for variant in &[
+        SecurityState::Secure,
+        SecurityState::Insecure,
+        SecurityState::Neutral,
+    ] {
         let json = serde_json::to_string(variant).unwrap();
         let deser: SecurityState = serde_json::from_str(&json).unwrap();
         assert_eq!(&deser, variant);
@@ -422,7 +426,11 @@ fn tab_state_clone_matches_original() {
 
 #[test]
 fn security_state_debug_variants() {
-    for v in &[SecurityState::Secure, SecurityState::Insecure, SecurityState::Neutral] {
+    for v in &[
+        SecurityState::Secure,
+        SecurityState::Insecure,
+        SecurityState::Neutral,
+    ] {
         let dbg = format!("{:?}", v);
         assert!(!dbg.is_empty());
     }
@@ -455,10 +463,7 @@ fn tab_event_open_devtools_none() {
 fn tab_state_non_http_security_neutral(#[case] id: &str, #[case] url: &str) {
     let mut state = TabState::new(id.to_string(), "about:blank".to_string());
     state.set_url(url.to_string());
-    assert!(
-        state.security_state == Some(SecurityState::Neutral)
-            || state.security_state.is_none()
-    );
+    assert!(state.security_state == Some(SecurityState::Neutral) || state.security_state.is_none());
 }
 
 #[test]

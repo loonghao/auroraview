@@ -390,8 +390,7 @@ fn ipc_router_concurrent_events() {
         .map(|_| {
             let r = router.clone();
             thread::spawn(move || {
-                let msg =
-                    json!({"type": "event", "event": "dcc.frame_tick", "detail": null});
+                let msg = json!({"type": "event", "event": "dcc.frame_tick", "detail": null});
                 r.handle(&msg.to_string());
             })
         })
@@ -424,9 +423,10 @@ fn ipc_router_dcc_maya_workflow() {
     });
 
     let sel = selected.clone();
-    router.register("maya.get_selection", move |_| {
-        json!({"nodes": *sel.lock().unwrap()})
-    });
+    router.register(
+        "maya.get_selection",
+        move |_| json!({"nodes": *sel.lock().unwrap()}),
+    );
 
     let sel = selected.clone();
     router.register("maya.deselect_all", move |_| {
@@ -475,7 +475,8 @@ fn ipc_router_dcc_houdini_workflow() {
         }
     });
 
-    let cook_msg = json!({"type":"call","id":"h1","method":"hou.cook_node","params":{"node":"/obj/geo1"}});
+    let cook_msg =
+        json!({"type":"call","id":"h1","method":"hou.cook_node","params":{"node":"/obj/geo1"}});
     let result = router.handle(&cook_msg.to_string()).unwrap();
     let resp: IpcResponse = serde_json::from_str(&result).unwrap();
     assert_eq!(resp.result.as_ref().unwrap()["status"], "cooked");
@@ -500,12 +501,14 @@ fn ipc_router_blender_addon_workflow() {
         json!({"rendered_frame": frame, "engine": "CYCLES"})
     });
 
-    let mod_msg = json!({"type":"call","id":"b1","method":"bpy.apply_modifier","params":{"type":"SUBSURF"}});
+    let mod_msg =
+        json!({"type":"call","id":"b1","method":"bpy.apply_modifier","params":{"type":"SUBSURF"}});
     let result = router.handle(&mod_msg.to_string()).unwrap();
     let resp: IpcResponse = serde_json::from_str(&result).unwrap();
     assert_eq!(resp.result.unwrap()["applied"], "SUBSURF");
 
-    let render_msg = json!({"type":"call","id":"b2","method":"bpy.render_frame","params":{"frame":42}});
+    let render_msg =
+        json!({"type":"call","id":"b2","method":"bpy.render_frame","params":{"frame":42}});
     let result = router.handle(&render_msg.to_string()).unwrap();
     let resp: IpcResponse = serde_json::from_str(&result).unwrap();
     assert_eq!(resp.result.as_ref().unwrap()["rendered_frame"], 42);
@@ -634,10 +637,7 @@ fn ipc_router_multiple_listeners_for_same_event() {
 #[case("method.x", json!({"k":"v"}))]
 #[case("method.y", json!(null))]
 #[case("method.z", json!([1,2,3]))]
-fn ipc_router_call_various_params(
-    #[case] method: &str,
-    #[case] params: serde_json::Value,
-) {
+fn ipc_router_call_various_params(#[case] method: &str, #[case] params: serde_json::Value) {
     let router = IpcRouter::new();
     let m = method.to_string();
     router.register(&m, |p| json!({"is_null": p.is_null()}));

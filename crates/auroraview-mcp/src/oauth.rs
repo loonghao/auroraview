@@ -99,8 +99,8 @@ pub struct OAuthStore {
 impl OAuthStore {
     /// Create a new OAuth store with auto-generated JWT secret.
     pub fn new() -> Self {
-        let jwt_secret = std::env::var("AURORAVIEW_JWT_SECRET")
-            .unwrap_or_else(|_| Uuid::new_v4().to_string());
+        let jwt_secret =
+            std::env::var("AURORAVIEW_JWT_SECRET").unwrap_or_else(|_| Uuid::new_v4().to_string());
 
         let encoding_key = EncodingKey::from_secret(jwt_secret.as_bytes());
         let decoding_key = DecodingKey::from_secret(jwt_secret.as_bytes());
@@ -146,11 +146,7 @@ impl OAuthStore {
     }
 
     /// Validate client credentials.
-    pub fn validate_client(
-        &self,
-        client_id: &str,
-        client_secret: &str,
-    ) -> Option<OAuthClient> {
+    pub fn validate_client(&self, client_id: &str, client_secret: &str) -> Option<OAuthClient> {
         let client = self.clients.get(client_id)?;
 
         if bcrypt::verify(client_secret, &client.client_secret_hash).unwrap_or(false) {
@@ -208,9 +204,7 @@ impl OAuthStore {
         }
 
         // Validate PKCE challenge.
-        let verifier_hash = base64_url::encode(
-            &sha2::Sha256::digest(code_verifier.as_bytes())[..],
-        );
+        let verifier_hash = base64_url::encode(&sha2::Sha256::digest(code_verifier.as_bytes())[..]);
         if verifier_hash != auth_code.code_challenge {
             return None;
         }
@@ -264,16 +258,14 @@ impl OAuthStore {
 
 /// Extract bearer token from Authorization header.
 pub fn extract_bearer_token(header: &str) -> Option<String> {
-    header
-        .strip_prefix("Bearer ")
-        .map(|s| s.to_string())
+    header.strip_prefix("Bearer ").map(|s| s.to_string())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use jsonwebtoken::crypto::{aws_lc, CryptoProvider};
     use std::sync::OnceLock;
-    use jsonwebtoken::crypto::{CryptoProvider, aws_lc};
 
     static CRYPTO_INIT: OnceLock<()> = OnceLock::new();
 
@@ -295,12 +287,11 @@ mod tests {
     async fn client_registration() {
         setup_crypto();
         let store = OAuthStore::new();
-        let (client, secret) = store
-            .register_client(
-                "Test Client".to_string(),
-                vec!["http://localhost:8080/callback".to_string()],
-                "mcp:tools".to_string(),
-            );
+        let (client, secret) = store.register_client(
+            "Test Client".to_string(),
+            vec!["http://localhost:8080/callback".to_string()],
+            "mcp:tools".to_string(),
+        );
 
         assert_eq!(client.name, "Test Client");
         assert!(!secret.is_empty());
@@ -323,38 +314,35 @@ mod tests {
     #[tokio::test]
     async fn issue_code_and_exchange() {
         setup_crypto();
-        
+
         let store = OAuthStore::new();
-        let (client, _secret) = store
-            .register_client(
-                "Test Client".to_string(),
-                vec!["http://localhost:8080/callback".to_string()],
-                "mcp:tools".to_string(),
-            );
+        let (client, _secret) = store.register_client(
+            "Test Client".to_string(),
+            vec!["http://localhost:8080/callback".to_string()],
+            "mcp:tools".to_string(),
+        );
 
         // Simulate PKCE challenge
         let code_verifier = "test_verifier_12345678901234567890123456789012";
         let code_challenge = base64_url::encode(&sha2::Sha256::digest(code_verifier.as_bytes()));
 
         // Issue authorization code
-        let code = store
-            .issue_code(
-                client.client_id.clone(),
-                "http://localhost:8080/callback".to_string(),
-                code_challenge,
-                "mcp:tools".to_string(),
-            );
+        let code = store.issue_code(
+            client.client_id.clone(),
+            "http://localhost:8080/callback".to_string(),
+            code_challenge,
+            "mcp:tools".to_string(),
+        );
 
         assert!(!code.is_empty());
 
         // Exchange code for token
-        let token_resp = store
-            .exchange_code(
-                &code,
-                &client.client_id,
-                "http://localhost:8080/callback",
-                code_verifier,
-            );
+        let token_resp = store.exchange_code(
+            &code,
+            &client.client_id,
+            "http://localhost:8080/callback",
+            code_verifier,
+        );
 
         assert!(token_resp.is_some());
         let token_resp = token_resp.unwrap();
@@ -367,26 +355,24 @@ mod tests {
     #[tokio::test]
     async fn validate_token_success() {
         setup_crypto();
-        
+
         let store = OAuthStore::new();
         // Use the full flow to get a valid token
-        let (client, _secret) = store
-            .register_client(
-                "Test Client".to_string(),
-                vec!["http://localhost:8080/callback".to_string()],
-                "mcp:tools".to_string(),
-            );
+        let (client, _secret) = store.register_client(
+            "Test Client".to_string(),
+            vec!["http://localhost:8080/callback".to_string()],
+            "mcp:tools".to_string(),
+        );
 
         let code_verifier = "test_verifier_12345678901234567890123456789012";
         let code_challenge = base64_url::encode(&sha2::Sha256::digest(code_verifier.as_bytes()));
 
-        let code = store
-            .issue_code(
-                client.client_id.clone(),
-                "http://localhost:8080/callback".to_string(),
-                code_challenge,
-                "mcp:tools".to_string(),
-            );
+        let code = store.issue_code(
+            client.client_id.clone(),
+            "http://localhost:8080/callback".to_string(),
+            code_challenge,
+            "mcp:tools".to_string(),
+        );
 
         let token_resp = store
             .exchange_code(
@@ -408,15 +394,14 @@ mod tests {
     #[tokio::test]
     async fn exchange_code_invalid_code_returns_none() {
         setup_crypto();
-        
+
         let store = OAuthStore::new();
-        let result = store
-            .exchange_code(
-                "invalid_code",
-                "client_id",
-                "http://localhost:8080/callback",
-                "verifier",
-            );
+        let result = store.exchange_code(
+            "invalid_code",
+            "client_id",
+            "http://localhost:8080/callback",
+            "verifier",
+        );
 
         assert!(result.is_none());
     }
@@ -424,34 +409,31 @@ mod tests {
     #[tokio::test]
     async fn exchange_code_wrong_client_returns_none() {
         setup_crypto();
-        
+
         let store = OAuthStore::new();
-        let (client, _) = store
-            .register_client(
-                "Test Client".to_string(),
-                vec!["http://localhost:8080/callback".to_string()],
-                "mcp:tools".to_string(),
-            );
+        let (client, _) = store.register_client(
+            "Test Client".to_string(),
+            vec!["http://localhost:8080/callback".to_string()],
+            "mcp:tools".to_string(),
+        );
 
         let code_verifier = "test_verifier_12345678901234567890123456789012";
         let code_challenge = base64_url::encode(&sha2::Sha256::digest(code_verifier.as_bytes()));
 
-        let code = store
-            .issue_code(
-                client.client_id.clone(),
-                "http://localhost:8080/callback".to_string(),
-                code_challenge,
-                "mcp:tools".to_string(),
-            );
+        let code = store.issue_code(
+            client.client_id.clone(),
+            "http://localhost:8080/callback".to_string(),
+            code_challenge,
+            "mcp:tools".to_string(),
+        );
 
         // Try to exchange with wrong client_id
-        let result = store
-            .exchange_code(
-                &code,
-                "wrong_client_id",
-                "http://localhost:8080/callback",
-                code_verifier,
-            );
+        let result = store.exchange_code(
+            &code,
+            "wrong_client_id",
+            "http://localhost:8080/callback",
+            code_verifier,
+        );
 
         assert!(result.is_none());
     }

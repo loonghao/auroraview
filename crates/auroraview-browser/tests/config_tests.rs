@@ -110,9 +110,7 @@ fn browser_features_default() {
 
 #[test]
 fn remote_debugging_port_enables_cdp() {
-    let config = BrowserConfig::builder()
-        .remote_debugging_port(9222)
-        .build();
+    let config = BrowserConfig::builder().remote_debugging_port(9222).build();
 
     assert_eq!(config.remote_debugging_port, 9222);
     assert!(config.features.cdp_enabled);
@@ -120,9 +118,7 @@ fn remote_debugging_port_enables_cdp() {
 
 #[test]
 fn remote_debugging_port_zero_no_cdp() {
-    let config = BrowserConfig::builder()
-        .remote_debugging_port(0)
-        .build();
+    let config = BrowserConfig::builder().remote_debugging_port(0).build();
 
     assert_eq!(config.remote_debugging_port, 0);
     // Port 0 should not force cdp_enabled
@@ -131,9 +127,7 @@ fn remote_debugging_port_zero_no_cdp() {
 
 #[test]
 fn devtools_auto_open() {
-    let config = BrowserConfig::builder()
-        .devtools_auto_open(true)
-        .build();
+    let config = BrowserConfig::builder().devtools_auto_open(true).build();
 
     assert!(config.devtools.auto_open);
 }
@@ -171,9 +165,7 @@ fn devtools_dock_side_undocked() {
 
 #[test]
 fn frameless_can_be_disabled() {
-    let config = BrowserConfig::builder()
-        .frameless(false)
-        .build();
+    let config = BrowserConfig::builder().frameless(false).build();
 
     assert!(!config.frameless);
 }
@@ -440,9 +432,7 @@ fn browser_features_context_menu_default_true() {
 #[case(1, true)]
 #[case(0, false)]
 fn remote_debugging_port_cdp_state(#[case] port: u16, #[case] expected_cdp: bool) {
-    let config = BrowserConfig::builder()
-        .remote_debugging_port(port)
-        .build();
+    let config = BrowserConfig::builder().remote_debugging_port(port).build();
     assert_eq!(config.features.cdp_enabled, expected_cdp);
     assert_eq!(config.remote_debugging_port, port);
 }
@@ -558,9 +548,7 @@ fn browser_config_default_height_positive() {
 
 #[test]
 fn browser_config_builder_title_custom() {
-    let cfg = BrowserConfig::builder()
-        .title("MyBrowser")
-        .build();
+    let cfg = BrowserConfig::builder().title("MyBrowser").build();
     assert_eq!(cfg.title, "MyBrowser");
 }
 

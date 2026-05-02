@@ -1,4 +1,4 @@
-﻿//! Tests for auroraview-pack overlay module
+//! Tests for auroraview-pack overlay module
 
 use auroraview_pack::{OverlayData, OverlayReader, OverlayWriter, PackConfig};
 use tempfile::NamedTempFile;
@@ -64,7 +64,10 @@ fn overlay_many_assets() {
     let mut data = OverlayData::new(config);
 
     for i in 0..10 {
-        data.add_asset(format!("file_{}.js", i), format!("var f{}=1;", i).into_bytes());
+        data.add_asset(
+            format!("file_{}.js", i),
+            format!("var f{}=1;", i).into_bytes(),
+        );
     }
 
     OverlayWriter::write(temp.path(), &data).unwrap();
@@ -239,7 +242,6 @@ fn overlay_nonexistent_file_returns_error() {
     assert!(result.is_err() || !result.unwrap_or(true));
 }
 
-
 #[test]
 fn overlay_get_original_size_no_overlay() {
     let temp = NamedTempFile::new().unwrap();
@@ -380,7 +382,10 @@ fn overlay_file_size_increases_after_write() {
     OverlayWriter::write(temp.path(), &data).unwrap();
 
     let new_size = std::fs::metadata(temp.path()).unwrap().len();
-    assert!(new_size > original_size, "File should grow after overlay write");
+    assert!(
+        new_size > original_size,
+        "File should grow after overlay write"
+    );
 }
 
 // ─── R8 Additional overlay tests ──────────────────────────────────────────────
@@ -484,7 +489,10 @@ fn overlay_with_50_assets() {
     let config = PackConfig::url("https://example.com");
     let mut data = OverlayData::new(config);
     for i in 0..50 {
-        data.add_asset(format!("asset_{}.txt", i), format!("content_{}", i).into_bytes());
+        data.add_asset(
+            format!("asset_{}.txt", i),
+            format!("content_{}", i).into_bytes(),
+        );
     }
     OverlayWriter::write(temp.path(), &data).unwrap();
 
@@ -510,7 +518,9 @@ fn overlay_write_to_file_with_existing_overlay() {
     let read = OverlayReader::read(temp.path()).unwrap().unwrap();
     assert_eq!(read.config.window.title, "Second");
     // Original size should reflect only the first write's "binary" bytes
-    let size = OverlayReader::get_original_size(temp.path()).unwrap().unwrap();
+    let size = OverlayReader::get_original_size(temp.path())
+        .unwrap()
+        .unwrap();
     assert!(size > 0);
 }
 
@@ -523,7 +533,11 @@ fn overlay_content_hash_is_hex_string() {
     let hash = data.compute_content_hash();
     // Hash should be non-empty and contain only hex chars
     assert!(!hash.is_empty());
-    assert!(hash.chars().all(|c| c.is_ascii_hexdigit()), "Hash should be hex: {}", hash);
+    assert!(
+        hash.chars().all(|c| c.is_ascii_hexdigit()),
+        "Hash should be hex: {}",
+        hash
+    );
 }
 
 #[test]
@@ -535,7 +549,10 @@ fn overlay_empty_content_hash_stable_across_calls() {
 
     let h1 = d1.compute_content_hash();
     let h2 = d2.compute_content_hash();
-    assert_eq!(h1, h2, "Empty overlays with same config should have same hash");
+    assert_eq!(
+        h1, h2,
+        "Empty overlays with same config should have same hash"
+    );
 }
 
 // ─── Additional overlay tests R14 ─────────────────────────────────────────────
@@ -601,7 +618,8 @@ fn overlay_multiple_writes_last_wins() {
     std::fs::write(temp.path(), b"bin").unwrap();
 
     for i in 0..3u32 {
-        let config = PackConfig::url(format!("https://example{}.com", i)).with_title(format!("App{}", i));
+        let config =
+            PackConfig::url(format!("https://example{}.com", i)).with_title(format!("App{}", i));
         let data = OverlayData::new(config);
         OverlayWriter::write(temp.path(), &data).unwrap();
     }
@@ -663,7 +681,8 @@ fn overlay_reader_get_original_size_zero_binary() {
     let data = OverlayData::new(config);
     OverlayWriter::write(temp.path(), &data).unwrap();
 
-    let size = OverlayReader::get_original_size(temp.path()).unwrap().unwrap();
+    let size = OverlayReader::get_original_size(temp.path())
+        .unwrap()
+        .unwrap();
     assert_eq!(size, 0, "empty binary should have original size = 0");
 }
-

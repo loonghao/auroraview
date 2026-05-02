@@ -616,7 +616,10 @@ fn test_build_packed_init_script_contains_ready_event() {
 #[test]
 fn test_build_packed_init_script_csp_none_no_meta() {
     let script = build_packed_init_script_with_csp(None, false);
-    assert!(!script.contains("<meta"), "No CSP meta when policy is None and strict_csp is false");
+    assert!(
+        !script.contains("<meta"),
+        "No CSP meta when policy is None and strict_csp is false"
+    );
 }
 
 #[test]

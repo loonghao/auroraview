@@ -319,7 +319,11 @@ fn test_error_is_error_source_none_for_all() {
         TelemetryError::AlreadyInitialized,
     ];
     for e in &variants {
-        assert!(e.source().is_none(), "No chained source expected for {:?}", e);
+        assert!(
+            e.source().is_none(),
+            "No chained source expected for {:?}",
+            e
+        );
     }
 }
 

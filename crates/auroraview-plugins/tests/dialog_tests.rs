@@ -369,11 +369,7 @@ fn unknown_commands_return_error(#[case] cmd: &str) {
 fn message_invalid_args() {
     let plugin = DialogPlugin::new();
     let scope = ScopeConfig::new();
-    let result = plugin.handle(
-        "message",
-        serde_json::json!({ "invalid": "args" }),
-        &scope,
-    );
+    let result = plugin.handle("message", serde_json::json!({ "invalid": "args" }), &scope);
     assert!(result.is_err());
 }
 
@@ -381,11 +377,7 @@ fn message_invalid_args() {
 fn confirm_invalid_args() {
     let plugin = DialogPlugin::new();
     let scope = ScopeConfig::new();
-    let result = plugin.handle(
-        "confirm",
-        serde_json::json!({ "invalid": "args" }),
-        &scope,
-    );
+    let result = plugin.handle("confirm", serde_json::json!({ "invalid": "args" }), &scope);
     assert!(result.is_err());
 }
 
@@ -409,7 +401,11 @@ fn file_commands_accept_empty_args(#[case] cmd: &str) {
 fn message_commands_require_message_field(#[case] cmd: &str) {
     let plugin = DialogPlugin::new();
     let scope = ScopeConfig::new();
-    let result = plugin.handle(cmd, serde_json::json!({ "title": "No message field" }), &scope);
+    let result = plugin.handle(
+        cmd,
+        serde_json::json!({ "title": "No message field" }),
+        &scope,
+    );
     assert!(result.is_err());
 }
 
@@ -520,7 +516,11 @@ fn file_dialog_options_default_path_windows_style() {
         "defaultPath": "C:\\Users\\user\\Documents"
     });
     let opts: FileDialogOptions = serde_json::from_value(json).unwrap();
-    assert!(opts.default_path.as_deref().unwrap_or("").contains("Documents"));
+    assert!(opts
+        .default_path
+        .as_deref()
+        .unwrap_or("")
+        .contains("Documents"));
 }
 
 #[test]
@@ -594,7 +594,11 @@ fn plugin_commands_no_duplicates() {
     let mut unique = cmds.clone();
     unique.sort_unstable();
     unique.dedup();
-    assert_eq!(unique.len(), cmds.len(), "commands should have no duplicates");
+    assert_eq!(
+        unique.len(),
+        cmds.len(),
+        "commands should have no duplicates"
+    );
 }
 
 #[test]
@@ -613,7 +617,9 @@ fn plugin_commands_all_non_empty() {
 fn unknown_command_error_is_not_ok() {
     let plugin = DialogPlugin::new();
     let scope = ScopeConfig::new();
-    let err = plugin.handle("nonexistent", serde_json::json!({}), &scope).unwrap_err();
+    let err = plugin
+        .handle("nonexistent", serde_json::json!({}), &scope)
+        .unwrap_err();
     // Error message should mention the command
     let msg = err.to_string();
     assert!(!msg.is_empty(), "error message should not be empty");
@@ -628,11 +634,13 @@ fn file_filter_same_name_different_extensions_not_equal_via_serde() {
     let a = serde_json::to_value(&FileFilter {
         name: "Images".to_string(),
         extensions: vec!["png".to_string()],
-    }).unwrap();
+    })
+    .unwrap();
     let b = serde_json::to_value(&FileFilter {
         name: "Images".to_string(),
         extensions: vec!["jpg".to_string()],
-    }).unwrap();
+    })
+    .unwrap();
     assert_ne!(a, b);
 }
 
@@ -641,11 +649,13 @@ fn file_filter_identical_serde_values_are_equal() {
     let a = serde_json::to_value(&FileFilter {
         name: "Images".to_string(),
         extensions: vec!["png".to_string()],
-    }).unwrap();
+    })
+    .unwrap();
     let b = serde_json::to_value(&FileFilter {
         name: "Images".to_string(),
         extensions: vec!["png".to_string()],
-    }).unwrap();
+    })
+    .unwrap();
     assert_eq!(a, b);
 }
 
@@ -657,16 +667,24 @@ fn file_filter_identical_serde_values_are_equal() {
 fn unknown_command_error_message_contains_command() {
     let plugin = DialogPlugin::new();
     let scope = ScopeConfig::new();
-    let err = plugin.handle("totally_unknown", serde_json::json!({}), &scope).unwrap_err();
+    let err = plugin
+        .handle("totally_unknown", serde_json::json!({}), &scope)
+        .unwrap_err();
     let msg = err.to_string();
-    assert!(msg.contains("totally_unknown"), "Error should mention the unknown command: {}", msg);
+    assert!(
+        msg.contains("totally_unknown"),
+        "Error should mention the unknown command: {}",
+        msg
+    );
 }
 
 #[test]
 fn unknown_command_error_code_is_command_not_found() {
     let plugin = DialogPlugin::new();
     let scope = ScopeConfig::new();
-    let err = plugin.handle("nope", serde_json::json!({}), &scope).unwrap_err();
+    let err = plugin
+        .handle("nope", serde_json::json!({}), &scope)
+        .unwrap_err();
     assert_eq!(err.code(), "COMMAND_NOT_FOUND");
 }
 
@@ -674,25 +692,39 @@ fn unknown_command_error_code_is_command_not_found() {
 fn message_invalid_args_error_message() {
     let plugin = DialogPlugin::new();
     let scope = ScopeConfig::new();
-    let err = plugin.handle("message", serde_json::json!({ "invalid": "args" }), &scope).unwrap_err();
+    let err = plugin
+        .handle("message", serde_json::json!({ "invalid": "args" }), &scope)
+        .unwrap_err();
     let msg = err.to_string();
-    assert!(msg.contains("message") || msg.contains("missing"), "Error should mention missing field: {}", msg);
+    assert!(
+        msg.contains("message") || msg.contains("missing"),
+        "Error should mention missing field: {}",
+        msg
+    );
 }
 
 #[test]
 fn confirm_invalid_args_error_message() {
     let plugin = DialogPlugin::new();
     let scope = ScopeConfig::new();
-    let err = plugin.handle("confirm", serde_json::json!({ "invalid": "args" }), &scope).unwrap_err();
+    let err = plugin
+        .handle("confirm", serde_json::json!({ "invalid": "args" }), &scope)
+        .unwrap_err();
     let msg = err.to_string();
-    assert!(msg.contains("message") || msg.contains("missing"), "Error should mention missing field: {}", msg);
+    assert!(
+        msg.contains("message") || msg.contains("missing"),
+        "Error should mention missing field: {}",
+        msg
+    );
 }
 
 #[test]
 fn message_null_args_error_message() {
     let plugin = DialogPlugin::new();
     let scope = ScopeConfig::new();
-    let err = plugin.handle("message", serde_json::json!(null), &scope).unwrap_err();
+    let err = plugin
+        .handle("message", serde_json::json!(null), &scope)
+        .unwrap_err();
     let msg = err.to_string();
     assert!(!msg.is_empty(), "Error message should not be empty");
 }
@@ -701,7 +733,9 @@ fn message_null_args_error_message() {
 fn confirm_null_args_error_message() {
     let plugin = DialogPlugin::new();
     let scope = ScopeConfig::new();
-    let err = plugin.handle("confirm", serde_json::json!(null), &scope).unwrap_err();
+    let err = plugin
+        .handle("confirm", serde_json::json!(null), &scope)
+        .unwrap_err();
     let msg = err.to_string();
     assert!(!msg.is_empty(), "Error message should not be empty");
 }
@@ -776,7 +810,11 @@ fn concurrent_message_valid_args() {
             let p = Arc::clone(&plugin);
             let s = scope.clone();
             std::thread::spawn(move || {
-                p.handle("message", serde_json::json!({ "message": format!("thread-{}", i) }), &s)
+                p.handle(
+                    "message",
+                    serde_json::json!({ "message": format!("thread-{}", i) }),
+                    &s,
+                )
             })
         })
         .collect();
@@ -797,7 +835,9 @@ fn unknown_command_multiple_threads_same_error_code() {
             let s = scope.clone();
             std::thread::spawn(move || {
                 let cmd = format!("unknown_{}", i);
-                p.handle(&cmd, serde_json::json!({}), &s).unwrap_err().code()
+                p.handle(&cmd, serde_json::json!({}), &s)
+                    .unwrap_err()
+                    .code()
             })
         })
         .collect();

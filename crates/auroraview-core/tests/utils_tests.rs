@@ -1,4 +1,4 @@
-﻿//! Utility function tests
+//! Utility function tests
 
 use auroraview_core::utils::{
     ensure_dir_exists, escape_js_string, escape_json_for_js, get_cache_dir, get_extensions_dir,
@@ -165,7 +165,13 @@ fn get_cache_dir_not_empty() {
 
 #[test]
 fn ensure_dir_exists_creates_dir() {
-    let tmp = std::env::temp_dir().join(format!("av_test_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().subsec_nanos()));
+    let tmp = std::env::temp_dir().join(format!(
+        "av_test_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .subsec_nanos()
+    ));
     assert!(!tmp.exists());
     ensure_dir_exists(&tmp).unwrap();
     assert!(tmp.exists());
@@ -248,7 +254,10 @@ fn parse_size_case_insensitive_x() {
 #[test]
 fn get_webview_data_dir_is_absolute() {
     let dir = get_webview_data_dir();
-    assert!(dir.is_absolute() || !dir.as_os_str().is_empty(), "webview_data_dir should be absolute path");
+    assert!(
+        dir.is_absolute() || !dir.as_os_str().is_empty(),
+        "webview_data_dir should be absolute path"
+    );
 }
 
 #[test]
@@ -262,7 +271,14 @@ fn get_extensions_dir_under_data_dir() {
 
 #[test]
 fn ensure_dir_exists_creates_nested_dir() {
-    let unique = format!("av_nested_{}_{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().subsec_nanos());
+    let unique = format!(
+        "av_nested_{}_{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .subsec_nanos()
+    );
     let parent = std::env::temp_dir().join(&unique);
     let child = parent.join("subdir");
     assert!(!child.exists());
@@ -336,7 +352,10 @@ fn escape_js_string_multiple_backslashes() {
 #[test]
 fn get_cache_dir_is_valid_path() {
     let dir = get_cache_dir();
-    assert!(!dir.as_os_str().is_empty(), "cache dir should not be empty path");
+    assert!(
+        !dir.as_os_str().is_empty(),
+        "cache dir should not be empty path"
+    );
 }
 
 #[test]
@@ -345,5 +364,3 @@ fn escape_js_string_preserves_alphanumeric() {
     let result = escape_js_string(input);
     assert_eq!(result, input);
 }
-
-

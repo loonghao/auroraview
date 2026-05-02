@@ -1,8 +1,6 @@
 //! Tests for auroraview-pack lib module
 
-use auroraview_pack::{
-    PackConfig, PackMode, OVERLAY_MAGIC, OVERLAY_VERSION, VERSION,
-};
+use auroraview_pack::{PackConfig, PackMode, OVERLAY_MAGIC, OVERLAY_VERSION, VERSION};
 
 // =============================================================================
 // VERSION tests
@@ -15,7 +13,9 @@ fn version_has_parseable_semver_parts() {
     let parts: Vec<&str> = VERSION.split('.').collect();
     assert!(parts.len() >= 2, "Expected at least major.minor in version");
 
-    let major = parts[0].parse::<u64>().expect("major version should be numeric");
+    let major = parts[0]
+        .parse::<u64>()
+        .expect("major version should be numeric");
     let minor = parts[1]
         .split('-')
         .next()
@@ -30,7 +30,12 @@ fn version_has_parseable_semver_parts() {
 fn version_not_zero() {
     let parts: Vec<&str> = VERSION.split('.').collect();
     let major: u64 = parts[0].parse().unwrap_or(0);
-    let minor: u64 = parts[1].split('-').next().unwrap_or("0").parse().unwrap_or(0);
+    let minor: u64 = parts[1]
+        .split('-')
+        .next()
+        .unwrap_or("0")
+        .parse()
+        .unwrap_or(0);
     // At least major or minor must be non-zero
     assert!(
         major > 0 || minor > 0,
@@ -145,13 +150,17 @@ fn pack_config_default_compression_level() {
 
 #[test]
 fn pack_mode_name_url() {
-    let mode = PackMode::Url { url: "https://example.com".to_string() };
+    let mode = PackMode::Url {
+        url: "https://example.com".to_string(),
+    };
     assert_eq!(mode.name(), "url");
 }
 
 #[test]
 fn pack_mode_name_frontend() {
-    let mode = PackMode::Frontend { path: std::path::PathBuf::from("./dist") };
+    let mode = PackMode::Frontend {
+        path: std::path::PathBuf::from("./dist"),
+    };
     assert_eq!(mode.name(), "frontend");
     assert!(mode.embeds_assets());
 }
@@ -181,7 +190,11 @@ fn overlay_version_fits_in_u32() {
 
 #[test]
 fn version_contains_dot() {
-    assert!(VERSION.contains('.'), "VERSION should contain at least one dot: {}", VERSION);
+    assert!(
+        VERSION.contains('.'),
+        "VERSION should contain at least one dot: {}",
+        VERSION
+    );
 }
 
 #[test]
@@ -224,8 +237,7 @@ fn pack_config_frontend_embeds_assets() {
 
 #[test]
 fn pack_config_with_title_preserves_url() {
-    let config = PackConfig::url("https://example.com/app")
-        .with_title("DCC Tool");
+    let config = PackConfig::url("https://example.com/app").with_title("DCC Tool");
     assert_eq!(config.window.title, "DCC Tool");
     assert_eq!(config.mode.url(), Some("https://example.com/app"));
 }
@@ -258,13 +270,17 @@ fn pack_config_compression_level_range() {
 
 #[test]
 fn pack_mode_frontend_no_url() {
-    let mode = PackMode::Frontend { path: std::path::PathBuf::from("./dist") };
+    let mode = PackMode::Frontend {
+        path: std::path::PathBuf::from("./dist"),
+    };
     assert!(mode.url().is_none());
 }
 
 #[test]
 fn pack_mode_frontend_has_no_python() {
-    let mode = PackMode::Frontend { path: std::path::PathBuf::from("./dist") };
+    let mode = PackMode::Frontend {
+        path: std::path::PathBuf::from("./dist"),
+    };
     assert!(!mode.has_python());
 }
 

@@ -274,7 +274,11 @@ fn test_config_sentry_dsn_set() {
         ..TelemetryConfig::default()
     };
     assert!(config.sentry_dsn.is_some());
-    assert!(config.sentry_dsn.as_deref().unwrap().starts_with("https://"));
+    assert!(config
+        .sentry_dsn
+        .as_deref()
+        .unwrap()
+        .starts_with("https://"));
 }
 
 #[test]

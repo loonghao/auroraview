@@ -241,7 +241,6 @@ fn result_error_contains_window_not_found() {
     assert!(matches!(r, Err(DesktopError::WindowNotFound(name)) if name == "panel_x"));
 }
 
-
 #[rstest]
 fn result_ok_unit() {
     let r: Result<()> = Ok(());
@@ -365,9 +364,19 @@ fn all_variants_debug_not_empty() {
 #[rstest]
 fn desktop_error_display_prefix_correctness() {
     // Verify each variant has its expected prefix
-    assert!(DesktopError::WindowCreation("x".into()).to_string().starts_with("Window creation failed"));
-    assert!(DesktopError::WebViewCreation("x".into()).to_string().starts_with("WebView creation failed"));
-    assert!(DesktopError::WindowNotFound("x".into()).to_string().starts_with("Window not found"));
-    assert!(DesktopError::EventLoop("x".into()).to_string().starts_with("Event loop error"));
-    assert!(DesktopError::Tray("x".into()).to_string().starts_with("Tray error"));
+    assert!(DesktopError::WindowCreation("x".into())
+        .to_string()
+        .starts_with("Window creation failed"));
+    assert!(DesktopError::WebViewCreation("x".into())
+        .to_string()
+        .starts_with("WebView creation failed"));
+    assert!(DesktopError::WindowNotFound("x".into())
+        .to_string()
+        .starts_with("Window not found"));
+    assert!(DesktopError::EventLoop("x".into())
+        .to_string()
+        .starts_with("Event loop error"));
+    assert!(DesktopError::Tray("x".into())
+        .to_string()
+        .starts_with("Tray error"));
 }

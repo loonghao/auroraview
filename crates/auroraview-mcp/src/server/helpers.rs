@@ -10,24 +10,24 @@ use crate::{
 
 impl AuroraViewMcpServer {
     /// Attach an `AguiBus` so tool invocations automatically emit AG-UI events.
-    #[must_use] 
+    #[must_use]
     pub fn with_agui_bus(mut self, bus: AguiBus) -> Self {
         self.agui_bus = Some(bus);
         self
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn registry(&self) -> &WebViewRegistry {
         &self.registry
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn config(&self) -> &McpServerConfig {
         &self.config
     }
 
     /// Return a reference to the attached AG-UI bus, if any.
-    #[must_use] 
+    #[must_use]
     pub fn agui_bus(&self) -> Option<&AguiBus> {
         self.agui_bus.as_ref()
     }

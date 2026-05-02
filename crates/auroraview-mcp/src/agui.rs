@@ -11,15 +11,9 @@ use tokio::sync::broadcast;
 #[serde(tag = "type", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AguiEvent {
     /// Run lifecycle: started
-    RunStarted {
-        run_id: String,
-        thread_id: String,
-    },
+    RunStarted { run_id: String, thread_id: String },
     /// Run lifecycle: finished
-    RunFinished {
-        run_id: String,
-        thread_id: String,
-    },
+    RunFinished { run_id: String, thread_id: String },
     /// Run lifecycle: error
     RunError {
         run_id: String,
@@ -33,10 +27,7 @@ pub enum AguiEvent {
         step_id: String,
     },
     /// Step finished
-    StepFinished {
-        run_id: String,
-        step_id: String,
-    },
+    StepFinished { run_id: String, step_id: String },
     /// Text message delta (streaming)
     TextMessageStart {
         run_id: String,
@@ -50,10 +41,7 @@ pub enum AguiEvent {
         delta: String,
     },
     /// Text message finished
-    TextMessageEnd {
-        run_id: String,
-        message_id: String,
-    },
+    TextMessageEnd { run_id: String, message_id: String },
     /// Tool call started
     ToolCallStart {
         run_id: String,
@@ -91,7 +79,7 @@ pub enum AguiEvent {
 
 impl AguiEvent {
     /// Return the `run_id` associated with this event.
-    #[must_use] 
+    #[must_use]
     pub fn run_id(&self) -> &str {
         match self {
             Self::RunStarted { run_id, .. }
@@ -112,7 +100,7 @@ impl AguiEvent {
     }
 
     /// Serialize this event to SSE format: `data: <json>\n\n`
-    #[must_use] 
+    #[must_use]
     pub fn to_sse_line(&self) -> String {
         let json = serde_json::to_string(self).unwrap_or_default();
         format!("data: {json}\n\n")
@@ -128,7 +116,7 @@ pub struct AguiBus {
 
 impl AguiBus {
     /// Create a new bus with a buffer capacity of 256 events.
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         let (tx, _) = broadcast::channel(256);
         Self { tx: Arc::new(tx) }
@@ -142,13 +130,13 @@ impl AguiBus {
 
     /// Subscribe to receive events.  Returns a `Receiver` that receives
     /// events emitted *after* this call.
-    #[must_use] 
+    #[must_use]
     pub fn subscribe(&self) -> broadcast::Receiver<AguiEvent> {
         self.tx.subscribe()
     }
 
     /// Return the number of active subscribers.
-    #[must_use] 
+    #[must_use]
     pub fn receiver_count(&self) -> usize {
         self.tx.receiver_count()
     }

@@ -61,8 +61,7 @@ fn result_type_ok_variant() {
 
 #[test]
 fn result_type_err_variant() {
-    let result: auroraview_dcc::error::Result<i32> =
-        Err(DccError::InvalidParent);
+    let result: auroraview_dcc::error::Result<i32> = Err(DccError::InvalidParent);
     assert!(result.is_err());
 }
 
@@ -125,7 +124,12 @@ fn dcc_error_send_sync() {
 #[case(DccError::Threading("x".into()), "Threading")]
 fn debug_contains_variant(#[case] err: DccError, #[case] variant: &str) {
     let debug = format!("{:?}", err);
-    assert!(debug.contains(variant), "Debug should contain '{}': {}", variant, debug);
+    assert!(
+        debug.contains(variant),
+        "Debug should contain '{}': {}",
+        variant,
+        debug
+    );
 }
 
 // ============================================================================
@@ -141,7 +145,8 @@ fn display_contains_inner_string(#[case] err: DccError, #[case] expected: &str) 
     assert!(
         err.to_string().contains(expected),
         "Display should contain '{}': {}",
-        expected, err
+        expected,
+        err
     );
 }
 
@@ -309,7 +314,9 @@ fn dcc_error_concurrent_creation() {
             })
         })
         .collect();
-    for h in handles { h.join().unwrap(); }
+    for h in handles {
+        h.join().unwrap();
+    }
     assert_eq!(results.lock().unwrap().len(), 5);
 }
 
@@ -349,4 +356,3 @@ fn dcc_error_collection() {
         assert!(!e.to_string().is_empty());
     }
 }
-

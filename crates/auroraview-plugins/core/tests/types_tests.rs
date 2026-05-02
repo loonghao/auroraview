@@ -25,8 +25,7 @@ fn new_accepts_string_owned() {
 
 #[test]
 fn with_required_sets_args() {
-    let cmd = PluginCommand::new("copy", "Copy a file")
-        .with_required(&["from", "to"]);
+    let cmd = PluginCommand::new("copy", "Copy a file").with_required(&["from", "to"]);
 
     assert_eq!(cmd.required_args, vec!["from", "to"]);
     assert!(cmd.optional_args.is_empty());
@@ -34,8 +33,7 @@ fn with_required_sets_args() {
 
 #[test]
 fn with_optional_sets_args() {
-    let cmd = PluginCommand::new("read_file", "Read a file")
-        .with_optional(&["encoding"]);
+    let cmd = PluginCommand::new("read_file", "Read a file").with_optional(&["encoding"]);
 
     assert!(cmd.required_args.is_empty());
     assert_eq!(cmd.optional_args, vec!["encoding"]);
@@ -122,8 +120,8 @@ fn deserialize_from_json() {
 
 #[test]
 fn with_required_multiple_args() {
-    let cmd = PluginCommand::new("multi", "Multiple args")
-        .with_required(&["a", "b", "c", "d", "e"]);
+    let cmd =
+        PluginCommand::new("multi", "Multiple args").with_required(&["a", "b", "c", "d", "e"]);
 
     assert_eq!(cmd.required_args.len(), 5);
     assert_eq!(cmd.required_args[0], "a");
@@ -263,8 +261,7 @@ fn clone_does_not_share_vec() {
 
 #[test]
 fn arg_names_with_special_chars() {
-    let cmd = PluginCommand::new("cmd", "desc")
-        .with_required(&["path/to/file", "key=value"]);
+    let cmd = PluginCommand::new("cmd", "desc").with_required(&["path/to/file", "key=value"]);
     assert_eq!(cmd.required_args.len(), 2);
     assert_eq!(cmd.required_args[0], "path/to/file");
 }
@@ -273,12 +270,30 @@ fn arg_names_with_special_chars() {
 
 #[test]
 fn many_optional_args() {
-    let opts: Vec<&str> = (0..20).map(|i| match i {
-        0 => "opt0", 1 => "opt1", 2 => "opt2", 3 => "opt3", 4 => "opt4",
-        5 => "opt5", 6 => "opt6", 7 => "opt7", 8 => "opt8", 9 => "opt9",
-        10 => "opt10", 11 => "opt11", 12 => "opt12", 13 => "opt13", 14 => "opt14",
-        15 => "opt15", 16 => "opt16", 17 => "opt17", 18 => "opt18", _ => "opt19",
-    }).collect();
+    let opts: Vec<&str> = (0..20)
+        .map(|i| match i {
+            0 => "opt0",
+            1 => "opt1",
+            2 => "opt2",
+            3 => "opt3",
+            4 => "opt4",
+            5 => "opt5",
+            6 => "opt6",
+            7 => "opt7",
+            8 => "opt8",
+            9 => "opt9",
+            10 => "opt10",
+            11 => "opt11",
+            12 => "opt12",
+            13 => "opt13",
+            14 => "opt14",
+            15 => "opt15",
+            16 => "opt16",
+            17 => "opt17",
+            18 => "opt18",
+            _ => "opt19",
+        })
+        .collect();
     let cmd = PluginCommand::new("cmd", "desc").with_optional(&opts);
     assert_eq!(cmd.optional_args.len(), 20);
 }
@@ -311,11 +326,7 @@ fn serialize_optional_args_is_array() {
 #[case("list_dir", &["path"], &["recursive", "show_hidden"])]
 #[case("move_file", &["src", "dst"], &[])]
 #[case("read_text", &["path"], &["encoding"])]
-fn fs_commands_with_args(
-    #[case] name: &str,
-    #[case] required: &[&str],
-    #[case] optional: &[&str],
-) {
+fn fs_commands_with_args(#[case] name: &str, #[case] required: &[&str], #[case] optional: &[&str]) {
     let cmd = PluginCommand::new(name, "fs op")
         .with_required(required)
         .with_optional(optional);

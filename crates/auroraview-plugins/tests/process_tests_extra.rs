@@ -16,16 +16,24 @@ use auroraview_plugins::{PluginHandler, ScopeConfig};
 fn unknown_command_error_message_contains_command() {
     let plugin = ProcessPlugin::new();
     let scope = ScopeConfig::permissive();
-    let err = plugin.handle("totally_unknown", serde_json::json!({}), &scope).unwrap_err();
+    let err = plugin
+        .handle("totally_unknown", serde_json::json!({}), &scope)
+        .unwrap_err();
     let msg = err.to_string();
-    assert!(msg.contains("totally_unknown"), "Error should mention the unknown command: {}", msg);
+    assert!(
+        msg.contains("totally_unknown"),
+        "Error should mention the unknown command: {}",
+        msg
+    );
 }
 
 #[test]
 fn unknown_command_error_code_is_command_not_found() {
     let plugin = ProcessPlugin::new();
     let scope = ScopeConfig::permissive();
-    let err = plugin.handle("nope", serde_json::json!({}), &scope).unwrap_err();
+    let err = plugin
+        .handle("nope", serde_json::json!({}), &scope)
+        .unwrap_err();
     assert_eq!(err.code(), "COMMAND_NOT_FOUND");
 }
 
@@ -33,43 +41,73 @@ fn unknown_command_error_code_is_command_not_found() {
 fn send_missing_pid_error_message() {
     let plugin = ProcessPlugin::new();
     let scope = ScopeConfig::permissive();
-    let err = plugin.handle("send", serde_json::json!({ "data": "test" }), &scope).unwrap_err();
+    let err = plugin
+        .handle("send", serde_json::json!({ "data": "test" }), &scope)
+        .unwrap_err();
     let msg = err.to_string();
-    assert!(msg.contains("pid") || msg.contains("missing"), "Error should mention missing field: {}", msg);
+    assert!(
+        msg.contains("pid") || msg.contains("missing"),
+        "Error should mention missing field: {}",
+        msg
+    );
 }
 
 #[test]
 fn send_json_missing_pid_error_message() {
     let plugin = ProcessPlugin::new();
     let scope = ScopeConfig::permissive();
-    let err = plugin.handle("send_json", serde_json::json!({ "data": {"a": 1} }), &scope).unwrap_err();
+    let err = plugin
+        .handle("send_json", serde_json::json!({ "data": {"a": 1} }), &scope)
+        .unwrap_err();
     let msg = err.to_string();
-    assert!(msg.contains("pid") || msg.contains("missing"), "Error should mention missing field: {}", msg);
+    assert!(
+        msg.contains("pid") || msg.contains("missing"),
+        "Error should mention missing field: {}",
+        msg
+    );
 }
 
 #[test]
 fn spawn_ipc_missing_command_error_message() {
     let plugin = ProcessPlugin::new();
     let scope = ScopeConfig::permissive();
-    let err = plugin.handle("spawn_ipc", serde_json::json!({ "args": ["hello"] }), &scope).unwrap_err();
+    let err = plugin
+        .handle(
+            "spawn_ipc",
+            serde_json::json!({ "args": ["hello"] }),
+            &scope,
+        )
+        .unwrap_err();
     let msg = err.to_string();
-    assert!(msg.contains("command") || msg.contains("missing"), "Error should mention missing field: {}", msg);
+    assert!(
+        msg.contains("command") || msg.contains("missing"),
+        "Error should mention missing field: {}",
+        msg
+    );
 }
 
 #[test]
 fn kill_missing_pid_error_message() {
     let plugin = ProcessPlugin::new();
     let scope = ScopeConfig::permissive();
-    let err = plugin.handle("kill", serde_json::json!({}), &scope).unwrap_err();
+    let err = plugin
+        .handle("kill", serde_json::json!({}), &scope)
+        .unwrap_err();
     let msg = err.to_string();
-    assert!(msg.contains("pid") || msg.contains("missing"), "Error should mention missing field: {}", msg);
+    assert!(
+        msg.contains("pid") || msg.contains("missing"),
+        "Error should mention missing field: {}",
+        msg
+    );
 }
 
 #[test]
 fn send_null_args_error_message() {
     let plugin = ProcessPlugin::new();
     let scope = ScopeConfig::permissive();
-    let err = plugin.handle("send", serde_json::json!(null), &scope).unwrap_err();
+    let err = plugin
+        .handle("send", serde_json::json!(null), &scope)
+        .unwrap_err();
     let msg = err.to_string();
     assert!(!msg.is_empty(), "Error message should not be empty");
 }
@@ -78,7 +116,9 @@ fn send_null_args_error_message() {
 fn spawn_ipc_null_args_error_message() {
     let plugin = ProcessPlugin::new();
     let scope = ScopeConfig::permissive();
-    let err = plugin.handle("spawn_ipc", serde_json::json!(null), &scope).unwrap_err();
+    let err = plugin
+        .handle("spawn_ipc", serde_json::json!(null), &scope)
+        .unwrap_err();
     let msg = err.to_string();
     assert!(!msg.is_empty(), "Error message should not be empty");
 }
@@ -113,7 +153,9 @@ fn unknown_command_multiple_threads_same_error_code() {
             let s = scope.clone();
             thread::spawn(move || {
                 let cmd = format!("unknown_{}", i);
-                p.handle(&cmd, serde_json::json!({}), &s).unwrap_err().code()
+                p.handle(&cmd, serde_json::json!({}), &s)
+                    .unwrap_err()
+                    .code()
             })
         })
         .collect();
@@ -128,7 +170,9 @@ fn unknown_command_multiple_threads_same_error_code() {
 fn kill_null_args_error_message() {
     let plugin = ProcessPlugin::new();
     let scope = ScopeConfig::permissive();
-    let err = plugin.handle("kill", serde_json::json!(null), &scope).unwrap_err();
+    let err = plugin
+        .handle("kill", serde_json::json!(null), &scope)
+        .unwrap_err();
     let msg = err.to_string();
     assert!(!msg.is_empty(), "Error message should not be empty");
 }
