@@ -1664,7 +1664,14 @@ impl ExtensionsPlugin {
                     "identity.getAuthToken: OAuth not available for {}",
                     extension_id
                 );
-                Err(PluginError::shell_error("OAuth not implemented"))
+                Err(PluginError::shell_error(
+                    "OAuth authentication (identity.getAuthToken) is not yet implemented. \
+                     This requires platform-specific browser integration for secure token exchange. \
+                     As an alternative, extensions can: \
+                     1) Use identity.launchWebAuthFlow for OAuth flows, or \
+                     2) Implement custom authentication via fetch API. \
+                     Track progress at: https://github.com/loonghao/auroraview/issues"
+                ))
             }
             "removeCachedAuthToken" => Ok(serde_json::json!({})),
             "launchWebAuthFlow" => {
@@ -1673,7 +1680,13 @@ impl ExtensionsPlugin {
                     // Web auth flow requires opening an external browser window
                     tracing::debug!("identity.launchWebAuthFlow: {} for {}", url, extension_id);
                 }
-                Err(PluginError::shell_error("Web auth flow not implemented"))
+                Err(PluginError::shell_error(
+                    "Web authentication flow (identity.launchWebAuthFlow) is not yet implemented. \
+                     This requires opening an external browser window for OAuth redirects. \
+                     Workaround: extensions can open the auth URL in a new WebView window \
+                     and intercept the redirect URL manually. \
+                     Track progress at: https://github.com/loonghao/auroraview/issues"
+                ))
             }
             "getProfileUserInfo" => Ok(serde_json::json!({
                 "email": "",
