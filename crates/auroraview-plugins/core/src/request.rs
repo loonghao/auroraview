@@ -17,7 +17,7 @@ pub struct PluginRequest {
 }
 
 impl PluginRequest {
-    /// Parse a command string in format "plugin:<plugin>|<command>"
+    /// Parse a command string in format `"plugin:<plugin>|<command>"`
     pub fn from_invoke(invoke_cmd: &str, args: Value) -> Option<Self> {
         if !invoke_cmd.starts_with("plugin:") {
             return None;

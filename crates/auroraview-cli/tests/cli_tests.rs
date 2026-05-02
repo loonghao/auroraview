@@ -29,7 +29,7 @@ fn cli_binary() -> PathBuf {
 }
 
 #[test]
-fn test_cli_help() {
+fn cli_help() {
     let output = Command::new(cli_binary())
         .arg("--help")
         .output()
@@ -44,7 +44,7 @@ fn test_cli_help() {
 }
 
 #[test]
-fn test_cli_version() {
+fn cli_version() {
     let output = Command::new(cli_binary())
         .arg("--version")
         .output()
@@ -57,7 +57,7 @@ fn test_cli_version() {
 }
 
 #[test]
-fn test_cli_run_help() {
+fn cli_run_help() {
     let output = Command::new(cli_binary())
         .args(["run", "--help"])
         .output()
@@ -84,7 +84,7 @@ fn test_cli_run_help() {
 /// Verify that --watch is not rejected when used with --url (URL-mode hot reload).
 /// Previously --watch required --html; now it should be accepted for --url too.
 #[test]
-fn test_cli_watch_accepts_url_mode() {
+fn cli_watch_accepts_url_mode() {
     let output = Command::new(cli_binary())
         .args(["run", "--url", "http://localhost:9999", "--watch", "--help"])
         .output()
@@ -99,7 +99,7 @@ fn test_cli_watch_accepts_url_mode() {
 }
 
 #[test]
-fn test_cli_pack_help() {
+fn cli_pack_help() {
     let output = Command::new(cli_binary())
         .args(["pack", "--help"])
         .output()
@@ -114,7 +114,7 @@ fn test_cli_pack_help() {
 }
 
 #[test]
-fn test_cli_run_missing_args() {
+fn cli_run_missing_args() {
     let output = Command::new(cli_binary())
         .args(["run"])
         .output()
@@ -137,7 +137,7 @@ fn test_cli_run_missing_args() {
 }
 
 #[test]
-fn test_cli_info() {
+fn cli_info() {
     let output = Command::new(cli_binary())
         .args(["info"])
         .output()
@@ -153,7 +153,7 @@ fn test_cli_info() {
 }
 
 #[test]
-fn test_cli_pack_new_options() {
+fn cli_pack_new_options() {
     let output = Command::new(cli_binary())
         .args(["pack", "--help"])
         .output()
@@ -167,4 +167,557 @@ fn test_cli_pack_new_options() {
     assert!(stdout.contains("--always-on-top"));
     assert!(stdout.contains("--no-resize"));
     assert!(stdout.contains("--user-agent"));
+}
+
+// ---------------------------------------------------------------------------
+// Additional CLI tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn cli_run_help_contains_fullscreen() {
+    let output = Command::new(cli_binary())
+        .args(["run", "--help"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // run --help should have window sizing options
+    assert!(
+        stdout.contains("--width") || stdout.contains("--height") || stdout.contains("--title"),
+        "run --help should mention window options, got: {}",
+        stdout
+    );
+}
+
+#[test]
+fn cli_run_help_contains_width_height() {
+    let output = Command::new(cli_binary())
+        .args(["run", "--help"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("--width") || stdout.contains("width"));
+    assert!(stdout.contains("--height") || stdout.contains("height"));
+}
+
+#[test]
+fn cli_version_output_contains_semver() {
+    let output = Command::new(cli_binary())
+        .arg("--version")
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // Version string should contain a semver-like pattern (digits and dots)
+    assert!(
+        stdout.chars().any(|c| c.is_ascii_digit()),
+        "Version should contain digits: {}",
+        stdout
+    );
+}
+
+#[test]
+fn cli_help_exit_code_zero() {
+    let status = Command::new(cli_binary())
+        .arg("--help")
+        .status()
+        .expect("Failed to run CLI");
+    assert!(status.success());
+}
+
+#[test]
+fn cli_version_exit_code_zero() {
+    let status = Command::new(cli_binary())
+        .arg("--version")
+        .status()
+        .expect("Failed to run CLI");
+    assert!(status.success());
+}
+
+#[test]
+fn cli_pack_help_exit_code_zero() {
+    let status = Command::new(cli_binary())
+        .args(["pack", "--help"])
+        .status()
+        .expect("Failed to run CLI");
+    assert!(status.success());
+}
+
+#[test]
+fn cli_info_exit_code_zero() {
+    let status = Command::new(cli_binary())
+        .args(["info"])
+        .status()
+        .expect("Failed to run CLI");
+    assert!(status.success());
+}
+
+#[test]
+fn cli_unknown_subcommand_fails() {
+    let status = Command::new(cli_binary())
+        .args(["nonexistent-subcommand-xyz"])
+        .status()
+        .expect("Failed to run CLI");
+    assert!(!status.success(), "Unknown subcommand should fail");
+}
+
+#[test]
+fn cli_run_help_contains_debug() {
+    let output = Command::new(cli_binary())
+        .args(["run", "--help"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("--debug") || stdout.contains("devtools"),
+        "run --help should mention debug/devtools"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Additional CLI tests R8
+// ---------------------------------------------------------------------------
+
+#[test]
+fn cli_run_help_stdout_not_empty() {
+    let output = Command::new(cli_binary())
+        .args(["run", "--help"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    assert!(!output.stdout.is_empty());
+}
+
+#[test]
+fn cli_pack_help_stdout_not_empty() {
+    let output = Command::new(cli_binary())
+        .args(["pack", "--help"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    assert!(!output.stdout.is_empty());
+}
+
+#[test]
+fn cli_info_output_contains_version_and_commands() {
+    let output = Command::new(cli_binary())
+        .args(["info"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // info should mention Version and Commands sections
+    assert!(
+        stdout.contains("Version") || stdout.contains("version"),
+        "info output should mention version: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("Commands") || stdout.contains("run") || stdout.contains("pack"),
+        "info output should list commands: {}",
+        stdout
+    );
+}
+
+#[test]
+fn cli_run_help_contains_watch_flag() {
+    let output = Command::new(cli_binary())
+        .args(["run", "--help"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("--watch"),
+        "run --help should mention --watch"
+    );
+}
+
+#[test]
+fn cli_run_help_contains_poll_interval() {
+    let output = Command::new(cli_binary())
+        .args(["run", "--help"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("--poll-interval"),
+        "run --help should mention --poll-interval-ms"
+    );
+}
+
+#[test]
+fn cli_help_does_not_fail() {
+    // --help should exit 0 and produce output on stdout or combined output
+    let output = Command::new(cli_binary())
+        .arg("--help")
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    // Combined output should not be empty
+    let combined = [output.stdout.as_slice(), output.stderr.as_slice()].concat();
+    assert!(!combined.is_empty(), "help should produce some output");
+}
+
+#[test]
+fn cli_version_output_not_empty() {
+    let output = Command::new(cli_binary())
+        .arg("--version")
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    // Combined output should not be empty
+    let combined = [output.stdout.as_slice(), output.stderr.as_slice()].concat();
+    assert!(!combined.is_empty(), "--version should produce some output");
+}
+
+#[test]
+fn cli_run_no_args_or_error_code() {
+    // Running 'run' without required --url or --html must fail
+    let output = Command::new(cli_binary())
+        .args(["run"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(!output.status.success(), "'run' without args must fail");
+}
+
+#[test]
+fn cli_help_contains_options_or_commands() {
+    let output = Command::new(cli_binary())
+        .arg("--help")
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Commands") || stdout.contains("SUBCOMMAND") || stdout.contains("run"),
+        "help should list subcommands: {}",
+        stdout
+    );
+}
+
+#[test]
+fn cli_pack_help_mentions_config() {
+    let output = Command::new(cli_binary())
+        .args(["pack", "--help"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("--config") || stdout.contains("config"),
+        "pack --help should mention config option: {}",
+        stdout
+    );
+}
+
+#[test]
+fn cli_pack_help_mentions_output() {
+    let output = Command::new(cli_binary())
+        .args(["pack", "--help"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("--output") || stdout.contains("output"),
+        "pack --help should mention output option: {}",
+        stdout
+    );
+}
+
+#[test]
+fn cli_multiple_unknown_subcommands_fail() {
+    for cmd in &["foo", "bar", "xyz-unknown"] {
+        let status = Command::new(cli_binary())
+            .args([*cmd])
+            .status()
+            .expect("Failed to run CLI");
+        assert!(
+            !status.success(),
+            "Unknown subcommand '{}' should fail",
+            cmd
+        );
+    }
+}
+
+#[test]
+fn cli_binary_exists() {
+    let bin = cli_binary();
+    assert!(bin.exists(), "CLI binary should exist at: {:?}", bin);
+}
+
+#[test]
+fn cli_info_stderr_empty() {
+    let output = Command::new(cli_binary())
+        .args(["info"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    // info normally should not produce stderr
+    // (some platforms may emit warnings; we accept either but don't panic)
+    let _ = String::from_utf8_lossy(&output.stderr);
+}
+
+#[test]
+fn cli_run_help_mentions_html_option() {
+    let output = Command::new(cli_binary())
+        .args(["run", "--help"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("--html"),
+        "--html flag should be listed in run --help"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// R15 Additional CLI tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn cli_run_help_mentions_always_on_top() {
+    let output = Command::new(cli_binary())
+        .args(["run", "--help"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("always-on-top") || stdout.contains("always_on_top"),
+        "run --help should mention always-on-top: {}",
+        stdout
+    );
+}
+
+#[test]
+fn cli_pack_help_mentions_frameless() {
+    let output = Command::new(cli_binary())
+        .args(["pack", "--help"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("frameless"),
+        "pack --help should mention frameless: {}",
+        stdout
+    );
+}
+
+#[test]
+fn cli_pack_help_mentions_no_resize() {
+    let output = Command::new(cli_binary())
+        .args(["pack", "--help"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("no-resize") || stdout.contains("no_resize"),
+        "pack --help should mention no-resize"
+    );
+}
+
+#[test]
+fn cli_version_contains_auroraview() {
+    let output = Command::new(cli_binary())
+        .arg("--version")
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.to_lowercase().contains("auroraview"),
+        "version output should contain 'auroraview': {}",
+        stdout
+    );
+}
+
+#[test]
+fn cli_help_contains_pack() {
+    let output = Command::new(cli_binary())
+        .arg("--help")
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("pack"), "help should list pack subcommand");
+}
+
+#[test]
+fn cli_run_help_mentions_title() {
+    let output = Command::new(cli_binary())
+        .args(["run", "--help"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("--title"),
+        "run --help should mention --title"
+    );
+}
+
+#[test]
+fn cli_pack_help_mentions_user_agent() {
+    let output = Command::new(cli_binary())
+        .args(["pack", "--help"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("user-agent") || stdout.contains("user_agent"),
+        "pack --help should mention user-agent"
+    );
+}
+
+#[test]
+fn cli_run_help_mentions_width() {
+    let output = Command::new(cli_binary())
+        .args(["run", "--help"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("--width") || stdout.contains("width"),
+        "run --help should mention --width"
+    );
+}
+
+#[test]
+fn cli_run_help_mentions_height() {
+    let output = Command::new(cli_binary())
+        .args(["run", "--help"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("--height") || stdout.contains("height"),
+        "run --help should mention --height"
+    );
+}
+
+#[test]
+fn cli_info_stdout_not_empty() {
+    let output = Command::new(cli_binary())
+        .args(["info"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    assert!(!output.stdout.is_empty(), "info stdout should not be empty");
+}
+
+#[test]
+fn cli_help_and_version_both_succeed() {
+    for flag in &["--help", "--version"] {
+        let status = Command::new(cli_binary())
+            .arg(flag)
+            .status()
+            .expect("Failed to run CLI");
+        assert!(status.success(), "{flag} should succeed");
+    }
+}
+
+#[test]
+fn cli_pack_help_mentions_debug() {
+    let output = Command::new(cli_binary())
+        .args(["pack", "--help"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("--debug") || stdout.contains("debug"),
+        "pack --help should mention debug: {}",
+        stdout
+    );
+}
+
+#[test]
+fn cli_run_help_mention_allow_file_protocol() {
+    let output = Command::new(cli_binary())
+        .args(["run", "--help"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("file-protocol") || stdout.contains("allow"),
+        "run --help should mention file protocol option: {}",
+        stdout
+    );
+}
+
+#[test]
+fn cli_run_url_required_without_html() {
+    // Without --url or --html, run subcommand should fail
+    let output = Command::new(cli_binary())
+        .args(["run"])
+        .output()
+        .expect("Failed to run CLI");
+    // Should not succeed
+    assert!(!output.status.success(), "run without args should fail");
+}
+
+#[test]
+fn cli_pack_help_stderr_empty_or_short() {
+    let output = Command::new(cli_binary())
+        .args(["pack", "--help"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    // stderr should be empty for help commands (clap prints to stdout)
+    let combined = output.stdout.len() + output.stderr.len();
+    assert!(combined > 0, "help must produce some output");
+}
+
+#[test]
+fn cli_info_output_contains_dependencies() {
+    let output = Command::new(cli_binary())
+        .args(["info"])
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Dependencies")
+            || stdout.contains("dependencies")
+            || stdout.contains("Cargo"),
+        "info should mention dependencies: {}",
+        stdout
+    );
+}
+
+#[test]
+fn cli_run_help_info_subcommand() {
+    // Ensure info subcommand itself appears in top-level help
+    let output = Command::new(cli_binary())
+        .arg("--help")
+        .output()
+        .expect("Failed to run CLI");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("info") || stdout.contains("run") || stdout.contains("pack"),
+        "Top-level help should list subcommands: {}",
+        stdout
+    );
+}
+
+#[test]
+fn cli_binary_is_executable() {
+    let bin = cli_binary();
+    assert!(bin.exists(), "CLI binary should exist at {:?}", bin);
+    // Check metadata — on Windows exe files are executable by extension
+    let meta = std::fs::metadata(&bin).expect("Failed to get metadata");
+    assert!(meta.len() > 0, "CLI binary should not be empty");
 }

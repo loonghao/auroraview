@@ -541,3 +541,230 @@ class TestChatSyncNewEventLoop:
                     result = agent.chat_sync("test")
                     assert result == "New loop response"
                     mock_set.assert_called_once_with(new_loop)
+
+
+class TestAgentDepsEdgeCases:
+    """Additional edge-case tests for AgentDeps."""
+
+    def test_session_id_empty_string(self) -> None:
+        deps = AgentDeps(session_id="")
+        assert deps.session_id == ""
+
+    def test_session_id_unicode(self) -> None:
+        deps = AgentDeps(session_id="セッション-001")
+        assert deps.session_id == "セッション-001"
+
+    def test_emit_callback_is_callable(self) -> None:
+        calls: list[Any] = []
+        cb = lambda event, data=None: calls.append((event, data))  # noqa: E731
+        deps = AgentDeps(session_id="s", emit_callback=cb)
+        assert deps.emit_callback is cb
+
+    def test_webview_set_to_non_none(self) -> None:
+        wv = object()
+        deps = AgentDeps(session_id="s", webview=wv)
+        assert deps.webview is wv
+
+    def test_dataclass_repr_contains_session_id(self) -> None:
+        deps = AgentDeps(session_id="my-session")
+        assert "my-session" in repr(deps)
+
+
+class TestAuroraAgentSessionManagement:
+    """Tests for session handling inside AuroraAgent."""
+
+    def _make_agent(self) -> tuple[AuroraAgent, MagicMock]:
+        mock_inner = make_mock_agent()
+        with patch("auroraview_ai.agent.Agent") as mock_cls:
+            mock_cls.return_value = mock_inner
+            agent = AuroraAgent()
+        return agent, mock_inner
+
+    @pytest.mark.asyncio
+    async def test_multiple_chats_create_one_session_per_call(self) -> None:
+        agent, mock_inner = self._make_agent()
+        mock_result = MagicMock()
+        mock_result.output = "R"
+        mock_inner.run = AsyncMock(return_value=mock_result)
+
+        await agent.chat("msg1")
+        sid1 = agent._active_session_id
+        await agent.chat("msg2")
+        sid2 = agent._active_session_id
+
+        # Each call may reuse or create a session; both must be in _sessions
+        assert sid1 in agent._sessions
+        assert sid2 in agent._sessions
+
+    @pytest.mark.asyncio
+    async def test_session_history_has_user_and_assistant_messages(self) -> None:
+        agent, mock_inner = self._make_agent()
+        mock_result = MagicMock()
+        mock_result.output = "assistant answer"
+        mock_inner.run = AsyncMock(return_value=mock_result)
+
+        await agent.chat("user question")
+        sid = agent._active_session_id
+        history = agent._sessions[sid]
+
+        roles = [m["role"] for m in history]
+        assert "user" in roles
+        assert "assistant" in roles
+
+    @pytest.mark.asyncio
+    async def test_chat_returns_output_string(self) -> None:
+        agent, mock_inner = self._make_agent()
+        mock_result = MagicMock()
+        mock_result.output = "my output"
+        mock_inner.run = AsyncMock(return_value=mock_result)
+
+        result = await agent.chat("question")
+        assert result == "my output"
+
+    @pytest.mark.asyncio
+    async def test_chat_no_emit_callback_does_not_raise(self) -> None:
+        agent, mock_inner = self._make_agent()
+        assert agent._emitter._emit_callback is None
+        mock_result = MagicMock()
+        mock_result.output = "ok"
+        mock_inner.run = AsyncMock(return_value=mock_result)
+        result = await agent.chat("hello")
+        assert result == "ok"
+
+    def test_chat_sync_empty_input(self) -> None:
+        agent, mock_inner = self._make_agent()
+        mock_result = MagicMock()
+        mock_result.output = ""
+        mock_inner.run = AsyncMock(return_value=mock_result)
+        result = agent.chat_sync("")
+        assert result == ""
+
+
+class TestAuroraAgentEmitterCallback:
+    """Tests for emit callback behavior."""
+
+    def _make_agent_with_cb(self) -> tuple[AuroraAgent, MagicMock, MagicMock]:
+        cb = MagicMock()
+        mock_inner = make_mock_agent()
+        with patch("auroraview_ai.agent.Agent") as mock_cls:
+            mock_cls.return_value = mock_inner
+            agent = AuroraAgent(emit_callback=cb)
+        return agent, mock_inner, cb
+
+    @pytest.mark.asyncio
+    async def test_run_started_event_is_emitted(self) -> None:
+        agent, mock_inner, cb = self._make_agent_with_cb()
+        mock_result = MagicMock()
+        mock_result.output = "R"
+        mock_inner.run = AsyncMock(return_value=mock_result)
+
+        await agent.chat("hello")
+        call_names = [call[0][0] for call in cb.call_args_list]
+        assert "agui:run_started" in call_names
+
+    @pytest.mark.asyncio
+    async def test_run_finished_event_is_emitted(self) -> None:
+        agent, mock_inner, cb = self._make_agent_with_cb()
+        mock_result = MagicMock()
+        mock_result.output = "R"
+        mock_inner.run = AsyncMock(return_value=mock_result)
+
+        await agent.chat("hello")
+        call_names = [call[0][0] for call in cb.call_args_list]
+        assert "agui:run_finished" in call_names
+
+    def test_set_emit_callback_replaces_callback(self) -> None:
+        cb1 = MagicMock()
+        mock_inner = make_mock_agent()
+        with patch("auroraview_ai.agent.Agent") as mock_cls:
+            mock_cls.return_value = mock_inner
+            agent = AuroraAgent(emit_callback=cb1)
+
+        cb2 = MagicMock()
+        agent.set_emit_callback(cb2)
+        assert agent._emitter._emit_callback is cb2
+
+    def test_set_emit_callback_to_none(self) -> None:
+        cb = MagicMock()
+        mock_inner = make_mock_agent()
+        with patch("auroraview_ai.agent.Agent") as mock_cls:
+            mock_cls.return_value = mock_inner
+            agent = AuroraAgent(emit_callback=cb)
+
+        agent.set_emit_callback(None)
+        assert agent._emitter._emit_callback is None
+
+
+class TestExecuteToolEdgeCases:
+    """Additional edge cases for _execute_tool."""
+
+    def _make_agent(self) -> AuroraAgent:
+        with patch("auroraview_ai.agent.Agent") as mock_cls:
+            mock_cls.return_value = make_mock_agent()
+            return AuroraAgent()
+
+    @pytest.mark.asyncio
+    async def test_execute_tool_with_no_args(self) -> None:
+        agent = self._make_agent()
+
+        def no_arg_func() -> str:
+            return "no_args"
+
+        result = await agent._execute_tool(no_arg_func, {})
+        assert result == "no_args"
+
+    @pytest.mark.asyncio
+    async def test_execute_tool_with_multiple_kwargs(self) -> None:
+        agent = self._make_agent()
+
+        def multi_func(a: int, b: int) -> int:
+            return a + b
+
+        result = await agent._execute_tool(multi_func, {"a": 3, "b": 5})
+        assert result == 8
+
+    @pytest.mark.asyncio
+    async def test_execute_async_tool_returns_list(self) -> None:
+        agent = self._make_agent()
+
+        async def list_func(n: int) -> list[int]:
+            return list(range(n))
+
+        result = await agent._execute_tool(list_func, {"n": 4})
+        assert result == [0, 1, 2, 3]
+
+    @pytest.mark.asyncio
+    async def test_execute_tool_propagates_exception(self) -> None:
+        agent = self._make_agent()
+
+        def raising_func() -> str:
+            raise ValueError("tool error")
+
+        with pytest.raises(ValueError, match="tool error"):
+            await agent._execute_tool(raising_func, {})
+
+
+class TestAuroraAgentWebview:
+    """Tests for webview attribute on AuroraAgent."""
+
+    def test_webview_default_none(self) -> None:
+        with patch("auroraview_ai.agent.Agent") as mock_cls:
+            mock_cls.return_value = make_mock_agent()
+            agent = AuroraAgent()
+        assert agent.webview is None
+
+    def test_webview_set_via_init(self) -> None:
+        wv = MagicMock()
+        with patch("auroraview_ai.agent.Agent") as mock_cls:
+            mock_cls.return_value = make_mock_agent()
+            agent = AuroraAgent(webview=wv)
+        assert agent.webview is wv
+
+    def test_webview_can_be_replaced(self) -> None:
+        wv1 = MagicMock()
+        wv2 = MagicMock()
+        with patch("auroraview_ai.agent.Agent") as mock_cls:
+            mock_cls.return_value = make_mock_agent()
+            agent = AuroraAgent(webview=wv1)
+        agent.webview = wv2
+        assert agent.webview is wv2

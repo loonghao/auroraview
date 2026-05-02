@@ -4,9 +4,8 @@
 //! This allows creating and accessing signals by name at runtime,
 //! useful for event-driven systems where signal names are not known at compile time.
 
-use parking_lot::RwLock;
+use dashmap::DashMap;
 use serde_json::Value;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::connection::ConnectionId;
@@ -37,8 +36,8 @@ use crate::signal::Signal;
 /// registry.disconnect("my_event", conn);
 /// ```
 pub struct SignalRegistry {
-    /// Dynamic signals registry
-    signals: RwLock<HashMap<String, Arc<Signal<Value>>>>,
+    /// Dynamic signals registry (DashMap for better concurrent read performance)
+    signals: DashMap<String, Arc<Signal<Value>>>,
     /// Optional name for this registry (for debugging)
     name: Option<String>,
 }
@@ -53,7 +52,7 @@ impl SignalRegistry {
     /// Create a new empty registry
     pub fn new() -> Self {
         Self {
-            signals: RwLock::new(HashMap::new()),
+            signals: DashMap::new(),
             name: None,
         }
     }
@@ -61,7 +60,7 @@ impl SignalRegistry {
     /// Create a new named registry
     pub fn named(name: impl Into<String>) -> Self {
         Self {
-            signals: RwLock::new(HashMap::new()),
+            signals: DashMap::new(),
             name: Some(name.into()),
         }
     }
@@ -75,17 +74,7 @@ impl SignalRegistry {
     ///
     /// If the signal doesn't exist, a new one is created.
     pub fn get_or_create(&self, name: &str) -> Arc<Signal<Value>> {
-        // Fast path: try to get existing signal with read lock
-        {
-            let signals = self.signals.read();
-            if let Some(signal) = signals.get(name) {
-                return signal.clone();
-            }
-        }
-
-        // Slow path: create new signal with write lock
-        let mut signals = self.signals.write();
-        signals
+        self.signals
             .entry(name.to_string())
             .or_insert_with(|| {
                 tracing::trace!(
@@ -95,17 +84,18 @@ impl SignalRegistry {
                 );
                 Arc::new(Signal::named(name))
             })
+            .value()
             .clone()
     }
 
     /// Get a signal by name, returns None if it doesn't exist
     pub fn get(&self, name: &str) -> Option<Arc<Signal<Value>>> {
-        self.signals.read().get(name).cloned()
+        self.signals.get(name).map(|ref_v| ref_v.value().clone())
     }
 
     /// Check if a signal exists
     pub fn contains(&self, name: &str) -> bool {
-        self.signals.read().contains_key(name)
+        self.signals.contains_key(name)
     }
 
     /// Remove a signal by name
@@ -113,7 +103,7 @@ impl SignalRegistry {
     /// Returns true if the signal was removed.
     /// Note: This will disconnect all handlers for that signal.
     pub fn remove(&self, name: &str) -> bool {
-        let removed = self.signals.write().remove(name).is_some();
+        let removed = self.signals.remove(name).is_some();
         if removed {
             tracing::trace!(
                 registry_name = ?self.name,
@@ -126,12 +116,12 @@ impl SignalRegistry {
 
     /// Get all signal names
     pub fn names(&self) -> Vec<String> {
-        self.signals.read().keys().cloned().collect()
+        self.signals.iter().map(|item| item.key().clone()).collect()
     }
 
     /// Get the number of registered signals
     pub fn signal_count(&self) -> usize {
-        self.signals.read().len()
+        self.signals.len()
     }
 
     /// Connect a handler to a named signal
@@ -213,7 +203,7 @@ impl SignalRegistry {
 
     /// Clear all signals from the registry
     pub fn clear(&self) {
-        self.signals.write().clear();
+        self.signals.clear();
         tracing::trace!(
             registry_name = ?self.name,
             "Registry cleared"
@@ -228,9 +218,8 @@ impl SignalRegistry {
     /// Get total handler count across all signals
     pub fn total_handler_count(&self) -> usize {
         self.signals
-            .read()
-            .values()
-            .map(|s| s.handler_count())
+            .iter()
+            .map(|item| item.value().handler_count())
             .sum()
     }
 
@@ -251,7 +240,7 @@ impl std::fmt::Debug for SignalRegistry {
 }
 
 // SignalRegistry is automatically Send + Sync because all fields
-// (parking_lot::RwLock<HashMap<..., Arc<Signal<Value>>>>, Option<String>) satisfy the bounds.
+// (DashMap<String, Arc<Signal<Value>>>, Option<String>) satisfy the bounds.
 
 #[cfg(test)]
 mod tests {

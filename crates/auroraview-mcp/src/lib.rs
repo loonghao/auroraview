@@ -1,9 +1,11 @@
-//! AuroraView adapter for `dcc-mcp-core`.
+#![allow(clippy::missing_errors_doc)]
+
+//! `AuroraView` adapter for `dcc-mcp-core`.
 //!
-//! This crate exposes a running AuroraView instance as a
-//! [`DccAdapter`](dcc_mcp_protocols::adapters::DccAdapter), so that
+//! This crate exposes a running `AuroraView` instance as a
+//! [`DccAdapter`], so that
 //! `dcc-mcp-server` (from `dcc-mcp-core v0.13+`) can discover it via
-//! `FileRegistry` and call into it over the Chrome DevTools Protocol.
+//! `FileRegistry` and call into it over the Chrome `DevTools` Protocol.
 //!
 //! # Status
 //!
@@ -19,11 +21,11 @@
 //!
 //! Deliberately **not yet wired**:
 //!
-//! - [`DccScriptEngine`] — blocked on upstream
+//! - `DccScriptEngine` — blocked on upstream
 //!   [`dcc-mcp-core#222`](https://github.com/loonghao/dcc-mcp-core/issues/222)
 //!   adding `ScriptLanguage::JavaScript`. Once that lands, `Runtime.evaluate`
 //!   becomes a one-screen implementation.
-//! - [`DccSceneInfo`] / scene-manager / hierarchy / transform — AuroraView is
+//! - `DccSceneInfo` / scene-manager / hierarchy / transform — `AuroraView` is
 //!   a web view, not a 3D DCC, so these stay `None` unless a skill explicitly
 //!   opts in.
 //!
@@ -33,7 +35,16 @@
 //! a CDP debug port and constructing a [`CdpAuroraViewAdapter`] pointing at
 //! it, then handing that adapter to `dcc-mcp-server`'s registry.
 
+pub mod agui;
 pub mod cdp;
+pub mod error;
+pub mod mdns;
+pub mod oauth;
+pub mod python_bindings;
+pub mod registry;
+pub mod runner;
+pub mod server;
+pub mod types;
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -49,10 +60,10 @@ use crate::cdp::{CdpClient, CdpError};
 /// Default timeout for any single CDP call the adapter makes.
 const DEFAULT_CDP_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// Configuration for wiring the adapter to a running AuroraView CDP port.
+/// Configuration for wiring the adapter to a running `AuroraView` CDP port.
 #[derive(Debug, Clone)]
 pub struct CdpAdapterConfig {
-    /// `http://host:port` of the AuroraView CDP devtools HTTP endpoint.
+    /// `http://host:port` of the `AuroraView` CDP devtools HTTP endpoint.
     pub http_endpoint: String,
     /// `ws://host:port` form, used purely as the `bridge_endpoint` value we
     /// advertise via [`DccCapabilities`]. This is what `dcc-mcp-server` will
@@ -64,14 +75,14 @@ pub struct CdpAdapterConfig {
     /// the value of `std::env::consts::OS` when [`CdpAuroraViewAdapter::new`]
     /// is called.
     pub platform: String,
-    /// PID of the AuroraView process, if known; 0 otherwise.
+    /// PID of the `AuroraView` process, if known; 0 otherwise.
     pub pid: u32,
-    /// AuroraView version string (typically `CARGO_PKG_VERSION`).
+    /// `AuroraView` version string (typically `CARGO_PKG_VERSION`).
     pub version: String,
 }
 
 impl CdpAdapterConfig {
-    /// Build a config pointing at the standard AuroraView CDP layout:
+    /// Build a config pointing at the standard `AuroraView` CDP layout:
     /// `http://127.0.0.1:<port>` and `ws://127.0.0.1:<port>`.
     #[must_use]
     pub fn localhost(port: u16, version: impl Into<String>) -> Self {
@@ -86,7 +97,7 @@ impl CdpAdapterConfig {
     }
 }
 
-/// Adapter that speaks to a running AuroraView instance over CDP.
+/// Adapter that speaks to a running `AuroraView` instance over CDP.
 pub struct CdpAuroraViewAdapter {
     config: CdpAdapterConfig,
     info: DccInfo,

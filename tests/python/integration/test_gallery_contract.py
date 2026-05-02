@@ -223,6 +223,7 @@ class TestAPIParameterFormats:
                 raise
             context = browser.new_context()
 
+
             # Inject bridge
             context.add_init_script("""
                 window.auroraview = {

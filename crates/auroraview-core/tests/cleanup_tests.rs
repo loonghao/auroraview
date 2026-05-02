@@ -201,3 +201,475 @@ fn get_cleanup_stats_concurrent_calls() {
         handle.join().expect("Thread should not panic");
     }
 }
+
+// ============================================================================
+// CleanupStats arithmetic and edge values
+// ============================================================================
+
+#[test]
+fn cleanup_stats_large_values() {
+    let stats = auroraview_core::cleanup::CleanupStats {
+        total_dirs: usize::MAX,
+        alive_dirs: usize::MAX - 1,
+        stale_dirs: 1,
+        stale_size_bytes: u64::MAX,
+    };
+    assert_eq!(stats.total_dirs, stats.alive_dirs + stats.stale_dirs);
+    assert_eq!(stats.stale_size_bytes, u64::MAX);
+}
+
+#[test]
+fn cleanup_stats_single_stale_dir() {
+    let stats = auroraview_core::cleanup::CleanupStats {
+        total_dirs: 1,
+        alive_dirs: 0,
+        stale_dirs: 1,
+        stale_size_bytes: 512,
+    };
+    assert_eq!(stats.total_dirs, 1);
+    assert_eq!(stats.stale_size_bytes, 512);
+}
+
+#[test]
+fn cleanup_stats_single_alive_dir() {
+    let stats = auroraview_core::cleanup::CleanupStats {
+        total_dirs: 1,
+        alive_dirs: 1,
+        stale_dirs: 0,
+        stale_size_bytes: 0,
+    };
+    assert_eq!(stats.alive_dirs, 1);
+    assert_eq!(stats.stale_dirs, 0);
+}
+
+// ============================================================================
+// get_webview_base_dir consistency
+// ============================================================================
+
+#[test]
+fn get_webview_base_dir_consistent_across_calls() {
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        let dir1 = get_webview_base_dir();
+        let dir2 = get_webview_base_dir();
+        // Must return the same path consistently
+        assert_eq!(dir1, dir2);
+    }
+}
+
+#[test]
+fn get_webview_base_dir_is_absolute_path() {
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        if let Some(path) = get_webview_base_dir() {
+            assert!(
+                path.is_absolute(),
+                "Base dir should be absolute: {:?}",
+                path
+            );
+        }
+    }
+}
+
+// ============================================================================
+// get_process_data_dir consistency
+// ============================================================================
+
+#[test]
+fn get_process_data_dir_consistent_across_calls() {
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        let dir1 = get_process_data_dir();
+        let dir2 = get_process_data_dir();
+        assert_eq!(
+            dir1, dir2,
+            "Process data dir should be stable within the same process"
+        );
+    }
+}
+
+#[test]
+fn get_process_data_dir_is_absolute_path() {
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        if let Some(path) = get_process_data_dir() {
+            assert!(
+                path.is_absolute(),
+                "Process data dir should be absolute: {:?}",
+                path
+            );
+        }
+    }
+}
+
+#[test]
+fn get_process_data_dir_contains_base_dir() {
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        let base = get_webview_base_dir();
+        let proc = get_process_data_dir();
+        if let (Some(base_path), Some(proc_path)) = (base, proc) {
+            // The process data dir should be a subdirectory of the base dir
+            assert!(
+                proc_path.starts_with(&base_path),
+                "Process dir {:?} should be under base dir {:?}",
+                proc_path,
+                base_path
+            );
+        }
+    }
+}
+
+// ============================================================================
+// get_cleanup_stats invariant deeper checks
+// ============================================================================
+
+#[test]
+fn get_cleanup_stats_stale_size_is_nonnegative() {
+    let stats = get_cleanup_stats();
+    // stale_size_bytes is u64 so always >= 0; if no stale dirs, should be 0
+    if stats.stale_dirs == 0 {
+        assert_eq!(
+            stats.stale_size_bytes, 0,
+            "no stale dirs → size should be 0"
+        );
+    }
+}
+
+#[test]
+fn get_cleanup_stats_alive_le_total() {
+    let stats = get_cleanup_stats();
+    assert!(
+        stats.alive_dirs <= stats.total_dirs,
+        "alive_dirs {} should be <= total_dirs {}",
+        stats.alive_dirs,
+        stats.total_dirs
+    );
+}
+
+#[test]
+fn get_cleanup_stats_stale_le_total() {
+    let stats = get_cleanup_stats();
+    assert!(
+        stats.stale_dirs <= stats.total_dirs,
+        "stale_dirs {} should be <= total_dirs {}",
+        stats.stale_dirs,
+        stats.total_dirs
+    );
+}
+
+// ============================================================================
+// CleanupStats: Default + PartialEq logic
+// ============================================================================
+
+#[test]
+fn cleanup_stats_default_satisfies_invariant() {
+    let stats = auroraview_core::cleanup::CleanupStats::default();
+    assert_eq!(stats.total_dirs, stats.alive_dirs + stats.stale_dirs);
+    assert_eq!(stats.stale_size_bytes, 0);
+}
+
+#[test]
+fn cleanup_stats_mixed_large_and_small() {
+    let stats = auroraview_core::cleanup::CleanupStats {
+        total_dirs: 1000,
+        alive_dirs: 999,
+        stale_dirs: 1,
+        stale_size_bytes: 1,
+    };
+    assert_eq!(stats.total_dirs, stats.alive_dirs + stats.stale_dirs);
+    assert!(stats.stale_size_bytes > 0);
+}
+
+// ============================================================================
+// CleanupStats: is Send + Sync
+// ============================================================================
+
+#[test]
+fn cleanup_stats_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<auroraview_core::cleanup::CleanupStats>();
+}
+
+// ============================================================================
+// get_webview_base_dir: format validation
+// ============================================================================
+
+#[test]
+fn get_webview_base_dir_does_not_panic() {
+    // Called on any platform, should never panic
+    let _ = get_webview_base_dir();
+}
+
+// ============================================================================
+// get_process_data_dir: format validation
+// ============================================================================
+
+#[test]
+fn get_process_data_dir_does_not_panic() {
+    let _ = get_process_data_dir();
+}
+
+// ============================================================================
+// CleanupStats debug contains numeric values
+// ============================================================================
+
+#[test]
+fn cleanup_stats_debug_contains_all_fields() {
+    let stats = auroraview_core::cleanup::CleanupStats {
+        total_dirs: 42,
+        alive_dirs: 30,
+        stale_dirs: 12,
+        stale_size_bytes: 8192,
+    };
+    let debug_str = format!("{:?}", stats);
+    assert!(debug_str.contains("42"));
+    assert!(debug_str.contains("30"));
+    assert!(debug_str.contains("12"));
+    assert!(debug_str.contains("8192"));
+}
+
+// ============================================================================
+// get_cleanup_stats called in parallel thread
+// ============================================================================
+
+#[test]
+fn get_cleanup_stats_from_thread() {
+    use std::thread;
+    let handle = thread::spawn(|| {
+        let stats = get_cleanup_stats();
+        assert_eq!(stats.total_dirs, stats.alive_dirs + stats.stale_dirs);
+    });
+    handle.join().expect("thread should not panic");
+}
+
+// ============================================================================
+// cleanup_current_process_dir
+// ============================================================================
+
+#[test]
+fn cleanup_current_process_dir_does_not_panic() {
+    // May succeed or fail (dir may not exist), but must not panic
+    let _ = auroraview_core::cleanup::cleanup_current_process_dir();
+}
+
+#[test]
+fn cleanup_current_process_dir_returns_ok_when_dir_absent() {
+    // If the process dir doesn't exist yet, should return Ok(())
+    let result = auroraview_core::cleanup::cleanup_current_process_dir();
+    // We can only assert it does not return an Err with a fatal message;
+    // the function always returns Ok(()) per impl.
+    assert!(result.is_ok());
+}
+
+// ============================================================================
+// cleanup_stale_webview_dirs
+// ============================================================================
+
+#[test]
+fn cleanup_stale_webview_dirs_does_not_panic() {
+    // Only runs once due to AtomicBool; subsequent calls return Ok(0)
+    let _ = auroraview_core::cleanup::cleanup_stale_webview_dirs();
+}
+
+#[test]
+fn cleanup_stale_webview_dirs_returns_ok() {
+    // After the first call in this process, the function is a no-op (Ok(0))
+    let result = auroraview_core::cleanup::cleanup_stale_webview_dirs();
+    assert!(result.is_ok());
+}
+
+#[test]
+fn cleanup_stale_webview_dirs_idempotent() {
+    // Calling multiple times should always return Ok(0) after the first call
+    for _ in 0..3 {
+        let result = auroraview_core::cleanup::cleanup_stale_webview_dirs();
+        assert!(result.is_ok());
+    }
+}
+
+// ============================================================================
+// Platform-specific path format checks
+// ============================================================================
+
+#[test]
+fn get_webview_base_dir_windows_format() {
+    #[cfg(target_os = "windows")]
+    {
+        if let Some(path) = get_webview_base_dir() {
+            let path_str = path.to_string_lossy();
+            // Windows path should contain AuroraView\WebView2
+            assert!(
+                path_str.contains("AuroraView") && path_str.contains("WebView2"),
+                "Windows path should contain 'AuroraView\\WebView2', got: {}",
+                path_str
+            );
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        // Not Windows — just ensure no panic
+        let _ = get_webview_base_dir();
+    }
+}
+
+#[test]
+fn get_webview_base_dir_macos_format() {
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(path) = get_webview_base_dir() {
+            let path_str = path.to_string_lossy();
+            assert!(
+                path_str.contains("Application Support") || path_str.contains("AuroraView"),
+                "macOS path unexpected: {}",
+                path_str
+            );
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = get_webview_base_dir();
+    }
+}
+
+#[test]
+fn get_webview_base_dir_linux_format() {
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(path) = get_webview_base_dir() {
+            let path_str = path.to_string_lossy();
+            assert!(
+                path_str.contains("auroraview") && path_str.contains("webview"),
+                "Linux path should contain 'auroraview/webview', got: {}",
+                path_str
+            );
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = get_webview_base_dir();
+    }
+}
+
+// ============================================================================
+// CleanupStats: field mutation and re-check
+// ============================================================================
+
+#[test]
+fn cleanup_stats_mutate_fields() {
+    let stats = auroraview_core::cleanup::CleanupStats {
+        total_dirs: 20,
+        alive_dirs: 15,
+        stale_dirs: 5,
+        stale_size_bytes: 2048,
+        ..Default::default()
+    };
+    assert_eq!(stats.total_dirs, stats.alive_dirs + stats.stale_dirs);
+    assert_eq!(stats.stale_size_bytes, 2048);
+}
+
+#[test]
+fn cleanup_stats_stale_size_max_u64() {
+    let stats = auroraview_core::cleanup::CleanupStats {
+        total_dirs: 2,
+        alive_dirs: 1,
+        stale_dirs: 1,
+        stale_size_bytes: u64::MAX,
+    };
+    assert_eq!(stats.stale_size_bytes, u64::MAX);
+}
+
+#[test]
+fn cleanup_stats_zero_total_zero_size() {
+    let stats = auroraview_core::cleanup::CleanupStats {
+        total_dirs: 0,
+        alive_dirs: 0,
+        stale_dirs: 0,
+        stale_size_bytes: 0,
+    };
+    assert_eq!(stats.total_dirs, 0);
+    assert_eq!(stats.stale_size_bytes, 0);
+}
+
+#[test]
+fn cleanup_stats_debug_nonempty_string() {
+    let stats = auroraview_core::cleanup::CleanupStats::default();
+    let s = format!("{:?}", stats);
+    assert!(!s.is_empty());
+}
+
+// ============================================================================
+// get_cleanup_stats: stats reflect valid invariant on repeated calls
+// ============================================================================
+
+#[test]
+fn get_cleanup_stats_repeated_calls_consistent_invariant() {
+    for _ in 0..3 {
+        let stats = get_cleanup_stats();
+        assert_eq!(
+            stats.total_dirs,
+            stats.alive_dirs + stats.stale_dirs,
+            "Invariant violated on repeated call"
+        );
+    }
+}
+
+#[test]
+fn get_cleanup_stats_total_ge_alive() {
+    let stats = get_cleanup_stats();
+    assert!(stats.total_dirs >= stats.alive_dirs);
+}
+
+#[test]
+fn get_cleanup_stats_total_ge_stale() {
+    let stats = get_cleanup_stats();
+    assert!(stats.total_dirs >= stats.stale_dirs);
+}
+
+// ============================================================================
+// get_process_data_dir: path parent is base dir
+// ============================================================================
+
+#[test]
+fn get_process_data_dir_parent_is_base_dir() {
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        if let (Some(base), Some(proc_dir)) = (get_webview_base_dir(), get_process_data_dir()) {
+            let parent = proc_dir.parent().expect("process dir should have a parent");
+            assert_eq!(
+                parent,
+                base.as_path(),
+                "process dir parent should equal base dir"
+            );
+        }
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        assert!(get_process_data_dir().is_none());
+    }
+}
+
+#[test]
+fn get_process_data_dir_last_component_has_pid() {
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        if let Some(proc_dir) = get_process_data_dir() {
+            let last = proc_dir
+                .file_name()
+                .and_then(|n| n.to_str())
+                .expect("should have last component");
+            let pid = std::process::id();
+            assert!(
+                last.starts_with("process_"),
+                "last component should start with 'process_': {}",
+                last
+            );
+            assert!(
+                last.ends_with(&pid.to_string()),
+                "last component should end with pid {}: {}",
+                pid,
+                last
+            );
+        }
+    }
+}

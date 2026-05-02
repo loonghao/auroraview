@@ -1,6 +1,6 @@
 //! Tests for bookmarks module
 
-use auroraview_browser::navigation::{Bookmark, BookmarkFolder, BookmarkManager};
+use auroraview_browser::navigation::{Bookmark, BookmarkFolder, BookmarkId, BookmarkManager};
 use rstest::rstest;
 use tempfile::TempDir;
 
@@ -319,7 +319,8 @@ fn manager_add_with_position() {
 
 #[test]
 fn manager_default_creates_instance() {
-    let manager = BookmarkManager::default();
+    // Use temp dir to ensure isolation from persisted bookmarks on disk
+    let (manager, _temp_dir) = create_test_manager();
     assert_eq!(manager.count(), 0);
 }
 
@@ -350,4 +351,158 @@ fn count_increases_per_add(#[case] url: &str, #[case] title: &str, #[case] expec
         manager.add_bookmark(&format!("{}/{}", url, i), title);
     }
     assert_eq!(manager.count(), expected);
+}
+
+// ─── Additional coverage R9 ──────────────────────────────────────────────────
+
+#[test]
+fn bookmark_id_unique_per_instance() {
+    let bm1 = Bookmark::new("Site A", "https://a.com");
+    let bm2 = Bookmark::new("Site B", "https://b.com");
+    assert_ne!(bm1.id, bm2.id);
+}
+
+#[test]
+fn bookmark_position_default_zero() {
+    let bm = Bookmark::new("Test", "https://test.com");
+    assert_eq!(bm.position, 0u32);
+}
+
+#[test]
+fn bookmark_with_position_builder() {
+    let bm = Bookmark::new("Test", "https://test.com").with_position(42);
+    assert_eq!(bm.position, 42u32);
+}
+
+#[test]
+fn bookmark_favicon_can_be_set() {
+    let bm = Bookmark::new("Test", "https://test.com").with_favicon("https://test.com/favicon.ico");
+    assert_eq!(bm.favicon, Some("https://test.com/favicon.ico".to_string()));
+}
+
+#[test]
+fn bookmark_parent_id_none_by_default() {
+    let bm = Bookmark::new("Test", "https://test.com");
+    assert!(bm.parent_id.is_none());
+}
+
+#[test]
+fn manager_remove_only_target() {
+    let (manager, _temp_dir) = create_test_manager();
+    let id1 = manager.add_bookmark("https://keep.com", "Keep");
+    let id2 = manager.add_bookmark("https://remove.com", "Remove");
+    assert_eq!(manager.count(), 2);
+    manager.remove(&id2);
+    assert_eq!(manager.count(), 1);
+    assert!(manager.get(&id1).is_some());
+}
+
+#[test]
+fn manager_find_by_url_returns_correct_title() {
+    let (manager, _temp_dir) = create_test_manager();
+    manager.add_bookmark("https://match.com", "Match Title");
+    manager.add_bookmark("https://other.com", "Other Title");
+
+    let found = manager.find_by_url("https://match.com").unwrap();
+    assert_eq!(found.title, "Match Title");
+}
+
+#[test]
+fn manager_is_bookmarked_returns_false_for_prefix_match() {
+    let (manager, _temp_dir) = create_test_manager();
+    manager.add_bookmark("https://example.com", "Example");
+    // Prefix should not match
+    assert!(!manager.is_bookmarked("https://example.com/path"));
+}
+
+#[test]
+fn manager_folders_empty_initially() {
+    let (manager, _temp_dir) = create_test_manager();
+    assert!(manager.folders().is_empty());
+}
+
+#[test]
+fn bookmark_folder_new_has_id() {
+    let folder = BookmarkFolder::new("My Folder");
+    assert!(!folder.id.is_empty());
+    assert_eq!(folder.name, "My Folder");
+}
+
+#[test]
+fn manager_add_100_bookmarks() {
+    let (manager, _temp_dir) = create_test_manager();
+    for i in 0..100 {
+        manager.add_bookmark(&format!("https://site{}.com", i), &format!("Site {}", i));
+    }
+    assert_eq!(manager.count(), 100);
+}
+
+#[test]
+fn manager_get_missing_id_returns_none() {
+    let (manager, _temp_dir) = create_test_manager();
+    let missing_id = "nonexistent-id".to_string();
+    assert!(manager.get(&missing_id).is_none());
+}
+
+#[test]
+fn manager_in_folder_root_returns_root_bookmarks() {
+    let (manager, _temp_dir) = create_test_manager();
+    manager.add_bookmark("https://root.com", "Root");
+    let root_items = manager.in_folder(None);
+    assert!(!root_items.is_empty());
+    assert_eq!(root_items[0].url, "https://root.com");
+}
+
+#[rstest]
+#[case(0u32)]
+#[case(1u32)]
+#[case(100u32)]
+fn bookmark_position_various(#[case] pos: u32) {
+    let bm = Bookmark::new("P", "https://p.com").with_position(pos);
+    assert_eq!(bm.position, pos);
+}
+
+// ============================================================================
+// R15 Extensions
+// ============================================================================
+
+#[test]
+fn bookmark_new_id_not_empty() {
+    let bm = Bookmark::new("Test", "https://test.com");
+    assert!(!bm.id.is_empty());
+}
+
+#[test]
+fn bookmark_two_instances_have_different_ids() {
+    let b1 = Bookmark::new("A", "https://a.com");
+    let b2 = Bookmark::new("B", "https://b.com");
+    assert_ne!(b1.id, b2.id);
+}
+
+#[test]
+fn bookmark_title_preserved() {
+    let bm = Bookmark::new("My Title", "https://example.com");
+    assert_eq!(bm.title, "My Title");
+}
+
+#[test]
+fn bookmark_url_preserved() {
+    let bm = Bookmark::new("T", "https://preserved.com");
+    assert_eq!(bm.url, "https://preserved.com");
+}
+
+#[test]
+fn manager_remove_existing_bookmark_returns_some() {
+    let manager = BookmarkManager::new(None);
+    let id: BookmarkId = manager.add(Bookmark::new("A", "https://a.com"));
+    let removed = manager.remove(&id);
+    assert!(removed.is_some());
+}
+
+#[test]
+fn manager_get_after_add_returns_some() {
+    let manager = BookmarkManager::new(None);
+    let id: BookmarkId = manager.add(Bookmark::new("Test", "https://test.com"));
+    let bm = manager.get(&id);
+    assert!(bm.is_some());
 }

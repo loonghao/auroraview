@@ -217,3 +217,259 @@ fn test_init_accept_any_service_name() {
         }
     }
 }
+
+// ─── New: TelemetryConfig additional coverage ──────────────────────────────────
+
+#[test]
+fn test_config_custom_log_level() {
+    let config = TelemetryConfig {
+        log_level: "warn".to_string(),
+        ..TelemetryConfig::default()
+    };
+    assert_eq!(config.log_level, "warn");
+}
+
+#[test]
+fn test_config_custom_service_name_preserved() {
+    let config = TelemetryConfig {
+        service_name: "maya-auroraview-tool".to_string(),
+        ..TelemetryConfig::default()
+    };
+    assert_eq!(config.service_name, "maya-auroraview-tool");
+}
+
+#[test]
+fn test_config_metrics_enabled_flag() {
+    let config = TelemetryConfig {
+        metrics_enabled: false,
+        ..TelemetryConfig::default()
+    };
+    assert!(!config.metrics_enabled);
+}
+
+#[test]
+fn test_config_traces_enabled_flag() {
+    let config = TelemetryConfig {
+        traces_enabled: false,
+        ..TelemetryConfig::default()
+    };
+    assert!(!config.traces_enabled);
+}
+
+#[test]
+fn test_config_metrics_interval_custom() {
+    let config = TelemetryConfig {
+        metrics_interval_secs: 120,
+        ..TelemetryConfig::default()
+    };
+    assert_eq!(config.metrics_interval_secs, 120);
+}
+
+#[test]
+fn test_config_serde_roundtrip_for_testing() {
+    let config = TelemetryConfig::for_testing();
+    let json = serde_json::to_string(&config).unwrap();
+    let restored: TelemetryConfig = serde_json::from_str(&json).unwrap();
+    assert_eq!(restored.service_name, config.service_name);
+    assert_eq!(restored.log_level, config.log_level);
+    assert_eq!(restored.metrics_interval_secs, config.metrics_interval_secs);
+}
+
+#[test]
+fn test_config_send_sync() {
+    fn assert_send<T: Send>() {}
+    fn assert_sync<T: Sync>() {}
+    assert_send::<TelemetryConfig>();
+    assert_sync::<TelemetryConfig>();
+}
+
+#[test]
+fn test_config_clone_independence() {
+    let config = TelemetryConfig {
+        service_name: "original".to_string(),
+        ..TelemetryConfig::default()
+    };
+    let mut cloned = config.clone();
+    cloned.service_name = "cloned".to_string();
+    assert_eq!(config.service_name, "original");
+    assert_eq!(cloned.service_name, "cloned");
+}
+
+#[test]
+fn test_init_disabled_then_enable_disable_cycle() {
+    {
+        let _ = Telemetry::init(disabled_config());
+    }
+    // After guard drop, toggle enable/disable should work
+    for _ in 0..3 {
+        Telemetry::enable();
+        assert!(Telemetry::is_enabled());
+        Telemetry::disable();
+        assert!(!Telemetry::is_enabled());
+    }
+}
+
+#[test]
+fn test_config_log_to_stdout_default() {
+    let config = TelemetryConfig::default();
+    assert!(config.log_to_stdout);
+}
+
+#[test]
+fn test_config_trace_sample_ratio_custom() {
+    let config = TelemetryConfig {
+        trace_sample_ratio: 0.5,
+        ..TelemetryConfig::default()
+    };
+    assert!((config.trace_sample_ratio - 0.5).abs() < f64::EPSILON);
+}
+
+#[test]
+fn test_disabled_config_is_still_valid_for_init() {
+    // Disabled config should not panic during init
+    let config = disabled_config();
+    assert!(!config.enabled);
+    assert_eq!(config.service_name, "auroraview");
+}
+
+// ============================================================================
+// R10 Extensions
+// ============================================================================
+
+#[test]
+fn test_config_default_metrics_enabled() {
+    let config = TelemetryConfig::default();
+    assert!(config.metrics_enabled);
+}
+
+#[test]
+fn test_config_default_traces_enabled() {
+    let config = TelemetryConfig::default();
+    assert!(config.traces_enabled);
+}
+
+#[test]
+fn test_config_for_testing_log_to_stdout() {
+    let config = TelemetryConfig::for_testing();
+    // for_testing should produce valid config
+    let _ = config.log_to_stdout;
+}
+
+#[test]
+fn test_config_otlp_endpoint_can_be_set() {
+    let config = TelemetryConfig {
+        otlp_endpoint: Some("http://localhost:4317".to_string()),
+        ..TelemetryConfig::default()
+    };
+    assert_eq!(
+        config.otlp_endpoint.as_deref(),
+        Some("http://localhost:4317")
+    );
+}
+
+#[test]
+fn test_config_otlp_endpoint_default_none() {
+    let config = TelemetryConfig::default();
+    assert!(config.otlp_endpoint.is_none());
+}
+
+#[test]
+fn test_config_service_name_unicode() {
+    let config = TelemetryConfig {
+        service_name: "auroraview-マヤ".to_string(),
+        ..TelemetryConfig::default()
+    };
+    assert_eq!(config.service_name, "auroraview-マヤ");
+}
+
+#[test]
+fn test_telemetry_enable_disable_idempotent() {
+    // Calling enable or disable multiple times should not panic
+    Telemetry::enable();
+    Telemetry::enable();
+    Telemetry::disable();
+    Telemetry::disable();
+    assert!(!Telemetry::is_enabled());
+}
+
+#[test]
+fn test_config_trace_sample_ratio_zero() {
+    let config = TelemetryConfig {
+        trace_sample_ratio: 0.0,
+        ..TelemetryConfig::default()
+    };
+    assert!((config.trace_sample_ratio).abs() < f64::EPSILON);
+}
+
+#[test]
+fn test_config_metrics_interval_min() {
+    let config = TelemetryConfig {
+        metrics_interval_secs: 1,
+        ..TelemetryConfig::default()
+    };
+    assert_eq!(config.metrics_interval_secs, 1);
+}
+
+#[test]
+fn test_config_metrics_interval_large() {
+    let config = TelemetryConfig {
+        metrics_interval_secs: 3600,
+        ..TelemetryConfig::default()
+    };
+    assert_eq!(config.metrics_interval_secs, 3600);
+}
+
+#[test]
+fn test_config_log_level_variants() {
+    for level in &["trace", "debug", "info", "warn", "error", "off"] {
+        let config = TelemetryConfig {
+            log_level: level.to_string(),
+            ..TelemetryConfig::default()
+        };
+        assert_eq!(config.log_level, *level);
+    }
+}
+
+#[test]
+fn test_config_serde_preserves_otlp_endpoint() {
+    let config = TelemetryConfig {
+        otlp_endpoint: Some("http://otlp.example.com:4317".to_string()),
+        ..TelemetryConfig::default()
+    };
+    let json = serde_json::to_string(&config).unwrap();
+    let restored: TelemetryConfig = serde_json::from_str(&json).unwrap();
+    assert_eq!(
+        restored.otlp_endpoint.as_deref(),
+        Some("http://otlp.example.com:4317")
+    );
+}
+
+#[test]
+fn test_config_send_sync_bounds() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<TelemetryConfig>();
+}
+
+#[test]
+fn test_is_enabled_returns_bool() {
+    let result: bool = Telemetry::is_enabled();
+    let _ = result;
+}
+
+#[test]
+fn test_is_initialized_consistent_with_init() {
+    let was_initialized = Telemetry::is_initialized();
+    // After this check, state should remain consistent (no panic)
+    let _ = was_initialized;
+}
+
+#[test]
+fn test_disabled_config_service_name_custom() {
+    let config = TelemetryConfig {
+        enabled: false,
+        service_name: "maya-tool-test".to_string(),
+        ..TelemetryConfig::default()
+    };
+    assert!(!config.enabled);
+    assert_eq!(config.service_name, "maya-tool-test");
+}

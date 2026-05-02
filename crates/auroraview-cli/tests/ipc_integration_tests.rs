@@ -24,7 +24,7 @@ fn get_python_command() -> &'static str {
 /// Test that Python packed module sends ready signal on startup
 #[test]
 #[ignore = "requires Python runtime, run with --ignored"]
-fn test_python_sends_ready_signal() {
+fn python_sends_ready_signal() {
     // Create a minimal Python script that mimics packed mode behavior
     let python_code = r#"
 import json
@@ -100,7 +100,7 @@ if line:
 /// Test that Python handles multiple requests correctly
 #[test]
 #[ignore = "requires Python runtime, run with --ignored"]
-fn test_python_handles_multiple_requests() {
+fn python_handles_multiple_requests() {
     let python_code = r#"
 import json
 import sys
@@ -165,7 +165,7 @@ for _ in range(3):
 /// Test that closing stdin causes Python to exit gracefully
 #[test]
 #[ignore = "requires Python runtime, run with --ignored"]
-fn test_python_exits_on_stdin_close() {
+fn python_exits_on_stdin_close() {
     let python_code = r#"
 import json
 import sys
@@ -225,7 +225,7 @@ while True:
 /// Test error handling when Python returns an error
 #[test]
 #[ignore = "requires Python runtime, run with --ignored"]
-fn test_python_error_response() {
+fn python_error_response() {
     let python_code = r#"
 import json
 import sys
@@ -290,10 +290,347 @@ if line:
     let _ = child.wait();
 }
 
+// =============================================================================
+// JSON-RPC message format tests (no Python runtime required)
+// =============================================================================
+
+mod jsonrpc_format_tests {
+    /// Build a JSON-RPC call message
+    fn make_call(id: &str, method: &str, params: serde_json::Value) -> serde_json::Value {
+        serde_json::json!({
+            "type": "call",
+            "id": id,
+            "method": method,
+            "params": params
+        })
+    }
+
+    /// Build a successful JSON-RPC result message
+    fn make_result_ok(id: &str, result: serde_json::Value) -> serde_json::Value {
+        serde_json::json!({
+            "id": id,
+            "ok": true,
+            "result": result
+        })
+    }
+
+    /// Build a failed JSON-RPC result message
+    fn make_result_err(id: &str, name: &str, message: &str) -> serde_json::Value {
+        serde_json::json!({
+            "id": id,
+            "ok": false,
+            "error": { "name": name, "message": message }
+        })
+    }
+
+    #[test]
+    fn call_message_fields() {
+        let msg = make_call("req_1", "api.echo", serde_json::json!({"text": "hello"}));
+        assert_eq!(msg["type"], "call");
+        assert_eq!(msg["id"], "req_1");
+        assert_eq!(msg["method"], "api.echo");
+        assert_eq!(msg["params"]["text"], "hello");
+    }
+
+    #[test]
+    fn result_ok_fields() {
+        let r = make_result_ok("req_1", serde_json::json!(42));
+        assert_eq!(r["id"], "req_1");
+        assert_eq!(r["ok"], true);
+        assert_eq!(r["result"], 42);
+    }
+
+    #[test]
+    fn result_err_fields() {
+        let r = make_result_err("req_1", "NotFound", "method not found");
+        assert_eq!(r["id"], "req_1");
+        assert_eq!(r["ok"], false);
+        assert_eq!(r["error"]["name"], "NotFound");
+        assert!(r["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("not found"));
+    }
+
+    #[test]
+    fn call_id_roundtrip_in_response() {
+        let call_id = "av_call_99887766_42";
+        let call = make_call(call_id, "get_samples", serde_json::json!(null));
+        let response = make_result_ok(call_id, serde_json::json!([]));
+
+        let req_id = call["id"].as_str().unwrap();
+        let res_id = response["id"].as_str().unwrap();
+        assert_eq!(req_id, res_id);
+    }
+
+    #[test]
+    fn params_null_is_valid() {
+        let msg = make_call("id1", "list_items", serde_json::json!(null));
+        assert!(msg["params"].is_null());
+    }
+
+    #[test]
+    fn params_array_is_valid() {
+        let msg = make_call("id2", "add", serde_json::json!([1, 2]));
+        assert!(msg["params"].is_array());
+        assert_eq!(msg["params"][0], 1);
+        assert_eq!(msg["params"][1], 2);
+    }
+
+    #[test]
+    fn params_object_is_valid() {
+        let msg = make_call("id3", "export", serde_json::json!({"path": "/tmp/out.fbx"}));
+        assert!(msg["params"].is_object());
+        assert_eq!(msg["params"]["path"], "/tmp/out.fbx");
+    }
+
+    #[test]
+    fn ready_signal_required_fields() {
+        let ready = serde_json::json!({
+            "type": "ready",
+            "handlers": ["get_samples", "run_sample"]
+        });
+        assert_eq!(ready["type"], "ready");
+        assert!(ready["handlers"].is_array());
+        assert_eq!(ready["handlers"].as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn ready_signal_empty_handlers() {
+        let ready = serde_json::json!({"type": "ready", "handlers": []});
+        assert_eq!(ready["type"], "ready");
+        assert_eq!(ready["handlers"].as_array().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn ready_signal_multiple_handlers() {
+        let handlers = vec!["get_samples", "get_categories", "run_sample", "get_config"];
+        let ready = serde_json::json!({ "type": "ready", "handlers": handlers });
+        assert_eq!(ready["handlers"].as_array().unwrap().len(), 4);
+    }
+
+    #[test]
+    fn error_response_with_code() {
+        let r = serde_json::json!({
+            "id": "x",
+            "ok": false,
+            "error": {
+                "name": "TypeError",
+                "message": "Expected string",
+                "code": 400
+            }
+        });
+        assert_eq!(r["error"]["code"], 400);
+    }
+
+    #[test]
+    fn call_method_namespace_dot() {
+        let namespaces = [
+            "api.echo",
+            "tool.apply",
+            "scene.export",
+            "dcc.maya.get_selection",
+        ];
+        for ns in &namespaces {
+            let msg = make_call("id", ns, serde_json::json!(null));
+            assert_eq!(msg["method"].as_str().unwrap(), *ns);
+        }
+    }
+
+    #[test]
+    fn result_can_be_object() {
+        let r = make_result_ok("x", serde_json::json!({"items": [1, 2, 3], "total": 3}));
+        assert_eq!(r["result"]["total"], 3);
+        assert_eq!(r["result"]["items"].as_array().unwrap().len(), 3);
+    }
+
+    #[test]
+    fn result_can_be_string() {
+        let r = make_result_ok("x", serde_json::json!("hello world"));
+        assert_eq!(r["result"], "hello world");
+    }
+
+    #[test]
+    fn result_can_be_bool() {
+        let r = make_result_ok("x", serde_json::json!(false));
+        assert_eq!(r["result"], false);
+    }
+
+    #[test]
+    fn ipc_serialized_parse() {
+        let raw = r#"{"type":"call","id":"1","method":"api.echo","params":{"message":"test"}}"#;
+        let msg: serde_json::Value = serde_json::from_str(raw).unwrap();
+        assert_eq!(msg["type"], "call");
+        assert_eq!(msg["id"], "1");
+        assert_eq!(msg["method"], "api.echo");
+        assert_eq!(msg["params"]["message"], "test");
+    }
+
+    #[test]
+    fn backend_exit_error_format() {
+        let r = serde_json::json!({
+            "id": "abc",
+            "ok": false,
+            "error": {
+                "name": "PythonBackendError",
+                "message": "Python backend process has exited"
+            }
+        });
+        assert_eq!(r["ok"], false);
+        assert_eq!(r["error"]["name"], "PythonBackendError");
+        assert!(r["error"]["message"].as_str().unwrap().contains("exited"));
+    }
+
+    #[test]
+    fn method_not_found_error() {
+        let r = make_result_err("y", "MethodNotFound", "method 'unknown' not found");
+        assert_eq!(r["error"]["name"], "MethodNotFound");
+        assert!(r["error"]["message"].as_str().unwrap().contains("unknown"));
+    }
+
+    #[test]
+    fn unique_call_ids_sequential() {
+        let ids: Vec<String> = (0..10).map(|i| format!("av_call_{}_1", i)).collect();
+        let unique: std::collections::HashSet<_> = ids.iter().collect();
+        assert_eq!(unique.len(), 10);
+    }
+
+    #[test]
+    fn call_serialize_compact() {
+        let msg = make_call("1", "echo", serde_json::json!(null));
+        let s = serde_json::to_string(&msg).unwrap();
+        // Should not contain pretty-print newlines at the top level
+        assert!(!s.starts_with("{\n"));
+    }
+
+    // ─── Extended coverage ────────────────────────────────────────────────
+
+    #[test]
+    fn call_method_empty_params() {
+        let msg = make_call("a", "list_all", serde_json::json!({}));
+        assert_eq!(msg["method"], "list_all");
+        assert!(msg["params"].is_object());
+    }
+
+    #[test]
+    fn result_ok_null_result() {
+        let r = make_result_ok("n", serde_json::json!(null));
+        assert!(r["result"].is_null());
+    }
+
+    #[test]
+    fn result_ok_nested_array() {
+        let r = make_result_ok("arr", serde_json::json!([[1, 2], [3, 4]]));
+        assert_eq!(r["result"][0][1], 2);
+        assert_eq!(r["result"][1][0], 3);
+    }
+
+    #[test]
+    fn error_message_is_string() {
+        let r = make_result_err("e", "SomeError", "Something went wrong");
+        assert!(r["error"]["message"].is_string());
+    }
+
+    #[test]
+    fn error_name_is_string() {
+        let r = make_result_err("e", "NetworkError", "timeout");
+        assert!(r["error"]["name"].is_string());
+    }
+
+    #[test]
+    fn call_id_is_string() {
+        let msg = make_call("my_id", "fn", serde_json::json!(null));
+        assert!(msg["id"].is_string());
+    }
+
+    #[test]
+    fn type_field_is_call() {
+        let msg = make_call("1", "fn", serde_json::json!(null));
+        assert_eq!(msg["type"].as_str().unwrap(), "call");
+    }
+
+    #[test]
+    fn ok_field_is_bool_true() {
+        let r = make_result_ok("x", serde_json::json!(0));
+        assert!(r["ok"].is_boolean());
+        assert!(r["ok"].as_bool().unwrap());
+    }
+
+    #[test]
+    fn ok_field_is_bool_false() {
+        let r = make_result_err("x", "Err", "msg");
+        assert!(r["ok"].is_boolean());
+        assert!(!r["ok"].as_bool().unwrap());
+    }
+
+    #[test]
+    fn call_with_numeric_param() {
+        let msg = make_call("n1", "set_volume", serde_json::json!({"level": 0.8}));
+        let level = msg["params"]["level"].as_f64().unwrap();
+        assert!((level - 0.8).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn call_with_bool_param() {
+        let msg = make_call("b1", "set_enabled", serde_json::json!({"enabled": true}));
+        assert_eq!(msg["params"]["enabled"], true);
+    }
+
+    #[test]
+    fn ids_are_unique_across_calls() {
+        let ids: Vec<serde_json::Value> = (0..5)
+            .map(|i| make_call(&format!("id_{}", i), "fn", serde_json::json!(null))["id"].clone())
+            .collect();
+        let as_strings: std::collections::HashSet<String> = ids
+            .iter()
+            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+            .collect();
+        assert_eq!(as_strings.len(), 5, "IDs should all be unique");
+    }
+
+    #[test]
+    fn error_without_code_field() {
+        let r = make_result_err("z", "BaseError", "no code");
+        // "code" should not be present in a basic error
+        assert!(r["error"]["code"].is_null());
+    }
+
+    #[test]
+    fn result_ok_with_large_number() {
+        let r = make_result_ok("big", serde_json::json!(u64::MAX));
+        // u64::MAX may exceed serde_json's i64, but should be representable
+        assert!(!r["result"].is_null());
+    }
+
+    #[test]
+    fn params_deeply_nested() {
+        let msg = make_call(
+            "deep",
+            "process",
+            serde_json::json!({"a": {"b": {"c": {"d": 99}}}}),
+        );
+        assert_eq!(msg["params"]["a"]["b"]["c"]["d"], 99);
+    }
+
+    #[test]
+    fn ready_signal_handlers_are_strings() {
+        let ready = serde_json::json!({"type": "ready", "handlers": ["fn1", "fn2"]});
+        for h in ready["handlers"].as_array().unwrap() {
+            assert!(h.is_string());
+        }
+    }
+
+    #[test]
+    fn call_method_with_underscore() {
+        let msg = make_call("u", "export_scene_as_fbx", serde_json::json!(null));
+        assert_eq!(msg["method"], "export_scene_as_fbx");
+    }
+}
+
 /// Test the actual packed.py module if available
 #[test]
 #[ignore = "requires Python runtime, run with --ignored"]
-fn test_real_packed_module() {
+fn real_packed_module() {
     // This test uses the actual packed.py module
     let project_root = std::env::current_dir()
         .unwrap()

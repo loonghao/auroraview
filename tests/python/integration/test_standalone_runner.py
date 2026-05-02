@@ -60,6 +60,7 @@ class TestStandaloneRunner:
             assert "run_desktop" in doc
             assert "deprecated" in doc.lower() or "backward compatibility" in doc.lower()
 
+
         except ImportError:
             pytest.skip("run_standalone not available")
 
@@ -320,6 +321,7 @@ class TestLoadingScreen:
         assert content.count("<html") == content.count("</html>")
         assert content.count("<head") == content.count("</head>")
         assert content.count("<body") == content.count("</body>")
+
 
 
 class TestJsAssets:

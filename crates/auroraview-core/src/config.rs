@@ -102,7 +102,18 @@ pub struct CoreConfig {
     /// Example: `"default-src 'self'; script-src 'self' 'unsafe-inline'"`
     ///
     /// Set to `None` (default) to disable CSP injection.
+    /// Use `strict_csp: true` to enable a strict default policy.
     pub content_security_policy: Option<String>,
+
+    /// Enable strict default CSP policy for enhanced security.
+    ///
+    /// When set to `true` and `content_security_policy` is `None`,
+    /// a strict default policy is used: `"default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' ws: wss:; frame-src 'none'; object-src 'none'; base-uri 'self'"`
+    ///
+    /// This provides reasonable security without breaking common use cases.
+    /// Defaults to `false` (no CSP) for backward compatibility.
+    #[serde(default)]
+    pub strict_csp: bool,
 
     /// Show shadow for undecorated (frameless) windows (Windows only).
     ///
@@ -145,6 +156,7 @@ impl Default for CoreConfig {
             allow_new_window: false,
             allow_file_protocol: false,
             content_security_policy: None,
+            strict_csp: false,
             #[cfg(target_os = "windows")]
             undecorated_shadow: false,
         }

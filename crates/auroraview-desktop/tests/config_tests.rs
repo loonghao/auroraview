@@ -277,3 +277,190 @@ fn test_desktop_config_builder_chaining_all_methods() {
     assert!(config.tray.is_some());
     assert_eq!(config.debug_port, 0);
 }
+
+// ─── Additional coverage ──────────────────────────────────────────────────────
+
+#[test]
+fn test_desktop_config_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<DesktopConfig>();
+}
+
+#[test]
+fn test_tray_config_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<TrayConfig>();
+}
+
+#[test]
+fn test_desktop_config_debug_non_empty() {
+    let config = DesktopConfig::default();
+    let debug_str = format!("{:?}", config);
+    assert!(!debug_str.is_empty());
+}
+
+#[test]
+fn test_desktop_config_size_zero() {
+    let config = DesktopConfig::new().size(0, 0);
+    assert_eq!(config.width, 0);
+    assert_eq!(config.height, 0);
+}
+
+#[test]
+fn test_desktop_config_size_large() {
+    let config = DesktopConfig::new().size(7680, 4320); // 8K resolution
+    assert_eq!(config.width, 7680);
+    assert_eq!(config.height, 4320);
+}
+
+#[test]
+fn test_desktop_config_resizable_false() {
+    let config = DesktopConfig::new().resizable(false);
+    assert!(!config.resizable);
+}
+
+#[test]
+fn test_desktop_config_decorations_true() {
+    let config = DesktopConfig::new().decorations(true);
+    assert!(config.decorations);
+}
+
+#[test]
+fn test_desktop_config_always_on_top_true() {
+    let config = DesktopConfig::new().always_on_top(true);
+    assert!(config.always_on_top);
+}
+
+#[test]
+fn test_desktop_config_debug_port_nonzero() {
+    let config = DesktopConfig::new().debug_port(9222);
+    assert_eq!(config.debug_port, 9222);
+}
+
+#[test]
+fn test_tray_config_no_icon() {
+    let tray = TrayConfig::default();
+    assert!(tray.icon.is_none());
+}
+
+#[test]
+fn test_tray_config_no_tooltip() {
+    let tray = TrayConfig::default();
+    assert!(tray.tooltip.is_none());
+}
+
+#[test]
+fn test_tray_config_empty_menu() {
+    // TrayConfig::default() has 3 default menu items (Show, Separator, Quit)
+    let tray = TrayConfig::default();
+    assert!(!tray.menu.is_empty());
+    assert_eq!(tray.menu.len(), 3);
+}
+
+#[test]
+fn test_tray_menu_item_separator_is_separator() {
+    let item = TrayMenuItem::Separator;
+    assert!(matches!(item, TrayMenuItem::Separator));
+}
+
+// ---------------------------------------------------------------------------
+// Additional coverage R9
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_desktop_config_fullscreen() {
+    let config = DesktopConfig {
+        fullscreen: true,
+        ..DesktopConfig::default()
+    };
+    assert!(config.fullscreen);
+}
+
+#[test]
+fn test_desktop_config_fullscreen_default_false() {
+    let config = DesktopConfig::default();
+    assert!(!config.fullscreen);
+}
+
+#[test]
+fn test_desktop_config_visible_default_true() {
+    let config = DesktopConfig::default();
+    assert!(config.visible);
+}
+
+#[test]
+fn test_desktop_config_maximized_builder() {
+    let config = DesktopConfig {
+        maximized: true,
+        ..DesktopConfig::default()
+    };
+    assert!(config.maximized);
+}
+
+#[test]
+fn test_desktop_config_minimized_builder() {
+    let config = DesktopConfig {
+        minimized: true,
+        ..DesktopConfig::default()
+    };
+    assert!(config.minimized);
+}
+
+#[test]
+fn test_desktop_config_context_menu_false() {
+    let config = DesktopConfig {
+        context_menu: false,
+        ..DesktopConfig::default()
+    };
+    assert!(!config.context_menu);
+}
+
+#[test]
+fn test_desktop_config_hotkeys_false() {
+    let config = DesktopConfig {
+        hotkeys: false,
+        ..DesktopConfig::default()
+    };
+    assert!(!config.hotkeys);
+}
+
+#[test]
+fn test_desktop_config_debug_contains_title() {
+    let config = DesktopConfig::new().title("Debug Title");
+    let debug_str = format!("{:?}", config);
+    assert!(debug_str.contains("Debug Title"));
+}
+
+#[test]
+fn test_tray_menu_item_item_debug() {
+    let item = TrayMenuItem::Item {
+        id: "test-id".to_string(),
+        label: "Test Label".to_string(),
+        enabled: true,
+    };
+    let debug_str = format!("{:?}", item);
+    assert!(!debug_str.is_empty());
+}
+
+#[test]
+fn test_desktop_config_serde_fullscreen() {
+    let config = DesktopConfig {
+        fullscreen: true,
+        ..DesktopConfig::default()
+    };
+    let json = serde_json::to_string(&config).unwrap();
+    let restored: DesktopConfig = serde_json::from_str(&json).unwrap();
+    assert!(restored.fullscreen);
+}
+
+#[test]
+fn test_desktop_config_data_dir_none_default() {
+    let config = DesktopConfig::default();
+    assert!(config.data_dir.is_none());
+}
+
+#[test]
+fn test_desktop_config_icon_none_default() {
+    let config = DesktopConfig::default();
+    assert!(config.icon.is_none());
+}

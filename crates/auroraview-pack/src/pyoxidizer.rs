@@ -4,7 +4,7 @@
 //! executables with embedded Python runtime.
 //!
 //! We use the AuroraView-maintained fork of PyOxidizer:
-//! https://github.com/loonghao/PyOxidizer
+//! <https://github.com/loonghao/PyOxidizer>
 
 use crate::error::{PackError, PackResult};
 use serde::{Deserialize, Serialize};

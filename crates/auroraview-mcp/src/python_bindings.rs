@@ -1,0 +1,573 @@
+//! `PyO3` Python bindings for `AuroraView` MCP Server.
+//!
+//! Exposes `McpServer` and `McpConfig` to Python so DCC plugins can
+//! start/stop the MCP server without managing tokio runtimes manually.
+//!
+//! # Usage (Python)
+//!
+//! ```python
+//! from auroraview import McpServer
+//!
+//! server = McpServer(port=7890)
+//! server.start()               # non-blocking, runs in background thread
+//! server.emit_run_started("run-1", "thread-1")
+//! server.stop()
+//! ```
+//!
+//! # Feature gate
+//!
+//! This module is only compiled when the `python-bindings` Cargo feature is
+//! enabled (e.g. via `maturin build --features python-bindings`).
+
+use crate::{agui::AguiEvent, runner::McpRunner, types::McpServerConfig};
+use std::sync::{Arc, Mutex};
+use tokio::runtime::Runtime;
+
+// ---------------------------------------------------------------------------
+// PyMcpConfig
+// ---------------------------------------------------------------------------
+
+/// Python-facing configuration for the `AuroraView` MCP server.
+///
+/// Mirrors [`McpServerConfig`] with Python-friendly defaults.
+pub struct PyMcpConfig {
+    pub host: String,
+    pub port: u16,
+    pub service_name: String,
+    pub enable_mdns: bool,
+    /// Enable OAuth 2.0 authentication.
+    pub enable_oauth: bool,
+    /// Maximum concurrent `WebViews` (`None` = unlimited).
+    pub max_webviews: Option<usize>,
+}
+
+impl PyMcpConfig {
+    #[must_use]
+    pub fn new(
+        host: String,
+        port: u16,
+        service_name: String,
+        enable_mdns: bool,
+        enable_oauth: bool,
+        max_webviews: Option<usize>,
+    ) -> Self {
+        Self {
+            host,
+            port,
+            service_name,
+            enable_mdns,
+            enable_oauth,
+            max_webviews,
+        }
+    }
+}
+
+impl Default for PyMcpConfig {
+    fn default() -> Self {
+        let cfg = McpServerConfig::default();
+        Self {
+            host: cfg.host,
+            port: cfg.port,
+            service_name: cfg.service_name,
+            enable_mdns: cfg.enable_mdns,
+            enable_oauth: cfg.enable_oauth,
+            max_webviews: cfg.max_webviews,
+        }
+    }
+}
+
+impl From<PyMcpConfig> for McpServerConfig {
+    fn from(py: PyMcpConfig) -> Self {
+        Self {
+            host: py.host,
+            port: py.port,
+            service_name: py.service_name,
+            enable_mdns: py.enable_mdns,
+            enable_oauth: py.enable_oauth,
+            max_webviews: py.max_webviews,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PyMcpServer — the primary Python-facing type
+// ---------------------------------------------------------------------------
+
+/// State shared between Python references after `start()`.
+struct RunnerState {
+    runtime: Runtime,
+    runner: McpRunner,
+}
+
+/// `AuroraView` MCP Server — Python binding.
+///
+/// Manages its own tokio [`Runtime`] so it runs without conflicting with the
+/// DCC application's existing event loop (Qt, Maya, Blender, etc.).
+pub struct PyMcpServer {
+    config: McpServerConfig,
+    state: Arc<Mutex<Option<RunnerState>>>,
+}
+
+impl PyMcpServer {
+    /// Create a new server with the given port (other settings at defaults).
+    pub fn new(port: u16) -> Self {
+        let config = McpServerConfig {
+            port,
+            ..McpServerConfig::default()
+        };
+        Self {
+            config,
+            state: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    /// Create a server from explicit configuration.
+    pub fn from_config(config: McpServerConfig) -> Self {
+        Self {
+            config,
+            state: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    /// Create a server from a [`PyMcpConfig`] (Python-friendly configuration).
+    ///
+    /// Equivalent to `PyMcpServer::from_config(py_config.into())`.
+    #[must_use]
+    pub fn from_config_py(py_config: PyMcpConfig) -> Self {
+        Self::from_config(py_config.into())
+    }
+
+    /// Port this server listens on.
+    #[must_use]
+    pub fn port(&self) -> u16 {
+        self.config.port
+    }
+
+    /// Host address this server binds to.
+    #[must_use]
+    pub fn host(&self) -> &str {
+        &self.config.host
+    }
+
+    /// Start the MCP server in a background thread (non-blocking).
+    ///
+    /// Returns an error string if the server is already running or the port
+    /// is in use.
+    pub fn start(&self) -> Result<(), String> {
+        let mut lock = self.state.lock().map_err(|e| e.to_string())?;
+        if lock.is_some() {
+            return Err(format!(
+                "MCP server already running on port {}",
+                self.config.port
+            ));
+        }
+
+        let runtime = Runtime::new().map_err(|e| e.to_string())?;
+        let runner = McpRunner::new(self.config.clone());
+        runtime
+            .block_on(runner.start())
+            .map_err(|e| e.to_string())?;
+        *lock = Some(RunnerState { runtime, runner });
+        Ok(())
+    }
+
+    /// Stop the running server (no-op if not running).
+    pub fn stop(&self) -> Result<(), String> {
+        let mut lock = self.state.lock().map_err(|e| e.to_string())?;
+        if let Some(state) = lock.take() {
+            state.runtime.block_on(state.runner.stop());
+        }
+        Ok(())
+    }
+
+    /// Return `true` if the server is currently running.
+    #[must_use]
+    pub fn is_running(&self) -> bool {
+        let lock = match self.state.lock() {
+            Ok(g) => g,
+            Err(_) => return false,
+        };
+        if let Some(state) = lock.as_ref() {
+            state.runtime.block_on(state.runner.is_running())
+        } else {
+            false
+        }
+    }
+
+    /// Emit an AG-UI `RunStarted` event.
+    pub fn emit_run_started(&self, run_id: &str, thread_id: &str) -> Result<(), String> {
+        self.emit_event(AguiEvent::RunStarted {
+            run_id: run_id.to_string(),
+            thread_id: thread_id.to_string(),
+        })
+    }
+
+    /// Emit an AG-UI `RunFinished` event.
+    pub fn emit_run_finished(&self, run_id: &str, thread_id: &str) -> Result<(), String> {
+        self.emit_event(AguiEvent::RunFinished {
+            run_id: run_id.to_string(),
+            thread_id: thread_id.to_string(),
+        })
+    }
+
+    /// Emit an AG-UI `ToolCallStart` event.
+    pub fn emit_tool_call_start(
+        &self,
+        run_id: &str,
+        tool_call_id: &str,
+        tool_name: &str,
+    ) -> Result<(), String> {
+        self.emit_event(AguiEvent::ToolCallStart {
+            run_id: run_id.to_string(),
+            tool_call_id: tool_call_id.to_string(),
+            tool_name: tool_name.to_string(),
+        })
+    }
+
+    /// Emit an AG-UI `ToolCallEnd` event.
+    pub fn emit_tool_call_end(&self, run_id: &str, tool_call_id: &str) -> Result<(), String> {
+        self.emit_event(AguiEvent::ToolCallEnd {
+            run_id: run_id.to_string(),
+            tool_call_id: tool_call_id.to_string(),
+        })
+    }
+
+    /// Emit an arbitrary AG-UI `Custom` event.
+    pub fn emit_custom(
+        &self,
+        run_id: &str,
+        name: &str,
+        data: serde_json::Value,
+    ) -> Result<(), String> {
+        self.emit_event(AguiEvent::Custom {
+            run_id: run_id.to_string(),
+            name: name.to_string(),
+            data,
+        })
+    }
+
+    /// Emit a `StepStarted` + `StepFinished` pair for a single synchronous step.
+    ///
+    /// This is a Python-friendly wrapper around [`McpRunner::emit_agui_step`].
+    /// It emits both events atomically via the AG-UI bus, making it easy for
+    /// DCC Python plugins to report simple step completion.
+    ///
+    /// # Arguments
+    ///
+    /// * `run_id`    — identifies the active AG-UI run
+    /// * `step_name` — human-readable step label (e.g. `"export_scene"`)
+    /// * `step_id`   — unique ID for this step (e.g. `"step-001"`)
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the server is not currently running.
+    pub fn emit_step(&self, run_id: &str, step_name: &str, step_id: &str) -> Result<(), String> {
+        let lock = self.state.lock().map_err(|e| e.to_string())?;
+        if let Some(state) = lock.as_ref() {
+            state.runner.emit_agui_step(run_id, step_name, step_id);
+            Ok(())
+        } else {
+            Err("MCP server is not running".to_string())
+        }
+    }
+
+    /// Low-level: emit any `AguiEvent` through the bus.
+    pub fn emit_event(&self, event: AguiEvent) -> Result<(), String> {
+        let lock = self.state.lock().map_err(|e| e.to_string())?;
+        if let Some(state) = lock.as_ref() {
+            state.runner.emit_agui(event);
+            Ok(())
+        } else {
+            Err("MCP server is not running".to_string())
+        }
+    }
+
+    /// Return the MCP endpoint URL (e.g. `http://127.0.0.1:7890/mcp`).
+    #[must_use]
+    pub fn mcp_url(&self) -> String {
+        format!("http://{}:{}/mcp", self.config.host, self.config.port)
+    }
+
+    /// Return the AG-UI SSE endpoint URL.
+    #[must_use]
+    pub fn agui_url(&self) -> String {
+        format!(
+            "http://{}:{}/agui/events",
+            self.config.host, self.config.port
+        )
+    }
+
+    /// Update the CDP endpoint for a registered `WebView`.
+    ///
+    /// Call this from DCC Python code after a `WebView` is created with
+    /// CDP enabled, so that `screenshot` and `eval_js` tools can
+    /// connect to the running `WebView`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the server is not running or the `WebView` is not found.
+    pub fn update_cdp_endpoint(&self, id: &str, endpoint: &str) -> Result<(), String> {
+        let lock = self.state.lock().map_err(|e| e.to_string())?;
+        if let Some(state) = lock.as_ref() {
+            state.runner.update_cdp_endpoint(id, endpoint)
+        } else {
+            Err("MCP server is not running".to_string())
+        }
+    }
+}
+
+impl Drop for PyMcpServer {
+    fn drop(&mut self) {
+        let _ = self.stop();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// pyo3 feature gate — compiled only with `--features python-bindings`
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "python-bindings")]
+mod pyo3_impl {
+    use super::*;
+    use pyo3::prelude::*;
+
+    /// Python class: `McpConfig`
+    ///
+    /// ```python
+    /// from auroraview import McpConfig
+    /// cfg = McpConfig(port=7891, host="0.0.0.0", enable_mdns=False)
+    /// cfg_limited = McpConfig(port=7892, max_webviews=5)
+    /// ```
+    #[pyclass(name = "McpConfig")]
+    pub struct PyMcpConfigWrapper {
+        inner: McpServerConfig,
+    }
+
+    #[pymethods]
+    impl PyMcpConfigWrapper {
+        #[new]
+        #[pyo3(signature = (port=7890, host="127.0.0.1", service_name="auroraview-mcp", enable_mdns=true, enable_oauth=false, max_webviews=None))]
+        fn new(
+            port: u16,
+            host: &str,
+            service_name: &str,
+            enable_mdns: bool,
+            enable_oauth: bool,
+            max_webviews: Option<usize>,
+        ) -> Self {
+            Self {
+                inner: McpServerConfig {
+                    host: host.to_string(),
+                    port,
+                    service_name: service_name.to_string(),
+                    enable_mdns,
+                    enable_oauth,
+                    max_webviews,
+                },
+            }
+        }
+
+        #[getter]
+        fn port(&self) -> u16 {
+            self.inner.port
+        }
+
+        #[getter]
+        fn host(&self) -> &str {
+            &self.inner.host
+        }
+
+        #[getter]
+        fn service_name(&self) -> &str {
+            &self.inner.service_name
+        }
+
+        #[getter]
+        fn enable_mdns(&self) -> bool {
+            self.inner.enable_mdns
+        }
+
+        #[getter]
+        fn max_webviews(&self) -> Option<usize> {
+            self.inner.max_webviews
+        }
+
+        fn __repr__(&self) -> String {
+            format!(
+                "McpConfig(host={}, port={}, service_name={}, enable_mdns={}, max_webviews={:?})",
+                self.inner.host,
+                self.inner.port,
+                self.inner.service_name,
+                self.inner.enable_mdns,
+                self.inner.max_webviews,
+            )
+        }
+    }
+
+    /// Python class: `McpServer`
+    ///
+    /// ```python
+    /// from auroraview import McpServer
+    ///
+    /// server = McpServer(port=7890)
+    /// server.start()
+    /// server.emit_run_started("run-1", "thread-1")
+    /// server.stop()
+    /// ```
+    #[pyclass(name = "McpServer")]
+    pub struct PyMcpServerWrapper {
+        inner: Arc<PyMcpServer>,
+    }
+
+    #[pymethods]
+    impl PyMcpServerWrapper {
+        #[new]
+        #[pyo3(signature = (port=7890, config=None))]
+        fn new(port: u16, config: Option<&PyMcpConfigWrapper>) -> Self {
+            let server = if let Some(cfg) = config {
+                PyMcpServer::from_config(cfg.inner.clone())
+            } else {
+                PyMcpServer::new(port)
+            };
+            Self {
+                inner: Arc::new(server),
+            }
+        }
+
+        /// Start the server (non-blocking).
+        fn start(&self) -> PyResult<()> {
+            self.inner
+                .start()
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+        }
+
+        /// Stop the server.
+        fn stop(&self) -> PyResult<()> {
+            self.inner
+                .stop()
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+        }
+
+        /// Create a server from a `McpConfig` object.
+        ///
+        /// ```python
+        /// from auroraview import McpConfig, McpServer
+        /// cfg = McpConfig(port=7891, enable_mdns=False)
+        /// server = McpServer.from_config(cfg)
+        /// server.start()
+        /// ```
+        #[staticmethod]
+        fn from_config(config: &PyMcpConfigWrapper) -> Self {
+            Self {
+                inner: Arc::new(PyMcpServer::from_config(config.inner.clone())),
+            }
+        }
+
+        /// Return `True` if the server is running.
+        fn is_running(&self) -> bool {
+            self.inner.is_running()
+        }
+
+        /// MCP endpoint URL.
+        fn mcp_url(&self) -> String {
+            self.inner.mcp_url()
+        }
+
+        /// AG-UI SSE endpoint URL.
+        fn agui_url(&self) -> String {
+            self.inner.agui_url()
+        }
+
+        #[getter]
+        fn port(&self) -> u16 {
+            self.inner.port()
+        }
+
+        #[getter]
+        fn host(&self) -> &str {
+            self.inner.host()
+        }
+
+        /// Emit a RunStarted AG-UI event.
+        fn emit_run_started(&self, run_id: &str, thread_id: &str) -> PyResult<()> {
+            self.inner
+                .emit_run_started(run_id, thread_id)
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+        }
+
+        /// Emit a RunFinished AG-UI event.
+        fn emit_run_finished(&self, run_id: &str, thread_id: &str) -> PyResult<()> {
+            self.inner
+                .emit_run_finished(run_id, thread_id)
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+        }
+
+        /// Emit a ToolCallStart AG-UI event.
+        fn emit_tool_call_start(
+            &self,
+            run_id: &str,
+            tool_call_id: &str,
+            tool_name: &str,
+        ) -> PyResult<()> {
+            self.inner
+                .emit_tool_call_start(run_id, tool_call_id, tool_name)
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+        }
+
+        /// Emit a ToolCallEnd AG-UI event.
+        fn emit_tool_call_end(&self, run_id: &str, tool_call_id: &str) -> PyResult<()> {
+            self.inner
+                .emit_tool_call_end(run_id, tool_call_id)
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+        }
+
+        /// Emit a `StepStarted` + `StepFinished` pair for a synchronous step.
+        ///
+        /// Useful for DCC plugins that want to report a single atomic step
+        /// without managing `StepStarted`/`StepFinished` separately.
+        ///
+        /// ```python
+        /// server.emit_step("run-1", "export_scene", "step-001")
+        /// ```
+        fn emit_step(&self, run_id: &str, step_name: &str, step_id: &str) -> PyResult<()> {
+            self.inner
+                .emit_step(run_id, step_name, step_id)
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+        }
+
+        /// Update the CDP endpoint for a registered WebView.
+        ///
+        /// Call this after a WebView is created with CDP enabled so that
+        /// `screenshot` and `eval_js` tools can connect to it.
+        fn update_cdp_endpoint(&self, id: &str, endpoint: &str) -> PyResult<()> {
+            self.inner
+                .update_cdp_endpoint(id, endpoint)
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+        }
+
+        fn __repr__(&self) -> String {
+            format!(
+                "McpServer(host={}, port={}, running={})",
+                self.inner.host(),
+                self.inner.port(),
+                self.inner.is_running(),
+            )
+        }
+    }
+
+    /// Register MCP types into a PyO3 module.
+    ///
+    /// Call this from your `#[pymodule]` init function:
+    /// ```rust,ignore
+    /// use auroraview_mcp::python_bindings::pyo3_impl::register;
+    /// register(m)?;
+    /// ```
+    pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+        m.add_class::<PyMcpConfigWrapper>()?;
+        m.add_class::<PyMcpServerWrapper>()?;
+        Ok(())
+    }
+}
+
+#[cfg(feature = "python-bindings")]
+pub use pyo3_impl::register;

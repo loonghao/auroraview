@@ -152,7 +152,7 @@ impl WindowStartPosition {
 /// `[window]` controls how the window behaves at runtime.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WindowConfig {
-    /// Window title (usually from [app].title)
+    /// Window title (usually from $$app$$.title)
     #[serde(default = "default_title")]
     pub title: String,
 
@@ -211,6 +211,13 @@ pub struct WindowConfig {
     /// Visible on start
     #[serde(default = "default_true")]
     pub visible: bool,
+
+    /// Enable strict default CSP policy for enhanced security.
+    ///
+    /// When set to `true` and `content_security_policy` is `None`,
+    /// a strict default policy is used.
+    #[serde(default)]
+    pub strict_csp: bool,
 }
 
 impl Default for WindowConfig {
@@ -231,6 +238,7 @@ impl Default for WindowConfig {
             fullscreen: false,
             maximized: false,
             visible: true,
+            strict_csp: false,
         }
     }
 }
@@ -281,7 +289,7 @@ impl WindowConfig {
 /// Controls Windows-specific executable resources and behavior.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct WindowsPlatformConfig {
-    /// Path to the .ico icon file (overrides [bundle].icon)
+    /// Path to the .ico icon file (overrides $$bundle$$.icon)
     #[serde(default)]
     pub icon: Option<PathBuf>,
 

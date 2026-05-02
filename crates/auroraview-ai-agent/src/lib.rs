@@ -1,3 +1,5 @@
+#![allow(rustdoc::bare_urls)]
+
 //! AI Agent integration for AuroraView
 //!
 //! This crate provides AI agent capabilities for AuroraView, enabling natural language
@@ -9,7 +11,7 @@
 //! - **Multi-provider support** via genai crate:
 //!   - OpenAI (GPT-4o, GPT-4, O1, etc.)
 //!   - Anthropic (Claude 3.5, 3.7, etc.)
-//!   - Google Gemini
+//!   - `Google Gemini`
 //!   - DeepSeek (including R1 reasoning model)
 //!   - Ollama (local models)
 //!   - Groq, xAI (Grok), Cohere, and more
@@ -64,7 +66,9 @@ pub mod error;
 pub mod message;
 /// AG-UI and A2UI protocol definitions.
 pub mod protocol;
-/// Multi-provider AI client (OpenAI, Anthropic, Gemini, etc.).
+/// Multi-provider AI client (`OpenAI`, `Anthropic`, `Gemini`, etc.).
+///
+/// # None
 pub mod providers;
 /// Chat session persistence and management.
 pub mod session;

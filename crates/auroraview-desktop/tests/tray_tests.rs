@@ -286,3 +286,289 @@ fn tray_config_menu_all_separators() {
         assert!(matches!(item, TrayMenuItem::Separator));
     }
 }
+
+// ============================================================================
+// TrayMenuItem — unicode labels
+// ============================================================================
+
+#[rstest]
+fn tray_menu_item_unicode_label() {
+    let item = TrayMenuItem::Item {
+        id: "export".to_string(),
+        label: "导出文件 📁".to_string(),
+        enabled: true,
+    };
+    match item {
+        TrayMenuItem::Item { label, .. } => assert!(label.contains("导出文件")),
+        _ => panic!("expected Item"),
+    }
+}
+
+#[rstest]
+fn tray_menu_item_empty_label() {
+    let item = TrayMenuItem::Item {
+        id: "empty".to_string(),
+        label: String::new(),
+        enabled: true,
+    };
+    match &item {
+        TrayMenuItem::Item { label, .. } => assert!(label.is_empty()),
+        _ => panic!("expected Item"),
+    }
+}
+
+// ============================================================================
+// TrayConfig — many items
+// ============================================================================
+
+#[rstest]
+fn tray_config_large_menu() {
+    let mut items = Vec::new();
+    for i in 0..20 {
+        items.push(TrayMenuItem::Item {
+            id: format!("item_{}", i),
+            label: format!("Item {}", i),
+            enabled: i % 2 == 0,
+        });
+        if i % 5 == 4 {
+            items.push(TrayMenuItem::Separator);
+        }
+    }
+    let config = TrayConfig {
+        icon: None,
+        tooltip: None,
+        menu: items,
+    };
+    assert!(config.menu.len() > 20);
+}
+
+// ============================================================================
+// TrayConfig with unicode tooltip
+// ============================================================================
+
+#[rstest]
+fn tray_config_unicode_tooltip() {
+    let config = TrayConfig {
+        icon: None,
+        tooltip: Some("AuroraView 视图工具".to_string()),
+        menu: vec![],
+    };
+    assert_eq!(config.tooltip.as_deref(), Some("AuroraView 视图工具"));
+}
+
+// ============================================================================
+// TrayConfig serde with tooltip
+// ============================================================================
+
+#[rstest]
+fn tray_config_serde_with_tooltip() {
+    let config = TrayConfig {
+        icon: None,
+        tooltip: Some("Test Tooltip".to_string()),
+        menu: vec![TrayMenuItem::Separator],
+    };
+    let json = serde_json::to_string(&config).unwrap();
+    let decoded: TrayConfig = serde_json::from_str(&json).unwrap();
+    assert_eq!(decoded.tooltip.as_deref(), Some("Test Tooltip"));
+    assert_eq!(decoded.menu.len(), 1);
+}
+
+// ============================================================================
+// TrayMenuItem debug output for Item with all fields
+// ============================================================================
+
+#[rstest]
+fn tray_menu_item_debug_item_all_fields() {
+    let item = TrayMenuItem::Item {
+        id: "unique-id-xyz".to_string(),
+        label: "Unique Label".to_string(),
+        enabled: false,
+    };
+    let debug = format!("{:?}", item);
+    assert!(debug.contains("unique-id-xyz"));
+    assert!(debug.contains("Unique Label"));
+}
+
+// ============================================================================
+// TrayConfig menu item access by type
+// ============================================================================
+
+#[rstest]
+fn count_separator_items_in_default() {
+    let config = TrayConfig::default();
+    let separator_count = config
+        .menu
+        .iter()
+        .filter(|i| matches!(i, TrayMenuItem::Separator))
+        .count();
+    assert_eq!(separator_count, 1);
+}
+
+#[rstest]
+fn count_action_items_in_default() {
+    let config = TrayConfig::default();
+    let action_count = config
+        .menu
+        .iter()
+        .filter(|i| matches!(i, TrayMenuItem::Item { .. }))
+        .count();
+    assert_eq!(action_count, 2); // show + quit
+}
+
+// ─── Additional coverage R9 ──────────────────────────────────────────────────
+
+#[rstest]
+fn tray_config_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<TrayConfig>();
+}
+
+#[rstest]
+fn tray_menu_item_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<TrayMenuItem>();
+}
+
+#[rstest]
+fn tray_config_default_has_menu() {
+    let config = TrayConfig::default();
+    assert!(!config.menu.is_empty());
+}
+
+#[rstest]
+fn tray_config_empty_menu_is_valid() {
+    let config = TrayConfig {
+        icon: None,
+        tooltip: None,
+        menu: vec![],
+    };
+    assert_eq!(config.menu.len(), 0);
+}
+
+#[rstest]
+fn tray_menu_item_item_fields_accessible() {
+    let item = TrayMenuItem::Item {
+        id: "test-id".to_string(),
+        label: "Test".to_string(),
+        enabled: true,
+    };
+    if let TrayMenuItem::Item { id, label, enabled } = item {
+        assert_eq!(id, "test-id");
+        assert_eq!(label, "Test");
+        assert!(enabled);
+    } else {
+        panic!("expected Item");
+    }
+}
+
+#[rstest]
+fn tray_config_clone_independent() {
+    let original = TrayConfig {
+        icon: None,
+        tooltip: Some("Original".to_string()),
+        menu: vec![TrayMenuItem::Separator],
+    };
+    let mut cloned = original.clone();
+    cloned.tooltip = Some("Modified".to_string());
+    assert_eq!(original.tooltip.as_deref(), Some("Original"));
+    assert_eq!(cloned.tooltip.as_deref(), Some("Modified"));
+}
+
+#[rstest]
+fn tray_menu_item_separator_clone() {
+    let sep = TrayMenuItem::Separator;
+    let cloned = sep.clone();
+    assert!(matches!(cloned, TrayMenuItem::Separator));
+}
+
+#[rstest]
+fn tray_config_large_menu_count() {
+    let items: Vec<TrayMenuItem> = (0..50)
+        .map(|i| TrayMenuItem::Item {
+            id: format!("id_{}", i),
+            label: format!("Label {}", i),
+            enabled: true,
+        })
+        .collect();
+    let config = TrayConfig {
+        icon: None,
+        tooltip: None,
+        menu: items,
+    };
+    assert_eq!(config.menu.len(), 50);
+}
+
+#[rstest]
+fn tray_config_tooltip_long_string() {
+    let long_tooltip = "X".repeat(1000);
+    let config = TrayConfig {
+        icon: None,
+        tooltip: Some(long_tooltip.clone()),
+        menu: vec![],
+    };
+    assert_eq!(config.tooltip.as_deref(), Some(long_tooltip.as_str()));
+}
+
+#[rstest]
+#[case("quit")]
+#[case("show")]
+#[case("settings")]
+fn tray_menu_item_with_various_ids(#[case] id: &str) {
+    let item = TrayMenuItem::Item {
+        id: id.to_string(),
+        label: id.to_uppercase(),
+        enabled: true,
+    };
+    if let TrayMenuItem::Item { id: item_id, .. } = item {
+        assert_eq!(item_id, id);
+    } else {
+        panic!("expected Item");
+    }
+}
+
+#[rstest]
+fn tray_config_serde_with_item_disabled() {
+    let config = TrayConfig {
+        icon: None,
+        tooltip: None,
+        menu: vec![TrayMenuItem::Item {
+            id: "grayed".to_string(),
+            label: "Grayed Out".to_string(),
+            enabled: false,
+        }],
+    };
+    let json = serde_json::to_string(&config).unwrap();
+    let decoded: TrayConfig = serde_json::from_str(&json).unwrap();
+    if let TrayMenuItem::Item { enabled, .. } = &decoded.menu[0] {
+        assert!(!enabled);
+    } else {
+        panic!("expected Item");
+    }
+}
+
+#[rstest]
+fn tray_config_debug_not_empty() {
+    let config = TrayConfig::default();
+    let debug = format!("{:?}", config);
+    assert!(!debug.is_empty());
+}
+
+#[rstest]
+fn tray_menu_item_separator_serde() {
+    let sep = TrayMenuItem::Separator;
+    let json = serde_json::to_string(&sep).unwrap();
+    let decoded: TrayMenuItem = serde_json::from_str(&json).unwrap();
+    assert!(matches!(decoded, TrayMenuItem::Separator));
+}
+
+#[rstest]
+fn tray_config_serde_no_tooltip() {
+    let config = TrayConfig {
+        icon: None,
+        tooltip: None,
+        menu: vec![],
+    };
+    let json = serde_json::to_string(&config).unwrap();
+    let decoded: TrayConfig = serde_json::from_str(&json).unwrap();
+    assert!(decoded.tooltip.is_none());
+}

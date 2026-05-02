@@ -55,6 +55,7 @@ class TestGalleryFrontend:
                 raise
             context = browser.new_context(viewport={"width": 1200, "height": 800})
 
+
             # Inject mock AuroraView bridge
             context.add_init_script("""
                 window._apiCalls = [];

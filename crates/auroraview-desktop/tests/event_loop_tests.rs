@@ -195,3 +195,310 @@ fn user_event_eval_js_scripts(#[case] script: &str) {
         _ => panic!("expected EvalJs"),
     }
 }
+
+// ============================================================================
+// EvalJs edge cases
+// ============================================================================
+
+#[rstest]
+fn user_event_eval_js_empty_string() {
+    let event = UserEvent::EvalJs("".to_string());
+    match event {
+        UserEvent::EvalJs(s) => assert!(s.is_empty()),
+        _ => panic!("expected EvalJs"),
+    }
+}
+
+#[rstest]
+fn user_event_eval_js_multiline_script() {
+    let script = "var x = 1;\nvar y = 2;\nconsole.log(x + y);";
+    let event = UserEvent::EvalJs(script.to_string());
+    match &event {
+        UserEvent::EvalJs(s) => {
+            assert!(s.contains('\n'));
+            assert_eq!(s, script);
+        }
+        _ => panic!("expected EvalJs"),
+    }
+}
+
+#[rstest]
+fn user_event_eval_js_unicode_content() {
+    let script = "document.title = '中文标题';";
+    let event = UserEvent::EvalJs(script.to_string());
+    match event {
+        UserEvent::EvalJs(s) => assert!(s.contains("中文标题")),
+        _ => panic!("expected EvalJs"),
+    }
+}
+
+#[rstest]
+fn user_event_eval_js_json_payload() {
+    let script = r#"auroraview.api.load({"key":"value","num":42});"#;
+    let event = UserEvent::EvalJs(script.to_string());
+    match event {
+        UserEvent::EvalJs(s) => {
+            assert!(s.contains("auroraview"));
+            assert!(s.contains("value"));
+        }
+        _ => panic!("expected EvalJs"),
+    }
+}
+
+// ============================================================================
+// PluginEvent edge cases
+// ============================================================================
+
+#[rstest]
+fn user_event_plugin_event_empty_data() {
+    let event = UserEvent::PluginEvent {
+        event: "ready".to_string(),
+        data: "".to_string(),
+    };
+    match event {
+        UserEvent::PluginEvent { event: e, data: d } => {
+            assert_eq!(e, "ready");
+            assert!(d.is_empty());
+        }
+        _ => panic!("expected PluginEvent"),
+    }
+}
+
+#[rstest]
+fn user_event_plugin_event_nested_json() {
+    let data = r#"{"scene":{"name":"test","objects":[{"id":1},{"id":2}]}}"#;
+    let event = UserEvent::PluginEvent {
+        event: "scene_loaded".to_string(),
+        data: data.to_string(),
+    };
+    match event {
+        UserEvent::PluginEvent { event: e, data: d } => {
+            assert_eq!(e, "scene_loaded");
+            assert!(d.contains("objects"));
+        }
+        _ => panic!("expected PluginEvent"),
+    }
+}
+
+#[rstest]
+fn user_event_plugin_event_unicode_event_name() {
+    let event = UserEvent::PluginEvent {
+        event: "maya.模型_加载".to_string(),
+        data: "{}".to_string(),
+    };
+    match event {
+        UserEvent::PluginEvent { event: e, .. } => {
+            assert!(e.contains("maya"));
+        }
+        _ => panic!("expected PluginEvent"),
+    }
+}
+
+// ============================================================================
+// WakeUp is lightweight
+// ============================================================================
+
+#[rstest]
+fn user_event_wake_up_clone_eq() {
+    let a = UserEvent::WakeUp;
+    let b = a.clone();
+    // Both should be WakeUp
+    assert!(matches!(a, UserEvent::WakeUp));
+    assert!(matches!(b, UserEvent::WakeUp));
+}
+
+// ============================================================================
+// Parameterized EvalJs clone
+// ============================================================================
+
+#[rstest]
+#[case("alert('x')")]
+#[case("window.close()")]
+#[case("document.getElementById('app').innerHTML = '';")]
+fn user_event_eval_js_clone(#[case] script: &str) {
+    let event = UserEvent::EvalJs(script.to_string());
+    let cloned = event.clone();
+    match (event, cloned) {
+        (UserEvent::EvalJs(a), UserEvent::EvalJs(b)) => assert_eq!(a, b),
+        _ => panic!("expected EvalJs"),
+    }
+}
+
+// ============================================================================
+// Box / Vec usage (UserEvent can be stored in containers)
+// ============================================================================
+
+#[rstest]
+fn user_event_vec_of_events() {
+    let events: Vec<UserEvent> = vec![
+        UserEvent::ShowWindow,
+        UserEvent::EvalJs("init()".to_string()),
+        UserEvent::PluginEvent {
+            event: "ready".to_string(),
+            data: "{}".to_string(),
+        },
+        UserEvent::HideWindow,
+        UserEvent::CloseWindow,
+    ];
+    assert_eq!(events.len(), 5);
+    assert!(matches!(events[0], UserEvent::ShowWindow));
+    assert!(matches!(events[4], UserEvent::CloseWindow));
+}
+
+#[rstest]
+fn user_event_send_across_thread() {
+    use std::sync::mpsc;
+    use std::thread;
+
+    let (tx, rx) = mpsc::channel::<UserEvent>();
+
+    let events = vec![
+        UserEvent::ShowWindow,
+        UserEvent::EvalJs("ping()".to_string()),
+        UserEvent::WakeUp,
+    ];
+
+    let handle = thread::spawn(move || {
+        for event in events {
+            tx.send(event).unwrap();
+        }
+    });
+
+    handle.join().unwrap();
+
+    let received: Vec<UserEvent> = rx.try_iter().collect();
+    assert_eq!(received.len(), 3);
+    assert!(matches!(received[0], UserEvent::ShowWindow));
+    assert!(matches!(received[2], UserEvent::WakeUp));
+}
+
+// ─── Additional coverage R9 ──────────────────────────────────────────────────
+
+#[rstest]
+fn user_event_is_send() {
+    fn assert_send<T: Send>() {}
+    assert_send::<UserEvent>();
+}
+
+#[rstest]
+fn user_event_close_window_is_close_window() {
+    let event = UserEvent::CloseWindow;
+    assert!(matches!(event, UserEvent::CloseWindow));
+}
+
+#[rstest]
+fn user_event_show_window_is_show_window() {
+    let event = UserEvent::ShowWindow;
+    assert!(matches!(event, UserEvent::ShowWindow));
+}
+
+#[rstest]
+fn user_event_hide_window_is_hide_window() {
+    let event = UserEvent::HideWindow;
+    assert!(matches!(event, UserEvent::HideWindow));
+}
+
+#[rstest]
+fn user_event_wake_up_is_wake_up() {
+    let event = UserEvent::WakeUp;
+    assert!(matches!(event, UserEvent::WakeUp));
+}
+
+#[rstest]
+fn user_event_drag_window_is_drag_window() {
+    let event = UserEvent::DragWindow;
+    assert!(matches!(event, UserEvent::DragWindow));
+}
+
+#[rstest]
+fn user_event_eval_js_large_script() {
+    let large_script = "console.log('x');".repeat(100);
+    let event = UserEvent::EvalJs(large_script.clone());
+    match event {
+        UserEvent::EvalJs(s) => assert_eq!(s.len(), large_script.len()),
+        _ => panic!("expected EvalJs"),
+    }
+}
+
+#[rstest]
+fn user_event_plugin_event_new_format() {
+    let ev = UserEvent::PluginEvent {
+        event: "selection_changed".to_string(),
+        data: r#"{"count":5}"#.to_string(),
+    };
+    match ev {
+        UserEvent::PluginEvent { event, data } => {
+            assert_eq!(event, "selection_changed");
+            assert!(data.contains("count"));
+        }
+        _ => panic!("expected PluginEvent"),
+    }
+}
+
+#[rstest]
+fn user_event_all_variants_can_be_constructed() {
+    let _events: Vec<UserEvent> = vec![
+        UserEvent::CloseWindow,
+        UserEvent::ShowWindow,
+        UserEvent::HideWindow,
+        UserEvent::DragWindow,
+        UserEvent::EvalJs("test".to_string()),
+        UserEvent::WakeUp,
+        UserEvent::PluginEvent {
+            event: "e".to_string(),
+            data: "{}".to_string(),
+        },
+    ];
+    assert_eq!(_events.len(), 7);
+}
+
+#[rstest]
+fn user_event_eval_js_empty_then_nonempty() {
+    let empty = UserEvent::EvalJs(String::new());
+    let nonempty = UserEvent::EvalJs("code()".to_string());
+    match empty {
+        UserEvent::EvalJs(s) => assert!(s.is_empty()),
+        _ => panic!(),
+    }
+    match nonempty {
+        UserEvent::EvalJs(s) => assert!(!s.is_empty()),
+        _ => panic!(),
+    }
+}
+
+#[rstest]
+fn user_event_plugin_event_empty_fields() {
+    let ev = UserEvent::PluginEvent {
+        event: String::new(),
+        data: String::new(),
+    };
+    match ev {
+        UserEvent::PluginEvent { event, data } => {
+            assert!(event.is_empty());
+            assert!(data.is_empty());
+        }
+        _ => panic!("expected PluginEvent"),
+    }
+}
+
+#[rstest]
+#[case("auroraview://init")]
+#[case("menu.file.open")]
+#[case("dcc.maya.selection")]
+fn user_event_plugin_event_various_names(#[case] name: &str) {
+    let ev = UserEvent::PluginEvent {
+        event: name.to_string(),
+        data: "{}".to_string(),
+    };
+    match ev {
+        UserEvent::PluginEvent { event, .. } => assert_eq!(event, name),
+        _ => panic!("expected PluginEvent"),
+    }
+}
+
+#[rstest]
+fn user_event_wake_up_can_be_in_vec() {
+    let v: Vec<UserEvent> = vec![UserEvent::WakeUp, UserEvent::WakeUp, UserEvent::WakeUp];
+    assert_eq!(v.len(), 3);
+    assert!(v.iter().all(|e| matches!(e, UserEvent::WakeUp)));
+}

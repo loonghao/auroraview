@@ -4,7 +4,7 @@
 //! dynamically, providing a structured way for agents to create
 //! rich interactive interfaces.
 //!
-//! Reference: https://github.com/nicepkg/a2ui
+//! Reference: <https://github.com/nicepkg/a2ui>
 
 use serde::{Deserialize, Serialize};
 

@@ -1,4 +1,4 @@
-//! Minimal async CDP (Chrome DevTools Protocol) client for the AuroraView adapter.
+//! Minimal async CDP (Chrome `DevTools` Protocol) client for the `AuroraView` adapter.
 //!
 //! Only implements the handful of commands the adapter skeleton needs:
 //!
@@ -74,6 +74,11 @@ impl CdpClient {
     ///
     /// Performs `GET /json/version` to discover the browser-level WebSocket
     /// debugger URL, then opens a WebSocket to it.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError::Http`] if the HTTP request fails or returns an error status.
+    /// Returns [`CdpError::WebSocket`] if the WebSocket connection fails.
     pub async fn connect(http_endpoint: &str) -> Result<Self, CdpError> {
         let url = format!("{}/json/version", http_endpoint.trim_end_matches('/'));
         let info: VersionInfo = reqwest::get(&url).await?.error_for_status()?.json().await?;
@@ -96,6 +101,13 @@ impl CdpClient {
     ///
     /// Any events received while waiting are dropped — the skeleton adapter
     /// is request/response only.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError::Timeout`] if the response is not received within `timeout`.
+    /// Returns [`CdpError::WebSocket`] if the WebSocket connection is closed.
+    /// Returns [`CdpError::Remote`] if the CDP call returns an error.
+    /// Returns [`CdpError::MalformedResponse`] if the response is missing required fields.
     pub async fn call(
         &mut self,
         method: &str,
@@ -144,12 +156,17 @@ impl CdpClient {
                         .cloned()
                         .ok_or(CdpError::MalformedResponse("result"));
                 }
-                _ => continue,
+                _ => {}
             }
         }
     }
 
     /// `Browser.getVersion` — lightweight liveness probe.
+    ///
+    /// # Errors
+    ///
+    /// Returns `CdpError` if the CDP call times out or the remote
+    /// returns an error.
     pub async fn get_version(&mut self, timeout: Duration) -> Result<BrowserVersion, CdpError> {
         let result = self.call("Browser.getVersion", json!({}), timeout).await?;
         Ok(BrowserVersion {
@@ -164,6 +181,37 @@ impl CdpClient {
                 .unwrap_or("")
                 .to_owned(),
         })
+    }
+
+    /// `Runtime.evaluate` — execute JavaScript and return the result.
+    ///
+    /// Returns the JSON value of the expression result, or a remote error
+    /// if the script throws.
+    #[allow(clippy::missing_errors_doc)]
+    pub async fn evaluate_script(
+        &mut self,
+        expression: &str,
+        timeout: Duration,
+    ) -> Result<serde_json::Value, CdpError> {
+        let params = json!({
+            "expression": expression,
+            "returnByValue": true,
+            "awaitPromise": true,
+        });
+        let result = self.call("Runtime.evaluate", params, timeout).await?;
+        if let Some(exception) = result.get("exceptionDetails") {
+            let msg = exception
+                .get("text")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("unknown error");
+            return Err(CdpError::Remote(format!("JavaScript exception: {msg}")));
+        }
+        let value = result
+            .get("result")
+            .and_then(|r| r.get("value"))
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+        Ok(value)
     }
 
     /// `Page.captureScreenshot` — returns raw image bytes.

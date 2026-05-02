@@ -50,6 +50,7 @@ use auroraview_cli::packed;
                   Use 'auroraview run' to launch a WebView, or 'auroraview pack' to create \
                   standalone executables similar to Pake."
 )]
+#[allow(clippy::struct_excessive_bools)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,

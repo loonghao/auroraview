@@ -4,6 +4,7 @@
 
 use std::sync::Arc;
 
+use dashmap::DashMap;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -81,12 +82,14 @@ pub type ReloadCallback = Box<dyn Fn(&str) + Send + Sync>;
 /// Runtime manager
 pub struct RuntimeManager {
     /// Message handlers per extension
-    message_handlers: RwLock<std::collections::HashMap<ExtensionId, Vec<MessageHandler>>>,
+    message_handlers: DashMap<ExtensionId, Vec<MessageHandler>>,
     /// Uninstall URLs per extension
-    uninstall_urls: RwLock<std::collections::HashMap<ExtensionId, String>>,
+    uninstall_urls: DashMap<ExtensionId, String>,
     /// Options page open callback
+    #[allow(clippy::type_complexity)]
     on_open_options_page: RwLock<Option<OptionsPageCallback>>,
     /// Extension reload callback
+    #[allow(clippy::type_complexity)]
     on_reload: RwLock<Option<ReloadCallback>>,
 }
 
@@ -94,8 +97,8 @@ impl RuntimeManager {
     /// Create a new runtime manager
     pub fn new() -> Self {
         Self {
-            message_handlers: RwLock::new(std::collections::HashMap::new()),
-            uninstall_urls: RwLock::new(std::collections::HashMap::new()),
+            message_handlers: DashMap::new(),
+            uninstall_urls: DashMap::new(),
             on_open_options_page: RwLock::new(None),
             on_reload: RwLock::new(None),
         }
@@ -121,9 +124,11 @@ impl RuntimeManager {
 
     /// Register a message handler for an extension
     pub fn add_message_handler(&self, extension_id: &str, handler: MessageHandler) {
-        let mut handlers = self.message_handlers.write();
-        let ext_handlers = handlers.entry(extension_id.to_string()).or_default();
-        ext_handlers.push(handler);
+        let mut handlers = self
+            .message_handlers
+            .entry(extension_id.to_string())
+            .or_default();
+        handlers.push(handler);
     }
 
     /// Send a message to an extension
@@ -133,9 +138,8 @@ impl RuntimeManager {
         message: Value,
         sender: MessageSender,
     ) -> Option<Value> {
-        let handlers = self.message_handlers.read();
-        if let Some(ext_handlers) = handlers.get(extension_id) {
-            for handler in ext_handlers {
+        if let Some(handlers) = self.message_handlers.get(extension_id) {
+            for handler in handlers.iter() {
                 if let Some(response) = handler(extension_id, message.clone(), sender.clone()) {
                     return Some(response);
                 }
@@ -146,9 +150,8 @@ impl RuntimeManager {
 
     /// Broadcast a message to all extensions
     pub fn broadcast_message(&self, message: Value, sender: MessageSender) {
-        let handlers = self.message_handlers.read();
-        for (_, ext_handlers) in handlers.iter() {
-            for handler in ext_handlers {
+        for handlers in self.message_handlers.iter() {
+            for handler in handlers.value().iter() {
                 handler("", message.clone(), sender.clone());
             }
         }
@@ -156,39 +159,26 @@ impl RuntimeManager {
 
     /// Store uninstall URL for an extension
     pub fn set_uninstall_url(&self, extension_id: &str, url: &str) {
-        let mut urls = self.uninstall_urls.write();
-        urls.insert(extension_id.to_string(), url.to_string());
+        self.uninstall_urls
+            .insert(extension_id.to_string(), url.to_string());
     }
 
     /// Get uninstall URL for an extension
     pub fn get_uninstall_url(&self, extension_id: &str) -> Option<String> {
-        let urls = self.uninstall_urls.read();
-        urls.get(extension_id).cloned()
+        self.uninstall_urls.get(extension_id).map(|u| u.clone())
     }
 
-    /// Open options page for an extension
-    pub fn open_options_page(&self, extension_id: &str, options_page: &str) {
-        let cb = self.on_open_options_page.read();
-        if let Some(callback) = cb.as_ref() {
-            callback(extension_id, options_page);
-        } else {
-            tracing::info!(
-                "No options page callback registered, ignoring openOptionsPage for {}",
-                extension_id
-            );
+    /// Open the options page for an extension
+    pub fn open_options_page(&self, extension_id: &str, page: &str) {
+        if let Some(callback) = self.on_open_options_page.read().as_ref() {
+            callback(extension_id, page);
         }
     }
 
     /// Reload an extension
     pub fn reload_extension(&self, extension_id: &str) {
-        let cb = self.on_reload.read();
-        if let Some(callback) = cb.as_ref() {
+        if let Some(callback) = self.on_reload.read().as_ref() {
             callback(extension_id);
-        } else {
-            tracing::info!(
-                "No reload callback registered, ignoring reload for {}",
-                extension_id
-            );
         }
     }
 }
@@ -232,7 +222,6 @@ impl ApiHandler for RuntimeApiHandler {
             }
             "getURL" => {
                 let path = params.get("path").and_then(|v| v.as_str()).unwrap_or("");
-
                 let url = format!("auroraview-extension://{}/{}", extension_id, path);
                 Ok(serde_json::json!(url))
             }
@@ -260,33 +249,27 @@ impl ApiHandler for RuntimeApiHandler {
                 Ok(serde_json::json!({
                     "os": platform,
                     "arch": arch,
-                    "nacl_arch": arch
                 }))
-            }
-            "getBackgroundPage" => {
-                // Not applicable in service worker model
-                Ok(Value::Null)
-            }
-            "openOptionsPage" => {
-                let options_url = format!("auroraview-extension://{}/options.html", extension_id);
-                self.manager.open_options_page(extension_id, &options_url);
-                Ok(serde_json::json!({}))
             }
             "setUninstallURL" => {
                 let url = params.get("url").and_then(|v| v.as_str()).unwrap_or("");
                 self.manager.set_uninstall_url(extension_id, url);
                 Ok(serde_json::json!({}))
             }
+            "getUninstallURL" => {
+                let url = self.manager.get_uninstall_url(extension_id);
+                Ok(serde_json::to_value(url)?)
+            }
+            "openOptionsPage" => {
+                self.manager.open_options_page(extension_id, "");
+                Ok(serde_json::json!({}))
+            }
             "reload" => {
                 self.manager.reload_extension(extension_id);
                 Ok(serde_json::json!({}))
             }
-            "requestUpdateCheck" => {
-                // Not applicable for local extensions
-                Ok(serde_json::json!({
-                    "status": "no_update"
-                }))
-            }
+            "getBackgroundPage" => Ok(Value::Null),
+            "requestUpdateCheck" => Ok(serde_json::json!({"status": "no_update"})),
             _ => Err(ExtensionError::ApiNotSupported(format!(
                 "runtime.{} is not supported",
                 method
@@ -299,11 +282,10 @@ impl ApiHandler for RuntimeApiHandler {
             "sendMessage",
             "getURL",
             "getPlatformInfo",
-            "getBackgroundPage",
-            "openOptionsPage",
             "setUninstallURL",
+            "getUninstallURL",
+            "openOptionsPage",
             "reload",
-            "requestUpdateCheck",
         ]
     }
 }

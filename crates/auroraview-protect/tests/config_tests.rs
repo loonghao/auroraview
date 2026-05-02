@@ -232,3 +232,86 @@ fn protect_error_io_from_conversion() {
     let err: ProtectError = io_err.into();
     assert!(err.to_string().contains("file missing") || err.to_string().contains("IO"));
 }
+
+// ─── Additional coverage ──────────────────────────────────────────────────────
+
+#[test]
+fn protect_config_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<ProtectConfig>();
+    assert_send_sync::<EncryptionConfig>();
+}
+
+#[test]
+fn protection_method_debug_non_empty() {
+    let debug_str = format!("{:?}", ProtectionMethod::Bytecode);
+    assert!(!debug_str.is_empty());
+}
+
+#[test]
+fn encryption_config_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<EncryptionConfig>();
+}
+
+#[test]
+fn protect_config_clone() {
+    let config = ProtectConfig::default();
+    let cloned = config.clone();
+    assert_eq!(cloned.method, config.method);
+    assert_eq!(cloned.optimization, config.optimization);
+}
+
+#[test]
+fn encryption_config_clone() {
+    let enc = EncryptionConfig::default();
+    let cloned = enc.clone();
+    assert_eq!(cloned.enabled, enc.enabled);
+}
+
+#[test]
+fn protect_config_debug_non_empty() {
+    let config = ProtectConfig::default();
+    let debug_str = format!("{:?}", config);
+    assert!(!debug_str.is_empty());
+}
+
+#[test]
+fn protection_method_all_variants_roundtrip() {
+    for method in [ProtectionMethod::Bytecode, ProtectionMethod::Py2Pyd] {
+        let json = serde_json::to_string(&method).unwrap();
+        let restored: ProtectionMethod = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored, method);
+    }
+}
+
+#[test]
+fn protect_error_debug_non_empty() {
+    let err = ProtectError::Compilation("test".to_string());
+    let debug_str = format!("{:?}", err);
+    assert!(!debug_str.is_empty());
+}
+
+#[test]
+fn protect_config_optimization_builder_zero() {
+    let config = ProtectConfig::default().optimization(0);
+    assert_eq!(config.optimization, 0);
+}
+
+#[test]
+fn protect_config_optimization_builder_one() {
+    let config = ProtectConfig::default().optimization(1);
+    assert_eq!(config.optimization, 1);
+}
+
+#[test]
+fn protect_config_keep_temp_true() {
+    let config = ProtectConfig::default().keep_temp(true);
+    assert!(config.keep_temp);
+}
+
+#[test]
+fn protect_config_keep_temp_false() {
+    let config = ProtectConfig::default().keep_temp(false);
+    assert!(!config.keep_temp);
+}

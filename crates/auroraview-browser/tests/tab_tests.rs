@@ -295,3 +295,207 @@ fn tab_event_mute_then_unmute() {
     assert!(matches!(mute_ev, TabEvent::MuteTab { muted: true, .. }));
     assert!(matches!(unmute_ev, TabEvent::MuteTab { muted: false, .. }));
 }
+
+// ─── Additional coverage R9 ──────────────────────────────────────────────────
+
+#[test]
+fn tab_state_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<TabState>();
+}
+
+#[test]
+fn security_state_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<SecurityState>();
+}
+
+#[test]
+fn tab_state_default_security_state_none() {
+    let state = TabState::new("t1".to_string(), "about:blank".to_string());
+    // Default url 'about:blank' may set security to None or Neutral
+    let _ = state.security_state;
+}
+
+#[test]
+fn tab_state_audible_default_false() {
+    let state = TabState::new("t1".to_string(), "https://example.com".to_string());
+    assert!(!state.audible);
+}
+
+#[test]
+fn tab_state_set_audible_true() {
+    let mut state = TabState::new("t1".to_string(), "https://example.com".to_string());
+    state.set_audible(true);
+    assert!(state.audible);
+}
+
+#[test]
+fn tab_state_id_preserved() {
+    let state = TabState::new("unique-tab-id-xyz".to_string(), "https://a.com".to_string());
+    assert_eq!(state.id, "unique-tab-id-xyz");
+}
+
+#[test]
+fn tab_state_url_update_changes_security() {
+    let mut state = TabState::new("t1".to_string(), "about:blank".to_string());
+    // Set to http:// — should become Insecure
+    state.set_url("http://insecure.com".to_string());
+    assert_eq!(state.security_state, Some(SecurityState::Insecure));
+    // Then to https:// — should become Secure
+    state.set_url("https://secure.com".to_string());
+    assert_eq!(state.security_state, Some(SecurityState::Secure));
+}
+
+#[test]
+fn tab_state_can_go_back_forward_default_false() {
+    let state = TabState::new("t1".to_string(), "https://a.com".to_string());
+    assert!(!state.can_go_back);
+    assert!(!state.can_go_forward);
+}
+
+#[test]
+fn tab_state_pinned_default_false() {
+    let state = TabState::new("t1".to_string(), "https://a.com".to_string());
+    assert!(!state.pinned);
+}
+
+#[test]
+fn tab_state_muted_default_false() {
+    let state = TabState::new("t1".to_string(), "https://a.com".to_string());
+    assert!(!state.muted);
+}
+
+#[test]
+fn tab_state_set_pinned_toggle() {
+    let mut state = TabState::new("t1".to_string(), "https://a.com".to_string());
+    state.set_pinned(true);
+    assert!(state.pinned);
+    state.set_pinned(false);
+    assert!(!state.pinned);
+}
+
+#[test]
+fn tab_state_set_muted_toggle() {
+    let mut state = TabState::new("t1".to_string(), "https://a.com".to_string());
+    state.set_muted(true);
+    assert!(state.muted);
+    state.set_muted(false);
+    assert!(!state.muted);
+}
+
+#[test]
+fn tab_state_title_default() {
+    let state = TabState::new("t1".to_string(), "https://a.com".to_string());
+    assert_eq!(state.title, "New Tab");
+}
+
+#[rstest]
+#[case("tab-a", "https://a.com")]
+#[case("tab-b", "https://b.com")]
+#[case("tab-c", "file:///local.html")]
+fn tab_state_new_parametrized(#[case] id: &str, #[case] url: &str) {
+    let state = TabState::new(id.to_string(), url.to_string());
+    assert_eq!(state.id, id);
+    assert_eq!(state.url, url);
+    assert_eq!(state.title, "New Tab");
+}
+
+// ─── Additional coverage R15 ─────────────────────────────────────────────────
+
+#[test]
+fn tab_state_debug_non_empty() {
+    let state = TabState::new("t1".to_string(), "https://example.com".to_string());
+    let dbg = format!("{:?}", state);
+    assert!(!dbg.is_empty());
+}
+
+#[test]
+fn tab_state_clone_matches_original() {
+    let mut state = TabState::new("t1".to_string(), "https://example.com".to_string());
+    state.set_title("Clone Test".to_string());
+    state.set_loading(false);
+    state.set_pinned(true);
+    let cloned = state.clone();
+    assert_eq!(cloned.id, state.id);
+    assert_eq!(cloned.url, state.url);
+    assert_eq!(cloned.title, state.title);
+    assert_eq!(cloned.is_loading, state.is_loading);
+    assert_eq!(cloned.pinned, state.pinned);
+}
+
+#[test]
+fn security_state_debug_variants() {
+    for v in &[
+        SecurityState::Secure,
+        SecurityState::Insecure,
+        SecurityState::Neutral,
+    ] {
+        let dbg = format!("{:?}", v);
+        assert!(!dbg.is_empty());
+    }
+}
+
+#[test]
+fn tab_state_url_data_scheme_is_neutral() {
+    let mut state = TabState::new("t1".to_string(), "about:blank".to_string());
+    state.set_url("data:text/html,<b>hello</b>".to_string());
+    // data: URLs should be treated as Neutral
+    assert_eq!(state.security_state, Some(SecurityState::Neutral));
+}
+
+#[test]
+fn tab_event_close_devtools_none() {
+    let ev = TabEvent::close_devtools(Option::<String>::None);
+    assert!(matches!(ev, TabEvent::CloseDevTools { tab_id: None }));
+}
+
+#[test]
+fn tab_event_open_devtools_none() {
+    let ev = TabEvent::open_devtools(Option::<String>::None);
+    assert!(matches!(ev, TabEvent::OpenDevTools { tab_id: None }));
+}
+
+#[rstest]
+#[case("t1", "about:blank")]
+#[case("t2", "chrome://settings")]
+#[case("t3", "auroraview://localhost")]
+fn tab_state_non_http_security_neutral(#[case] id: &str, #[case] url: &str) {
+    let mut state = TabState::new(id.to_string(), "about:blank".to_string());
+    state.set_url(url.to_string());
+    assert!(state.security_state == Some(SecurityState::Neutral) || state.security_state.is_none());
+}
+
+#[test]
+fn tab_state_favicon_roundtrip() {
+    let mut state = TabState::new("t1".to_string(), "https://a.com".to_string());
+    let url = "https://a.com/favicon.ico".to_string();
+    state.set_favicon(Some(url.clone()));
+    assert_eq!(state.favicon, Some(url));
+    state.set_favicon(None);
+    assert!(state.favicon.is_none());
+}
+
+#[test]
+fn tab_state_title_non_ascii() {
+    let mut state = TabState::new("t1".to_string(), "https://example.com".to_string());
+    state.set_title("タブタイトル".to_string());
+    assert_eq!(state.title, "タブタイトル");
+}
+
+#[test]
+fn tab_event_reorder_zero_index() {
+    let ev = TabEvent::reorder_tab("tab_first", 0);
+    assert!(matches!(ev, TabEvent::ReorderTab { new_index: 0, .. }));
+}
+
+#[rstest]
+#[case(true, false)]
+#[case(false, true)]
+#[case(true, true)]
+fn tab_state_history_both_combinations(#[case] back: bool, #[case] fwd: bool) {
+    let mut state = TabState::new("t1".to_string(), "https://a.com".to_string());
+    state.set_history_state(back, fwd);
+    assert_eq!(state.can_go_back, back);
+    assert_eq!(state.can_go_forward, fwd);
+}

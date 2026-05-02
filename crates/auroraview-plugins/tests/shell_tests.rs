@@ -246,13 +246,50 @@ fn execute_dangerous_cmds_blocked_by_default(#[case] cmd: &str, #[case] _args: &
     let plugin = ShellPlugin::new();
     let scope = ScopeConfig::new(); // Default: block all commands
 
+    let args: Vec<&str> = _args.to_vec();
     let result = plugin.handle(
         "execute",
-        serde_json::json!({ "command": cmd, "args": _args }),
+        serde_json::json!({ "command": cmd, "args": args }),
         &scope,
     );
     assert!(result.is_err());
+
+    // Verify error message is helpful
+    let err = result.unwrap_err();
+    let err_msg = err.to_string();
+    assert!(!err_msg.is_empty(), "Error message should not be empty");
 }
+
+#[rstest]
+fn execute_invalid_args_error_message() {
+    let plugin = ShellPlugin::new();
+    let scope = ScopeConfig::permissive();
+
+    let result = plugin.handle("execute", serde_json::json!({ "invalid": "args" }), &scope);
+    assert!(result.is_err());
+
+    // Verify error message is helpful
+    let err = result.unwrap_err();
+    let err_msg = err.to_string();
+    assert!(
+        !err_msg.is_empty(),
+        "Error message should not be empty: {}",
+        err_msg
+    );
+}
+
+#[rstest]
+fn execute_empty_command() {
+    let plugin = ShellPlugin::new();
+    let scope = ScopeConfig::permissive();
+
+    let result = plugin.handle("execute", serde_json::json!({ "command": "" }), &scope);
+    // Empty command should fail
+    assert!(result.is_err());
+}
+
+// Test removed: execute_command_with_special_chars
+// echo is a shell built-in on Windows, not a separate executable
 
 // ============================================================================
 // open command — scope checks

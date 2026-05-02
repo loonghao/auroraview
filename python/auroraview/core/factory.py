@@ -325,3 +325,5 @@ class WebViewFactory:
         logger.info("[create_embedded] Remember to call process_events_ipc_only() periodically!")
 
         return instance
+
+

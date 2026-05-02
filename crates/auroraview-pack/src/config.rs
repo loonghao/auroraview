@@ -399,7 +399,7 @@ fn default_compression_level() -> i32 {
     19
 }
 
-/// Serde helper module for serializing Option<Vec<u8>> as base64
+/// Serde helper module for serializing `Option<Vec<u8>>` as base64
 mod serde_bytes_base64 {
     use base64::{engine::general_purpose::STANDARD, Engine};
     use serde::{Deserialize, Deserializer, Serializer};

@@ -382,30 +382,46 @@ class EventEmitter:
         return unsubscribe
 
 
-def deprecated(reason: str) -> Callable[[Callable], Callable]:
-    """Mark a function as deprecated.
+def deprecated(reason: str = "") -> Callable[[Callable], Callable]:
+    """Mark a function or class as deprecated.
+
+    Emits a DeprecationWarning when the decorated function is called.
+    Also updates the docstring to include deprecation information.
 
     Args:
-        reason: Message explaining why the function is deprecated and what to use instead.
+        reason: Optional reason for deprecation (e.g., "Use new_func instead")
 
-    Returns:
-        Decorator that emits a DeprecationWarning when the decorated function is called.
+    Example:
+        >>> @deprecated("Use new_function instead")
+        ... def old_function():
+        ...     pass
+        >>> old_function()  # Emits DeprecationWarning
     """
 
     def decorator(func: Callable) -> Callable:
-        original_doc = func.__doc__ or ""
-        func.__doc__ = "DEPRECATED: {}\n\n{}".format(reason, original_doc).strip()
+        """Actual decorator that wraps the function."""
+
+        # Update docstring
+        deprecated_msg = f"DEPRECATED"
+        if reason:
+            deprecated_msg += f": {reason}"
+        deprecated_msg += "."
+
+        if func.__doc__ is None:
+            func.__doc__ = f"{deprecated_msg}"
+        else:
+            func.__doc__ = f"{deprecated_msg}\n\n{func.__doc__}"
 
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
+            """Wrapper that emits deprecation warning."""
             warnings.warn(
-                "{} is deprecated. {}".format(func.__name__, reason),
+                f"{func.__name__} is deprecated{f' ({reason})' if reason else ''}.",
                 DeprecationWarning,
                 stacklevel=2,
             )
             return func(*args, **kwargs)
 
-        wrapper.__doc__ = func.__doc__
         return wrapper
 
     return decorator

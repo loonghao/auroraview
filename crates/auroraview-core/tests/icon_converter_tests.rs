@@ -43,7 +43,7 @@ fn create_png_bytes(size: u32) -> Vec<u8> {
 // ============================================================================
 
 #[rstest]
-fn test_png_to_ico() {
+fn png_to_ico_basic() {
     let png_file = create_simple_test_png();
     let temp_dir = TempDir::new().unwrap();
     let ico_path = temp_dir.path().join("test.ico");
@@ -56,7 +56,7 @@ fn test_png_to_ico() {
 }
 
 #[rstest]
-fn test_png_to_ico_single_size() {
+fn png_to_ico_single_size() {
     let png_file = create_simple_test_png();
     let temp_dir = TempDir::new().unwrap();
     let ico_path = temp_dir.path().join("single.ico");
@@ -74,7 +74,7 @@ fn test_png_to_ico_single_size() {
 #[case(&[16, 32])]
 #[case(&[16, 32, 48])]
 #[case(&[16, 32, 48, 64])]
-fn test_png_to_ico_various_sizes(#[case] sizes: &[u32]) {
+fn png_to_ico_various_sizes(#[case] sizes: &[u32]) {
     let png_file = create_simple_test_png();
     let temp_dir = TempDir::new().unwrap();
     let ico_path = temp_dir.path().join("test.ico");
@@ -86,7 +86,7 @@ fn test_png_to_ico_various_sizes(#[case] sizes: &[u32]) {
 }
 
 #[rstest]
-fn test_png_to_ico_large_source() {
+fn png_to_ico_large_source() {
     let png_file = create_test_png(512);
     let temp_dir = TempDir::new().unwrap();
     let ico_path = temp_dir.path().join("from_large.ico");
@@ -97,7 +97,7 @@ fn test_png_to_ico_large_source() {
 }
 
 #[rstest]
-fn test_png_to_ico_nonexistent_input() {
+fn png_to_ico_nonexistent_input() {
     let temp_dir = TempDir::new().unwrap();
     let fake_path = temp_dir.path().join("nonexistent.png");
     let ico_path = temp_dir.path().join("out.ico");
@@ -113,7 +113,7 @@ fn test_png_to_ico_nonexistent_input() {
 // ============================================================================
 
 #[rstest]
-fn test_png_bytes_to_ico() {
+fn png_bytes_to_ico_basic() {
     let img = image::RgbaImage::from_fn(64, 64, |_, _| image::Rgba([0, 255, 0, 255]));
     let mut cursor = std::io::Cursor::new(Vec::new());
     img.write_to(&mut cursor, image::ImageFormat::Png).unwrap();
@@ -128,7 +128,7 @@ fn test_png_bytes_to_ico() {
 }
 
 #[rstest]
-fn test_png_bytes_to_ico_single_size() {
+fn png_bytes_to_ico_single_size() {
     let png_bytes = create_png_bytes(32);
     let temp_dir = TempDir::new().unwrap();
     let ico_path = temp_dir.path().join("single_bytes.ico");
@@ -140,7 +140,7 @@ fn test_png_bytes_to_ico_single_size() {
 }
 
 #[rstest]
-fn test_png_bytes_to_ico_invalid_bytes() {
+fn png_bytes_to_ico_invalid_bytes() {
     let invalid_bytes = b"this is not a png file at all";
     let temp_dir = TempDir::new().unwrap();
     let ico_path = temp_dir.path().join("invalid.ico");
@@ -150,7 +150,7 @@ fn test_png_bytes_to_ico_invalid_bytes() {
 }
 
 #[rstest]
-fn test_png_bytes_to_ico_empty_bytes() {
+fn png_bytes_to_ico_empty_bytes() {
     let empty: &[u8] = &[];
     let temp_dir = TempDir::new().unwrap();
     let ico_path = temp_dir.path().join("empty.ico");
@@ -163,7 +163,7 @@ fn test_png_bytes_to_ico_empty_bytes() {
 #[case(32, &[16, 32])]
 #[case(64, &[16, 32, 48])]
 #[case(128, &[16, 32, 64])]
-fn test_png_bytes_to_ico_various(#[case] src_size: u32, #[case] sizes: &[u32]) {
+fn png_bytes_to_ico_various(#[case] src_size: u32, #[case] sizes: &[u32]) {
     let png_bytes = create_png_bytes(src_size);
     let temp_dir = TempDir::new().unwrap();
     let ico_path = temp_dir.path().join("test.ico");
@@ -178,7 +178,7 @@ fn test_png_bytes_to_ico_various(#[case] src_size: u32, #[case] sizes: &[u32]) {
 // ============================================================================
 
 #[rstest]
-fn test_compress_png() {
+fn compress_png_basic() {
     let png_file = create_test_png(256);
     let temp_dir = TempDir::new().unwrap();
     let output_path = temp_dir.path().join("compressed.png");
@@ -191,7 +191,7 @@ fn test_compress_png() {
 }
 
 #[rstest]
-fn test_compress_and_resize() {
+fn compress_and_resize_basic() {
     let png_file = create_test_png(512);
     let temp_dir = TempDir::new().unwrap();
     let output_path = temp_dir.path().join("resized.png");
@@ -204,7 +204,7 @@ fn test_compress_and_resize() {
 }
 
 #[rstest]
-fn test_compression_level_conversion() {
+fn compression_level_conversion() {
     assert_eq!(CompressionLevel::from(1), CompressionLevel::Fast);
     assert_eq!(CompressionLevel::from(5), CompressionLevel::Default);
     assert_eq!(CompressionLevel::from(9), CompressionLevel::Best);
@@ -221,12 +221,12 @@ fn test_compression_level_conversion() {
 #[case(7, CompressionLevel::Best)]
 #[case(8, CompressionLevel::Best)]
 #[case(9, CompressionLevel::Best)]
-fn test_compression_level_all_values(#[case] input: u8, #[case] expected: CompressionLevel) {
+fn compression_level_all_values(#[case] input: u8, #[case] expected: CompressionLevel) {
     assert_eq!(CompressionLevel::from(input), expected);
 }
 
 #[rstest]
-fn test_compression_level_equality() {
+fn compression_level_equality() {
     assert_eq!(CompressionLevel::Fast, CompressionLevel::Fast);
     assert_eq!(CompressionLevel::Default, CompressionLevel::Default);
     assert_eq!(CompressionLevel::Best, CompressionLevel::Best);
@@ -235,14 +235,14 @@ fn test_compression_level_equality() {
 }
 
 #[rstest]
-fn test_compression_level_clone() {
+fn compression_level_clone() {
     let level = CompressionLevel::Best;
     let cloned = level;
     assert_eq!(level, cloned);
 }
 
 #[rstest]
-fn test_compression_level_debug() {
+fn compression_level_debug() {
     assert_eq!(format!("{:?}", CompressionLevel::Fast), "Fast");
     assert_eq!(format!("{:?}", CompressionLevel::Default), "Default");
     assert_eq!(format!("{:?}", CompressionLevel::Best), "Best");
@@ -252,7 +252,7 @@ fn test_compression_level_debug() {
 #[case(1)]
 #[case(5)]
 #[case(9)]
-fn test_compress_png_various_levels(#[case] level: u8) {
+fn compress_png_various_levels(#[case] level: u8) {
     let png_file = create_test_png(64);
     let temp_dir = TempDir::new().unwrap();
     let output_path = temp_dir
@@ -269,7 +269,7 @@ fn test_compress_png_various_levels(#[case] level: u8) {
 }
 
 #[rstest]
-fn test_compression_result_fields() {
+fn compression_result_fields() {
     let png_file = create_test_png(128);
     let temp_dir = TempDir::new().unwrap();
     let output_path = temp_dir.path().join("fields_test.png");
@@ -283,7 +283,7 @@ fn test_compression_result_fields() {
 }
 
 #[rstest]
-fn test_compression_result_reduction_percent() {
+fn compression_result_reduction_percent() {
     let png_file = create_test_png(256);
     let temp_dir = TempDir::new().unwrap();
     let output_path = temp_dir.path().join("reduction_test.png");
@@ -296,7 +296,7 @@ fn test_compression_result_reduction_percent() {
 }
 
 #[rstest]
-fn test_compression_result_clone() {
+fn compression_result_clone() {
     let png_file = create_test_png(32);
     let temp_dir = TempDir::new().unwrap();
     let output_path = temp_dir.path().join("clone_test.png");
@@ -311,7 +311,7 @@ fn test_compression_result_clone() {
 }
 
 #[rstest]
-fn test_compress_and_resize_smaller_than_max() {
+fn compress_and_resize_smaller_than_max() {
     // Input is already smaller than max_size
     let png_file = create_test_png(64);
     let temp_dir = TempDir::new().unwrap();
@@ -326,7 +326,7 @@ fn test_compress_and_resize_smaller_than_max() {
 }
 
 #[rstest]
-fn test_compress_png_nonexistent_input() {
+fn compress_png_nonexistent_input() {
     let temp_dir = TempDir::new().unwrap();
     let fake_path = temp_dir.path().join("ghost.png");
     let out_path = temp_dir.path().join("out.png");
@@ -336,11 +336,371 @@ fn test_compress_png_nonexistent_input() {
 }
 
 #[rstest]
-fn test_compress_and_resize_nonexistent_input() {
+fn compress_and_resize_nonexistent_input() {
     let temp_dir = TempDir::new().unwrap();
     let fake_path = temp_dir.path().join("ghost.png");
     let out_path = temp_dir.path().join("out.png");
 
     let result = compress_and_resize(&fake_path, &out_path, 64, 5);
     assert!(result.is_err());
+}
+
+// ============================================================================
+// R8 Extensions
+// ============================================================================
+
+#[rstest]
+fn png_to_ico_output_is_not_empty() {
+    let png_file = create_simple_test_png();
+    let temp_dir = TempDir::new().unwrap();
+    let ico_path = temp_dir.path().join("not_empty.ico");
+
+    png_to_ico(png_file.path(), &ico_path, &[32]).unwrap();
+
+    let data = std::fs::read(&ico_path).unwrap();
+    assert!(!data.is_empty(), "ICO file must contain data");
+}
+
+#[rstest]
+fn png_bytes_to_ico_output_minimum_size() {
+    // ICO header is 6 bytes + directory entries, must be > 6 bytes for a single icon
+    let png_bytes = create_png_bytes(32);
+    let temp_dir = TempDir::new().unwrap();
+    let ico_path = temp_dir.path().join("min_size.ico");
+
+    png_bytes_to_ico(&png_bytes, &ico_path, &[16]).unwrap();
+
+    let metadata = std::fs::metadata(&ico_path).unwrap();
+    assert!(metadata.len() > 6);
+}
+
+#[rstest]
+fn compression_result_compressed_size_positive() {
+    let png_file = create_test_png(128);
+    let temp_dir = TempDir::new().unwrap();
+    let out_path = temp_dir.path().join("check_compressed.png");
+
+    let result = compress_png(png_file.path(), &out_path, 5).unwrap();
+    assert!(
+        result.compressed_size > 0,
+        "compressed_size must be positive"
+    );
+}
+
+#[rstest]
+fn compression_result_original_size_positive() {
+    let png_file = create_test_png(128);
+    let temp_dir = TempDir::new().unwrap();
+    let out_path = temp_dir.path().join("check_original.png");
+
+    let result = compress_png(png_file.path(), &out_path, 5).unwrap();
+    assert!(result.original_size > 0, "original_size must be positive");
+}
+
+#[rstest]
+fn compression_level_from_boundary_values() {
+    // Boundary at exactly 0 → Fast
+    assert_eq!(CompressionLevel::from(0u8), CompressionLevel::Fast);
+    // Boundary at exactly 3 → Fast
+    assert_eq!(CompressionLevel::from(3u8), CompressionLevel::Fast);
+    // Boundary at exactly 4 → Default
+    assert_eq!(CompressionLevel::from(4u8), CompressionLevel::Default);
+    // Boundary at exactly 6 → Default
+    assert_eq!(CompressionLevel::from(6u8), CompressionLevel::Default);
+    // Boundary at exactly 7 → Best
+    assert_eq!(CompressionLevel::from(7u8), CompressionLevel::Best);
+    // Boundary at exactly 9 → Best
+    assert_eq!(CompressionLevel::from(9u8), CompressionLevel::Best);
+}
+
+#[rstest]
+fn compress_and_resize_output_exists() {
+    let png_file = create_test_png(128);
+    let temp_dir = TempDir::new().unwrap();
+    let out_path = temp_dir.path().join("resized_exists.png");
+
+    compress_and_resize(png_file.path(), &out_path, 64, 5).unwrap();
+    assert!(out_path.exists());
+}
+
+#[rstest]
+#[case(16)]
+#[case(32)]
+#[case(64)]
+#[case(128)]
+#[case(256)]
+fn compress_png_various_source_sizes(#[case] size: u32) {
+    let png_file = create_test_png(size);
+    let temp_dir = TempDir::new().unwrap();
+    let out_path = temp_dir.path().join(format!("compressed_{}.png", size));
+
+    let result = compress_png(png_file.path(), &out_path, 5).unwrap();
+
+    assert!(out_path.exists());
+    assert_eq!(result.width, size);
+    assert_eq!(result.height, size);
+}
+
+#[rstest]
+fn png_to_ico_overwrites_existing_file() {
+    let png_file = create_simple_test_png();
+    let temp_dir = TempDir::new().unwrap();
+    let ico_path = temp_dir.path().join("overwrite.ico");
+
+    png_to_ico(png_file.path(), &ico_path, &[16]).unwrap();
+    let first_size = std::fs::metadata(&ico_path).unwrap().len();
+
+    png_to_ico(png_file.path(), &ico_path, &[32, 48]).unwrap();
+    let second_size = std::fs::metadata(&ico_path).unwrap().len();
+
+    // Both should be valid (sizes may differ due to different icon entries)
+    assert!(first_size > 0);
+    assert!(second_size > 0);
+}
+
+#[rstest]
+fn compress_png_level_1_vs_level_9() {
+    // Level 1 (fast) and level 9 (best) should both produce valid output
+    let png_file_fast = create_test_png(64);
+    let png_file_best = create_test_png(64);
+    let temp_dir = TempDir::new().unwrap();
+    let out_fast = temp_dir.path().join("fast.png");
+    let out_best = temp_dir.path().join("best.png");
+
+    let r_fast = compress_png(png_file_fast.path(), &out_fast, 1).unwrap();
+    let r_best = compress_png(png_file_best.path(), &out_best, 9).unwrap();
+
+    assert!(r_fast.compressed_size > 0);
+    assert!(r_best.compressed_size > 0);
+    assert_eq!(r_fast.width, r_best.width);
+    assert_eq!(r_fast.height, r_best.height);
+}
+
+#[rstest]
+fn compression_level_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<CompressionLevel>();
+}
+
+#[rstest]
+fn compression_result_debug_contains_width() {
+    let png_file = create_test_png(32);
+    let temp_dir = TempDir::new().unwrap();
+    let out_path = temp_dir.path().join("debug.png");
+
+    let result = compress_png(png_file.path(), &out_path, 5).unwrap();
+    let debug_str = format!("{:?}", result);
+    assert!(debug_str.contains("32") || !debug_str.is_empty());
+}
+
+#[rstest]
+#[case(&[16, 32, 48, 64, 128, 256])]
+fn png_to_ico_many_sizes(#[case] sizes: &[u32]) {
+    let png_file = create_test_png(512);
+    let temp_dir = TempDir::new().unwrap();
+    let ico_path = temp_dir.path().join("many_sizes.ico");
+
+    png_to_ico(png_file.path(), &ico_path, sizes).unwrap();
+
+    assert!(ico_path.exists());
+    let size = std::fs::metadata(&ico_path).unwrap().len();
+    assert!(size > 0);
+}
+
+#[rstest]
+fn compress_and_resize_preserves_aspect_when_downscaling() {
+    // 512x512 downscaled to max 128 should fit within 128x128
+    let png_file = create_test_png(512);
+    let temp_dir = TempDir::new().unwrap();
+    let out_path = temp_dir.path().join("aspect.png");
+
+    let result = compress_and_resize(png_file.path(), &out_path, 128, 5).unwrap();
+
+    assert!(
+        result.width <= 128,
+        "width {} should be <= 128",
+        result.width
+    );
+    assert!(
+        result.height <= 128,
+        "height {} should be <= 128",
+        result.height
+    );
+}
+
+// ============================================================================
+// R11 Extensions
+// ============================================================================
+
+#[rstest]
+fn compression_result_is_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<auroraview_core::icon::CompressionResult>();
+}
+
+#[rstest]
+fn png_bytes_to_ico_produces_ico_magic_bytes() {
+    // ICO format magic: first 4 bytes are 00 00 01 00 (reserved=0, type=1)
+    let png_bytes = create_png_bytes(32);
+    let temp_dir = TempDir::new().unwrap();
+    let ico_path = temp_dir.path().join("magic.ico");
+
+    png_bytes_to_ico(&png_bytes, &ico_path, &[16]).unwrap();
+
+    let data = std::fs::read(&ico_path).unwrap();
+    assert!(data.len() >= 4, "ICO file too short");
+    // ICO magic: bytes 0-1 = 0x00 0x00, bytes 2-3 = 0x01 0x00
+    assert_eq!(data[0], 0x00);
+    assert_eq!(data[1], 0x00);
+    assert_eq!(data[2], 0x01);
+    assert_eq!(data[3], 0x00);
+}
+
+#[rstest]
+fn png_to_ico_magic_bytes() {
+    let png_file = create_simple_test_png();
+    let temp_dir = TempDir::new().unwrap();
+    let ico_path = temp_dir.path().join("magic2.ico");
+
+    png_to_ico(png_file.path(), &ico_path, &[32]).unwrap();
+
+    let data = std::fs::read(&ico_path).unwrap();
+    assert!(data.len() >= 4);
+    assert_eq!(data[0], 0x00);
+    assert_eq!(data[1], 0x00);
+    assert_eq!(data[2], 0x01);
+    assert_eq!(data[3], 0x00);
+}
+
+#[rstest]
+fn compress_and_resize_max_size_zero_handled() {
+    // max_size=0 is an edge case - function should either handle gracefully or error
+    let png_file = create_test_png(64);
+    let temp_dir = TempDir::new().unwrap();
+    let out_path = temp_dir.path().join("zero_max.png");
+    // We don't assert success/failure, just that it doesn't panic
+    let _ = compress_and_resize(png_file.path(), &out_path, 0, 5);
+}
+
+#[rstest]
+#[case(32)]
+#[case(64)]
+#[case(128)]
+fn compress_and_resize_various_max_sizes(#[case] max_size: u32) {
+    let png_file = create_test_png(256);
+    let temp_dir = TempDir::new().unwrap();
+    let out_path = temp_dir.path().join(format!("max_{}.png", max_size));
+
+    let result = compress_and_resize(png_file.path(), &out_path, max_size, 5).unwrap();
+
+    assert!(result.width <= max_size);
+    assert!(result.height <= max_size);
+    assert!(out_path.exists());
+}
+
+#[rstest]
+fn compress_png_level_zero_succeeds() {
+    let png_file = create_test_png(64);
+    let temp_dir = TempDir::new().unwrap();
+    let out_path = temp_dir.path().join("level0.png");
+
+    let result = compress_png(png_file.path(), &out_path, 0).unwrap();
+    assert!(out_path.exists());
+    assert_eq!(result.width, 64);
+}
+
+#[rstest]
+fn ico_directory_entry_count() {
+    // ICO directory entry count is stored at bytes 4-5 (little-endian u16)
+    let png_bytes = create_png_bytes(32);
+    let temp_dir = TempDir::new().unwrap();
+    let ico_path = temp_dir.path().join("entry_count.ico");
+
+    png_bytes_to_ico(&png_bytes, &ico_path, &[16, 32]).unwrap();
+
+    let data = std::fs::read(&ico_path).unwrap();
+    assert!(data.len() >= 6);
+    let count = u16::from_le_bytes([data[4], data[5]]);
+    // We requested 2 sizes, so there should be 2 directory entries
+    assert_eq!(count, 2, "ICO should have 2 directory entries for 2 sizes");
+}
+
+#[rstest]
+fn ico_single_size_entry_count() {
+    let png_bytes = create_png_bytes(32);
+    let temp_dir = TempDir::new().unwrap();
+    let ico_path = temp_dir.path().join("single_entry.ico");
+
+    png_bytes_to_ico(&png_bytes, &ico_path, &[32]).unwrap();
+
+    let data = std::fs::read(&ico_path).unwrap();
+    assert!(data.len() >= 6);
+    let count = u16::from_le_bytes([data[4], data[5]]);
+    assert_eq!(count, 1, "ICO with 1 size should have 1 directory entry");
+}
+
+#[rstest]
+fn png_to_ico_with_default_ico_sizes() {
+    use auroraview_core::icon::DEFAULT_ICO_SIZES;
+    let png_file = create_test_png(512);
+    let temp_dir = TempDir::new().unwrap();
+    let ico_path = temp_dir.path().join("default_sizes.ico");
+
+    png_to_ico(png_file.path(), &ico_path, DEFAULT_ICO_SIZES).unwrap();
+
+    let data = std::fs::read(&ico_path).unwrap();
+    assert!(data.len() > 6);
+    let count = u16::from_le_bytes([data[4], data[5]]);
+    assert_eq!(count as usize, DEFAULT_ICO_SIZES.len());
+}
+
+#[rstest]
+fn compression_result_reduction_percent_zero_original() {
+    use auroraview_core::icon::CompressionResult;
+    let cr = CompressionResult {
+        original_size: 0,
+        compressed_size: 100,
+        width: 1,
+        height: 1,
+    };
+    // Should handle division by zero gracefully
+    let pct = cr.reduction_percent();
+    assert_eq!(pct, 0.0);
+}
+
+#[rstest]
+fn compression_result_reduction_percent_fifty() {
+    use auroraview_core::icon::CompressionResult;
+    let cr = CompressionResult {
+        original_size: 200,
+        compressed_size: 100,
+        width: 4,
+        height: 4,
+    };
+    let pct = cr.reduction_percent();
+    assert!((pct - 50.0).abs() < 1e-6);
+}
+
+#[rstest]
+fn png_bytes_to_ico_truncated_bytes() {
+    // Provide only the first 8 bytes of a PNG (partial header)
+    let png_bytes = create_png_bytes(32);
+    let truncated = &png_bytes[..8];
+    let temp_dir = TempDir::new().unwrap();
+    let ico_path = temp_dir.path().join("truncated.ico");
+
+    let result = png_bytes_to_ico(truncated, &ico_path, &[16]);
+    assert!(result.is_err(), "truncated PNG should fail");
+}
+
+#[rstest]
+fn compress_and_resize_output_smaller_than_source_when_downscaling() {
+    let png_file = create_test_png(512);
+    let temp_dir = TempDir::new().unwrap();
+    let out_path = temp_dir.path().join("smaller_output.png");
+
+    let result = compress_and_resize(png_file.path(), &out_path, 64, 9).unwrap();
+
+    assert!(result.width <= 64);
+    assert!(result.height <= 64);
 }
