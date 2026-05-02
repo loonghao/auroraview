@@ -6,19 +6,17 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import uuid
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-import os
-
 from pydantic_ai import Agent, RunContext
-from pydantic_ai.models import KnownModelName
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from auroraview_ai.config import AgentConfig, ProviderType, SidebarConfig
-from auroraview_ai.protocol import AGUIEventEmitter, EmitCallback, EventType
+from auroraview_ai.protocol import AGUIEventEmitter, EmitCallback
 from auroraview_ai.tools import DCCTool
 
 if TYPE_CHECKING:
@@ -245,9 +243,6 @@ and executing appropriate tools. Be concise and helpful."""
                 webview=self.webview,
                 emit_callback=self._emitter._emit_callback,
             )
-
-            # Get message history for context
-            history = self._sessions.get(sid, [])
 
             # Run agent
             result = await self._agent.run(message, deps=deps)

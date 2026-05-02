@@ -12,8 +12,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from auroraview_ai.agent import AgentDeps, AuroraAgent
-from auroraview_ai.config import AgentConfig, ProviderType
-from auroraview_ai.tools import DCCTool, DCCToolCategory
+from auroraview_ai.config import AgentConfig
+from auroraview_ai.tools import DCCTool
 
 
 def make_mock_agent() -> MagicMock:
@@ -85,33 +85,39 @@ class TestAuroraAgentInit:
 
     def test_deepseek_raises_without_api_key(self) -> None:
         config = AgentConfig(model="deepseek-chat")
-        with patch.dict("os.environ", {}, clear=True):
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            patch("auroraview_ai.agent.Agent"),
+            pytest.raises(ValueError, match="DeepSeek API key"),
+        ):
             # Remove DEEPSEEK_API_KEY if present
             import os
             os.environ.pop("DEEPSEEK_API_KEY", None)
-            with patch("auroraview_ai.agent.Agent"):
-                with pytest.raises(ValueError, match="DeepSeek API key"):
-                    AuroraAgent(config=config)
+            AuroraAgent(config=config)
 
     def test_deepseek_with_api_key_in_config(self) -> None:
         config = AgentConfig(model="deepseek-chat", api_key="sk-test-key")
-        with patch("auroraview_ai.agent.Agent") as mock_agent_cls:
-            with patch("auroraview_ai.agent.OpenAIProvider") as mock_provider:
-                mock_agent_cls.return_value = make_mock_agent()
-                mock_provider.return_value = MagicMock()
-                agent = AuroraAgent(config=config)
-                assert agent is not None
-                mock_provider.assert_called_once()
+        with (
+            patch("auroraview_ai.agent.Agent") as mock_agent_cls,
+            patch("auroraview_ai.agent.OpenAIProvider") as mock_provider,
+        ):
+            mock_agent_cls.return_value = make_mock_agent()
+            mock_provider.return_value = MagicMock()
+            agent = AuroraAgent(config=config)
+            assert agent is not None
+            mock_provider.assert_called_once()
 
     def test_deepseek_with_env_api_key(self) -> None:
         config = AgentConfig(model="deepseek-chat")
-        with patch.dict("os.environ", {"DEEPSEEK_API_KEY": "sk-env-key"}):
-            with patch("auroraview_ai.agent.Agent") as mock_agent_cls:
-                with patch("auroraview_ai.agent.OpenAIProvider") as mock_provider:
-                    mock_agent_cls.return_value = make_mock_agent()
-                    mock_provider.return_value = MagicMock()
-                    agent = AuroraAgent(config=config)
-                    assert agent is not None
+        with (
+            patch.dict("os.environ", {"DEEPSEEK_API_KEY": "sk-env-key"}),
+            patch("auroraview_ai.agent.Agent") as mock_agent_cls,
+            patch("auroraview_ai.agent.OpenAIProvider") as mock_provider,
+        ):
+            mock_agent_cls.return_value = make_mock_agent()
+            mock_provider.return_value = MagicMock()
+            agent = AuroraAgent(config=config)
+            assert agent is not None
 
     def test_auto_discover_without_webview(self) -> None:
         with patch("auroraview_ai.agent.Agent") as mock_agent_cls:
@@ -534,13 +540,15 @@ class TestChatSyncNewEventLoop:
         mock_result.output = "New loop response"
         mock_inner.run = AsyncMock(return_value=mock_result)
 
-        with patch("auroraview_ai.agent.asyncio.get_event_loop", side_effect=RuntimeError("no loop")):
-            new_loop = asyncio.new_event_loop()
-            with patch("auroraview_ai.agent.asyncio.new_event_loop", return_value=new_loop):
-                with patch("auroraview_ai.agent.asyncio.set_event_loop") as mock_set:
-                    result = agent.chat_sync("test")
-                    assert result == "New loop response"
-                    mock_set.assert_called_once_with(new_loop)
+        new_loop = asyncio.new_event_loop()
+        with (
+            patch("auroraview_ai.agent.asyncio.get_event_loop", side_effect=RuntimeError("no loop")),
+            patch("auroraview_ai.agent.asyncio.new_event_loop", return_value=new_loop),
+            patch("auroraview_ai.agent.asyncio.set_event_loop") as mock_set,
+        ):
+            result = agent.chat_sync("test")
+            assert result == "New loop response"
+            mock_set.assert_called_once_with(new_loop)
 
 
 class TestAgentDepsEdgeCases:
