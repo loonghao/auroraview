@@ -20,8 +20,10 @@ Example:
 
 from __future__ import annotations
 
+import functools
 import logging
 import threading
+import warnings
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Union
 
@@ -380,5 +382,46 @@ class EventEmitter:
         return unsubscribe
 
 
+def deprecated(reason: str = "") -> Callable[[Callable], Callable]:
+    """Mark a function or class as deprecated.
 
+    Emits a DeprecationWarning when the decorated function is called.
+    Also updates the docstring to include deprecation information.
 
+    Args:
+        reason: Optional reason for deprecation (e.g., "Use new_func instead")
+
+    Example:
+        >>> @deprecated("Use new_function instead")
+        ... def old_function():
+        ...     pass
+        >>> old_function()  # Emits DeprecationWarning
+    """
+
+    def decorator(func: Callable) -> Callable:
+        """Actual decorator that wraps the function."""
+
+        # Update docstring
+        deprecated_msg = f"DEPRECATED"
+        if reason:
+            deprecated_msg += f": {reason}"
+        deprecated_msg += "."
+
+        if func.__doc__ is None:
+            func.__doc__ = f"{deprecated_msg}"
+        else:
+            func.__doc__ = f"{deprecated_msg}\n\n{func.__doc__}"
+
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            """Wrapper that emits deprecation warning."""
+            warnings.warn(
+                f"{func.__name__} is deprecated{f' ({reason})' if reason else ''}.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
