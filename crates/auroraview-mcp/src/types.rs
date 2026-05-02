@@ -216,6 +216,7 @@ impl std::fmt::Display for McpServerConfig {
 }
 
 impl Default for McpServerConfig {
+    #[inline)]
     fn default() -> Self {
         Self {
             host: "127.0.0.1".to_string(),
