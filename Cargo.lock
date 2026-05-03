@@ -756,6 +756,7 @@ dependencies = [
  "futures-util",
  "jsonwebtoken",
  "mdns-sd",
+ "pyo3",
  "reqwest 0.12.28",
  "rmcp",
  "rstest 0.26.1",

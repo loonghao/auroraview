@@ -63,6 +63,12 @@ tokio-stream = { version = "0.1.18", features = ["sync"] }
 futures = "0.3.32"
 chrono = "0.4.44"
 bcrypt = "0.19.0"
+pyo3 = { version = "0.27", optional = true }
+
+[features]
+default = []
+# Enable PyO3 Python bindings for McpServer
+python-bindings = ["dep:pyo3"]
 
 [dev-dependencies]
 rstest = "0.26.1"
