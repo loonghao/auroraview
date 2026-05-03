@@ -148,6 +148,8 @@ async fn start_test_server_with_oauth() -> (McpRunner, u16) {
 }
 
 /// Helper to start a test server with mDNS enabled.
+// TODO: wire into mDNS integration tests (next iteration).
+#[allow(dead_code)]
 async fn start_test_server_with_mdns() -> (McpRunner, u16) {
     let port = 17000 + (std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -578,7 +580,11 @@ async fn oauth_register_endpoint_creates_client() {
 #[serial]
 async fn oauth_authorize_endpoint_returns_redirect() {
     let (runner, port) = start_test_server_with_oauth().await;
-    let client = reqwest::Client::new();
+    // Disable redirect follow to inspect the 303 response
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .expect("Should build client");
     
     // First register a client
     let register_url = format!("http://127.0.0.1:{port}/oauth/register");
@@ -612,13 +618,14 @@ async fn oauth_authorize_endpoint_returns_redirect() {
         .await
         .expect("Should send request");
     
-    println!("Auth response status: {}", resp.status());
+    let status = resp.status(); // Save status before resp is moved
     let headers = resp.headers().clone();
+    println!("Auth response status: {status}");
     println!("Auth response headers: {:?}", headers);
     let body = resp.text().await.expect("Should read body");
-    println!("Auth response body: {}", body);
+    println!("Auth response body: {body}");
     
-    assert_eq!(resp.status(), reqwest::StatusCode::SEE_OTHER, "Authorize should return redirect: {body}");
+    assert_eq!(status, reqwest::StatusCode::SEE_OTHER, "Authorize should return redirect: {body}");
     
     let location = headers.get("location").unwrap().to_str().unwrap();
     assert!(location.contains("code="), "Redirect should contain authorization code");
@@ -630,7 +637,11 @@ async fn oauth_authorize_endpoint_returns_redirect() {
 #[serial]
 async fn oauth_token_endpoint_exchanges_code_for_token() {
     let (runner, port) = start_test_server_with_oauth().await;
-    let client = reqwest::Client::new();
+    // Disable redirect follow to inspect the 303 response
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .expect("Should build client");
     
     // Register client
     let register_url = format!("http://127.0.0.1:{port}/oauth/register");
