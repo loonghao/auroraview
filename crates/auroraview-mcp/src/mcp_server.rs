@@ -228,11 +228,16 @@ impl McpServer {
         Ok(format!("event '{}' sent", params.event))
     }
 
-    /// Get the native window handle (HWND on Windows) of the WebView.
+    /// Get the native window handle (HWND on Windows, WID on Linux, NSView* on macOS).
     ///
-    /// **TODO**: Requires AuroraView core to expose a CDP extension API
-    /// (e.g., `AuroraView.getHwnd()`). Currently a placeholder.
-    #[tool(description = "Get the native window handle of the WebView (TODO: not yet implemented)")]
+    /// **TODO**: Requires AuroraView core to expose a CDP extension API:
+    /// - Method: `Browser.getWindowHandle`
+    /// - Params: `{ "viewId": <string> }`
+    /// - Returns: `{ "handle": <string> }` (hexadecimal representation)
+    ///
+    /// Currently a placeholder; will be implemented when AuroraView core
+    /// adds CDP extension support (target: Q3 2026).
+    #[tool(description = "(PLACHOLDER) Get native window handle (HWND/WID/NSView)")]
     async fn get_hwnd(
         &self,
         Parameters(_): Parameters<GetHwndParams>,
@@ -245,9 +250,14 @@ impl McpServer {
 
     /// List all active WebView instances.
     ///
-    /// **TODO**: Requires AuroraView core to expose an API to list WebViews.
-    /// Currently a placeholder.
-    #[tool(description = "List all WebView instances (TODO: not yet implemented)")]
+    /// **TODO**: Requires AuroraView core to expose a CDP extension API:
+    /// - Method: `Browser.getWebViews`
+    /// - Params: `{}`
+    /// - Returns: `[ { "id": <string>, "url": <string>, "title": <string> } ]`
+    ///
+    /// Currently a placeholder; will be implemented when AuroraView core
+    /// adds CDP extension support (target: Q3 2026).
+    #[tool(description = "(PLACEHOLDER) List all active WebView instances")]
     async fn list_webviews(
         &self,
         Parameters(_): Parameters<ListWebviewsParams>,
@@ -260,9 +270,14 @@ impl McpServer {
 
     /// Create a new WebView instance.
     ///
-    /// **TODO**: Requires AuroraView core to expose a CDP extension API
-    /// for creating new WebViews. Currently a placeholder.
-    #[tool(description = "Create a new WebView instance (TODO: not yet implemented)")]
+    /// **TODO**: Requires AuroraView core to expose a CDP extension API:
+    /// - Method: `Browser.newWebView`
+    /// - Params: `{ "url": <string>, "width": <int>, "height": <int>, "title": <string> }`
+    /// - Returns: `{ "id": <string>, "handle": <string> }`
+    ///
+    /// Currently a placeholder; will be implemented when AuroraView core
+    /// adds CDP extension support (target: Q3 2026).
+    #[tool(description = "(PLACEHOLDER) Create a new WebView instance")]
     async fn create_webview(
         &self,
         Parameters(_params): Parameters<CreateWebviewParams>,
@@ -275,9 +290,14 @@ impl McpServer {
 
     /// Close a WebView instance by ID.
     ///
-    /// **TODO**: Requires AuroraView core to expose a CDP extension API
-    /// for closing WebViews. Currently a placeholder.
-    #[tool(description = "Close a WebView instance by ID (TODO: not yet implemented)")]
+    /// **TODO**: Requires AuroraView core to expose a CDP extension API:
+    /// - Method: `Browser.closeWebView`
+    /// - Params: `{ "id": <string> }`
+    /// - Returns: `{}`
+    ///
+    /// Currently a placeholder; will be implemented when AuroraView core
+    /// adds CDP extension support (target: Q3 2026).
+    #[tool(description = "(PLACEHOLDER) Close a WebView instance by ID")]
     async fn close_webview(
         &self,
         Parameters(params): Parameters<CloseWebviewParams>,
@@ -351,5 +371,30 @@ mod tests {
         let json = r#"{"id": "view-123"}"#;
         let p: CloseWebviewParams = serde_json::from_str(json).unwrap();
         assert_eq!(p.id, "view-123");
+    }
+
+    #[test]
+    fn mcp_server_new_creates_instance() {
+        let config = CdpAdapterConfig::localhost(9222, "0.5.2");
+        let server = McpServer::new(config);
+        assert_eq!(server.registry().len(), 0);
+    }
+
+    #[test]
+    fn mcp_server_with_agui_bus() {
+        let config = CdpAdapterConfig::localhost(9222, "0.5.2");
+        let server = McpServer::new(config);
+        let bus = AguiBus::new();
+        let server = server.with_agui_bus(bus);
+        // Should not panic
+        let _ = server;
+    }
+
+    #[test]
+    fn mcp_server_registry() {
+        let config = CdpAdapterConfig::localhost(9222, "0.5.2");
+        let server = McpServer::new(config);
+        let registry = server.registry();
+        assert_eq!(registry.len(), 0);
     }
 }
