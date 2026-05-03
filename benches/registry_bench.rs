@@ -5,9 +5,9 @@
 //! This benchmark suite measures the performance of WebViewRegistry operations
 //! including register, get, update_url, remove, and list.
 
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use auroraview_mcp::registry::WebViewRegistry;
 use auroraview_mcp::types::WebViewConfig;
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 
 /// Benchmark WebViewRegistry::register
 fn bench_register(c: &mut Criterion) {
@@ -95,16 +95,12 @@ fn bench_update_url(c: &mut Criterion) {
         group.throughput(Throughput::Elements(1));
         // Use first ID for consistent benchmarking
         let first_id = ids[0].clone();
-        group.bench_with_input(
-            BenchmarkId::new("size", size),
-            &first_id,
-            |b, id| {
-                b.iter(|| {
-                    reg.update_url(id, "https://example.com");
-                    criterion::black_box(());
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("size", size), &first_id, |b, id| {
+            b.iter(|| {
+                reg.update_url(id, "https://example.com");
+                criterion::black_box(());
+            })
+        });
     }
 
     group.finish();
@@ -118,27 +114,23 @@ fn bench_remove(c: &mut Criterion) {
 
     for size in sizes {
         group.throughput(Throughput::Elements(1));
-        group.bench_with_input(
-            BenchmarkId::new("prepare_size", size),
-            &size,
-            |b, &size| {
-                b.iter_with_setup(
-                    || {
-                        let reg = WebViewRegistry::new();
-                        let mut ids = Vec::new();
-                        for _ in 0..size {
-                            ids.push(reg.register(&WebViewConfig::default()));
-                        }
-                        (reg, ids)
-                    },
-                    |(reg, ids)| {
-                        let id = &ids[0];
-                        reg.remove(id);
-                        criterion::black_box(());
-                    },
-                )
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("prepare_size", size), &size, |b, &size| {
+            b.iter_with_setup(
+                || {
+                    let reg = WebViewRegistry::new();
+                    let mut ids = Vec::new();
+                    for _ in 0..size {
+                        ids.push(reg.register(&WebViewConfig::default()));
+                    }
+                    (reg, ids)
+                },
+                |(reg, ids)| {
+                    let id = &ids[0];
+                    reg.remove(id);
+                    criterion::black_box(());
+                },
+            )
+        });
     }
 
     group.finish();

@@ -231,4 +231,3 @@ mod tests {
         assert_eq!(parse_size("abcxdef"), None);
     }
 }
-

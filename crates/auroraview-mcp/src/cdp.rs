@@ -215,21 +215,14 @@ impl CdpClient {
     }
 
     /// `Page.navigate` — navigate the WebView to a URL.
-    pub async fn navigate_to(
-        &mut self,
-        url: &str,
-        timeout: Duration,
-    ) -> Result<(), CdpError> {
+    pub async fn navigate_to(&mut self, url: &str, timeout: Duration) -> Result<(), CdpError> {
         let params = json!({ "url": url });
         self.call("Page.navigate", params, timeout).await?;
         Ok(())
     }
 
     /// `Page.reload` — reload the current page.
-    pub async fn reload(
-        &mut self,
-        timeout: Duration,
-    ) -> Result<(), CdpError> {
+    pub async fn reload(&mut self, timeout: Duration) -> Result<(), CdpError> {
         let params = json!({ "ignoreCache": false });
         self.call("Page.reload", params, timeout).await?;
         Ok(())

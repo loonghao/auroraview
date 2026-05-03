@@ -3,16 +3,12 @@
 //! Exposes AuroraView capabilities as standard MCP tools via HTTP/SSE transport.
 //! Uses `rmcp` crate with `StreamableHttpService` for HTTP-based MCP communication.
 
-use rmcp::{
-    handler::server::wrapper::Parameters,
-    tool, tool_router,
-    schemars::JsonSchema,
-};
+use rmcp::{handler::server::wrapper::Parameters, schemars::JsonSchema, tool, tool_router};
 use serde::Deserialize;
 use tracing::info;
 
-use crate::cdp::{CdpClient, CdpError};
 use crate::agui::AguiBus;
+use crate::cdp::{CdpClient, CdpError};
 use crate::registry::WebViewRegistry;
 use crate::{CdpAdapterConfig, DEFAULT_CDP_TIMEOUT};
 
@@ -144,10 +140,7 @@ impl McpServer {
             "webp" => "image/webp",
             _ => "image/png",
         };
-        let b64 = base64::Engine::encode(
-            &base64::engine::general_purpose::STANDARD,
-            &bytes,
-        );
+        let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bytes);
         Ok(format!("data:{mime};base64,{b64}"))
     }
 
@@ -165,9 +158,7 @@ impl McpServer {
         let value = client
             .evaluate_script(&params.script, DEFAULT_CDP_TIMEOUT)
             .await
-            .map_err(|e| {
-                rmcp::ErrorData::internal_error(format!("eval_js failed: {e}"), None)
-            })?;
+            .map_err(|e| rmcp::ErrorData::internal_error(format!("eval_js failed: {e}"), None))?;
         Ok(serde_json::to_string(&value).unwrap_or_else(|_| "null".to_owned()))
     }
 
@@ -183,9 +174,7 @@ impl McpServer {
         client
             .navigate_to(&params.url, DEFAULT_CDP_TIMEOUT)
             .await
-            .map_err(|e| {
-                rmcp::ErrorData::internal_error(format!("load_url failed: {e}"), None)
-            })?;
+            .map_err(|e| rmcp::ErrorData::internal_error(format!("load_url failed: {e}"), None))?;
         Ok(format!("navigated to {}", params.url))
     }
 
@@ -200,8 +189,9 @@ impl McpServer {
         let mut client = self.create_client().await.map_err(|e| {
             rmcp::ErrorData::internal_error(format!("CDP connect failed: {e}"), None)
         })?;
-        let data_str = serde_json::to_string(&params.data)
-            .map_err(|e| rmcp::ErrorData::internal_error(format!("JSON serialize failed: {e}"), None))?;
+        let data_str = serde_json::to_string(&params.data).map_err(|e| {
+            rmcp::ErrorData::internal_error(format!("JSON serialize failed: {e}"), None)
+        })?;
         let script = format!("if(window.auroraview && window.auroraview.trigger){{ window.auroraview.trigger('{}', {}); }} else {{ console.error('[AuroraView] Event bridge not ready'); }}", params.event.replace('\'', "\\'"), data_str);
         client
             .evaluate_script(&script, DEFAULT_CDP_TIMEOUT)
@@ -318,22 +308,19 @@ mod tests {
 
     #[test]
     fn screenshot_params_custom_format() {
-        let p: ScreenshotParams =
-            serde_json::from_str(r#"{"format": "jpeg"}"#).unwrap();
+        let p: ScreenshotParams = serde_json::from_str(r#"{"format": "jpeg"}"#).unwrap();
         assert_eq!(p.format, "jpeg");
     }
 
     #[test]
     fn eval_js_params() {
-        let p: EvalJsParams =
-            serde_json::from_str(r#"{"script": "document.title"}"#).unwrap();
+        let p: EvalJsParams = serde_json::from_str(r#"{"script": "document.title"}"#).unwrap();
         assert_eq!(p.script, "document.title");
     }
 
     #[test]
     fn load_url_params() {
-        let p: LoadUrlParams =
-            serde_json::from_str(r#"{"url": "https://example.com"}"#).unwrap();
+        let p: LoadUrlParams = serde_json::from_str(r#"{"url": "https://example.com"}"#).unwrap();
         assert_eq!(p.url, "https://example.com");
     }
 

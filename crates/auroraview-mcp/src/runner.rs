@@ -1,11 +1,11 @@
 use crate::{
     agui::{AguiBus, AguiEvent},
     error::{McpError, Result},
+    mcp_server::McpServer,
     mdns::MdnsBroadcaster,
     oauth::OAuthStore,
-    CdpAdapterConfig,
-    mcp_server::McpServer,
     types::{McpServerConfig, WebViewId},
+    CdpAdapterConfig,
 };
 use axum::Router;
 use rmcp::transport::streamable_http_server::{
@@ -33,8 +33,7 @@ impl McpRunner {
     #[must_use]
     pub fn new(config: McpServerConfig) -> Self {
         let agui_bus = AguiBus::new();
-        let cdp_config =
-            CdpAdapterConfig::localhost(config.port, env!("CARGO_PKG_VERSION"));
+        let cdp_config = CdpAdapterConfig::localhost(config.port, env!("CARGO_PKG_VERSION"));
         let server = McpServer::new(cdp_config).with_agui_bus(agui_bus.clone());
         let broadcaster = if config.enable_mdns {
             MdnsBroadcaster::new()
