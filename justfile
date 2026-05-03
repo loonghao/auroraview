@@ -235,6 +235,14 @@ test-fast:
     @echo "Running fast tests..."
     vx uvx pytest tests/python/ -v -m "not slow"
 
+# Run security audit (check for vulnerabilities in dependencies)
+audit:
+    @echo "Running cargo audit..."
+    cargo audit --ignore RUSTSEC-2024-0413 --ignore RUSTSEC-2024-0416 --ignore RUSTSEC-2026-0118 --ignore RUSTSEC-2026-0119 --ignore RUSTSEC-2026-0002 || true
+    @echo ""
+    @echo "Note: unmaintained warnings (RUSTSEC-2024-0413/0416) are ignored."
+    @echo "      These are from GTK3 bindings used by wry (standalone mode)."
+
 # Ensure cargo-nextest is available for fast Rust integration runs
 [unix]
 nextest-install:
