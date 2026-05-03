@@ -12,12 +12,14 @@
 //! event subscription plumbing. That is enough to back `DccSnapshot` and
 //! `DccConnection::health_check`.
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use tokio::net::TcpStream;
+use tokio::sync::Mutex;
 use tokio_tungstenite::{
     connect_async, tungstenite::protocol::Message, MaybeTlsStream, WebSocketStream,
 };
@@ -62,11 +64,20 @@ pub struct BrowserVersion {
 }
 
 /// Async CDP client holding a single browser-level WebSocket.
+///
+/// Implements `Clone` by wrapping the WebSocket in an `Arc<Mutex<>>`.
+/// This allows the client to be shared across multiple tool calls.
+#[derive(Clone)]
 pub struct CdpClient {
-    ws: WebSocketStream<MaybeTlsStream<TcpStream>>,
-    next_id: u64,
+    inner: Arc<Mutex<CdpClientInner>>,
     /// Endpoint URL we connected to, kept around for diagnostics.
     pub endpoint: String,
+}
+
+/// Inner state of `CdpClient` (not `Clone`).
+struct CdpClientInner {
+    ws: WebSocketStream<MaybeTlsStream<TcpStream>>,
+    next_id: u64,
 }
 
 impl CdpClient {
@@ -85,9 +96,12 @@ impl CdpClient {
         );
 
         let (ws, _resp) = connect_async(&info.web_socket_debugger_url).await?;
-        Ok(Self {
+        let inner = CdpClientInner {
             ws,
             next_id: 1,
+        };
+        Ok(Self {
+            inner: Arc::new(Mutex::new(inner)),
             endpoint: info.web_socket_debugger_url,
         })
     }
@@ -97,20 +111,22 @@ impl CdpClient {
     /// Any events received while waiting are dropped — the skeleton adapter
     /// is request/response only.
     pub async fn call(
-        &mut self,
+        &self,
         method: &str,
         params: Value,
         timeout: Duration,
     ) -> Result<Value, CdpError> {
-        let id = self.next_id;
-        self.next_id += 1;
+        let mut inner = self.inner.lock().await;
+
+        let id = inner.next_id;
+        inner.next_id += 1;
 
         let request = json!({
             "id": id,
             "method": method,
             "params": params,
         });
-        self.ws.send(Message::Text(request.to_string())).await?;
+        inner.ws.send(Message::Text(request.to_string())).await?;
 
         let deadline = tokio::time::Instant::now() + timeout;
         loop {
@@ -118,7 +134,7 @@ impl CdpClient {
             if remaining.is_zero() {
                 return Err(CdpError::Timeout(timeout));
             }
-            let msg = match tokio::time::timeout(remaining, self.ws.next()).await {
+            let msg = match tokio::time::timeout(remaining, inner.ws.next()).await {
                 Ok(Some(m)) => m?,
                 Ok(None) => return Err(CdpError::ConnectionClosed),
                 Err(_) => return Err(CdpError::Timeout(timeout)),
@@ -150,7 +166,7 @@ impl CdpClient {
     }
 
     /// `Browser.getVersion` — lightweight liveness probe.
-    pub async fn get_version(&mut self, timeout: Duration) -> Result<BrowserVersion, CdpError> {
+    pub async fn get_version(&self, timeout: Duration) -> Result<BrowserVersion, CdpError> {
         let result = self.call("Browser.getVersion", json!({}), timeout).await?;
         Ok(BrowserVersion {
             product: result
@@ -171,7 +187,7 @@ impl CdpClient {
     /// `format` is passed straight through (`"png"` / `"jpeg"` / `"webp"`).
     /// Callers are expected to pre-validate it.
     pub async fn capture_screenshot(
-        &mut self,
+        &self,
         format: &str,
         timeout: Duration,
     ) -> Result<Vec<u8>, CdpError> {
@@ -196,7 +212,7 @@ impl CdpClient {
     ///
     /// Returns the JSON value of the expression result.
     pub async fn evaluate_script(
-        &mut self,
+        &self,
         script: &str,
         timeout: Duration,
     ) -> Result<Value, CdpError> {
@@ -215,14 +231,14 @@ impl CdpClient {
     }
 
     /// `Page.navigate` — navigate the WebView to a URL.
-    pub async fn navigate_to(&mut self, url: &str, timeout: Duration) -> Result<(), CdpError> {
+    pub async fn navigate_to(&self, url: &str, timeout: Duration) -> Result<(), CdpError> {
         let params = json!({ "url": url });
         self.call("Page.navigate", params, timeout).await?;
         Ok(())
     }
 
     /// `Page.reload` — reload the current page.
-    pub async fn reload(&mut self, timeout: Duration) -> Result<(), CdpError> {
+    pub async fn reload(&self, timeout: Duration) -> Result<(), CdpError> {
         let params = json!({ "ignoreCache": false });
         self.call("Page.reload", params, timeout).await?;
         Ok(())
