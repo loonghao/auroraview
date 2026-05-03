@@ -1,53 +1,65 @@
 # AuroraView Auto-Improve Memory #
 
-## Session Summary - 2026-05-03 (Iteration #67 - In Progress)
+## Session Summary - 2026-05-03 (Iteration #66 - In Progress)
 
-### ✅ Completed (Iterations #63-67):
+### ✅ Completed (Previous Iterations):
+- See iteration #65 summary for completed work
 
-#### Iterations #63-66: (See previous memory.md for details)
-- [x] Fixed OAuth integration tests (#63)
-- [x] Added mDNS integration tests (#64)
-- [x] Tested Python bindings (#65)
-- [x] Reviewed mcp_server.rs, investigated CDP connection reuse (#66)
+### 🔄 Current Iteration (#66) - CDP Connection Management & Error Handling
 
-#### Iteration #67 (In Progress):
-- [x] **Task 1: Update CI/CD cargo audit flags** ✅
-  - Updated `.github/workflows/security-audit.yml`
-  - Added `--ignore RUSTSEC-2026-0118 --ignore RUSTSEC-2026-0119 --ignore RUSTSEC-2026-0002`
-  - Committed and pushed to `origin/auto-improve` (c27378c)
+#### Started:
+- [x] **Worktree check**: Worktree exists at `G:/PycharmProjects/github/.aurora-iterate` ✓
+- [x] **Branch check**: `auto-improve` ✓
+- [x] **Synced with origin/main**: Already up to date ✓
+- [x] **All tests pass**: 79 tests pass (63 library + 15 integration + 1 doc) ✓
+- [x] **Dependency audit**: Only unmaintained warnings (atk, bincode), no security vulnerabilities ✓
 
-### 🔄 Task 2: Implement `start_mcp_server` HTTP transport (Next)
+#### In Progress:
+1. **Improve CDP connection management**:
+   - [x] Reviewed `CdpClient` implementation
+   - [x] Identified issue: `CdpClient` does not implement `Clone` (WebSocketStream is not Clone)
+   - [ ] Consider implementing connection pooling or `Arc<Mutex<CdpClient>>`
+   - [ ] Current approach: create new connection per call (may be slow)
+   
+2. **Enhance error handling and logging**:
+   - [ ] Review all error paths in `auroraview-mcp`
+   - [ ] Add structured logging with `tracing`
+   - [ ] Ensure all errors are properly propagated
+   
+3. **Performance optimization**:
+   - [ ] Profile MCP Server startup time
+   - [ ] Optimize CDP message round-trip latency
+   - [ ] Reduce memory footprint of `McpRunner`
 
-The `start_mcp_server()` function in `mcp_server.rs` has a TODO:
-```rust
-// TODO: Wire MCP service to HTTP listener using axum/tower-http
-```
-
-Tasks:
-1. Implement HTTP transport using `axum` or `tower-http`
-2. Wire `McpServer` (which implements `rmcp::ServerHandler`) to HTTP server
-3. Add proper error handling and logging
-
-### ⚠️ Known Issues:
-
-- `CdpClient` does not implement `Clone`, so CDP connection pool optimization is temporarily blocked
-- Placeholder tools (`get_hwnd`, `list_webviews`, `create_webview`, `close_webview`) need AuroraView core support
-- `McpServer` creates new CDP client per tool call (should reuse - DEFERRED)
-- `agui_bus` field is set but never used in tool implementations
-- GitHub shows 43 vulnerabilities on `main` branch (18 high, 24 moderate, 1 low)
+#### Findings:
+- `CdpClient` uses `WebSocketStream<MaybeTlsStream<TcpStream>>` which cannot be cloned
+- `McpServer` creates a new `CdpClient` for each tool call (see `create_client()` method)
+- This is functional but may be slow for frequent calls
+- Options for improvement:
+  1. Use `Arc<Mutex<CdpClient>>` for shared access (but blocks concurrent calls)
+  2. Implement `CdpClientPool` with multiple connections
+  3. Keep current approach but add connection caching with timeout
 
 ---
 
-### MCP Server Status (Iteration #67 - Updated)
+### MCP Server Status (Iteration #66):
 
 **Implemented:**
 - `screenshot(format?, viewport?)` - Capture WebView screenshot (returns base64 data URI)
 - `eval_js(script)` - Evaluate JavaScript in WebView context
 - `load_url(url)` - Navigate WebView to URL
 - `send_event(event, data)` - Send event via `window.auroraview.trigger()`
+- `McpRunner` - HTTP server lifecycle management
+- `StreamableHttpService` integration with axum
+- AG-UI SSE event streaming at `/agui/events`
+- OAuth 2.0 endpoints (metadata, register, authorize, token)
+- mDNS broadcast for auto-discovery (via `mdns-sd`)
+- Python bindings (`PyMcpServer`, `PyMcpConfig`) with `python-bindings` feature
 - MCP protocol integration tests (initialize, list_tools, call_tool)
+- AG-UI SSE endpoint integration tests (event stream, run_id filter)
+- OAuth metadata and registration endpoint integration tests
 - mDNS integration tests (discoverable, stop broadcast)
-- Python bindings smoke test (`test_clean.py`)
+- Python bindings smoke test
 
 **Placeholders (not yet implemented - need AuroraView core support):**
 - [ ] `get_hwnd()` - Need AuroraView core to expose CDP extension API
@@ -57,36 +69,65 @@ Tasks:
 
 **Tests:**
 - [x] 63 library tests pass
-- [x] 15 integration tests pass
-- [x] 9 `mcp_server.rs` parameter tests pass
-- [x] 1 doc test passes
-- [x] **Total: 79 tests pass** ✓
+- [x] 15 integration tests pass (11 original + 2 OAuth + 2 mDNS)
+- [x] OAuth authorize and token tests - PASSING
+- [x] MCP protocol tests (initialize, list_tools, call_tool) - PASSING
+- [x] AG-UI SSE endpoint tests (event stream, run_id filter) - PASSING
+- [x] OAuth metadata and registration endpoint tests - PASSING
+- [x] mDNS broadcast integration tests - PASSING
+- [x] Python bindings smoke test - PASSING
+
+**CDP Methods:**
+- `Runtime.evaluate` - Execute JavaScript
+- `Page.navigate` - Navigate to URL
+- `Page.reload` - Reload current page
+- `Page.captureScreenshot` - Capture screenshot
 
 ---
 
-### Next Steps (Iteration #67 - Continued):
+### Next Steps (Iteration #66):
 
-1. **Implement `start_mcp_server` HTTP transport**:
-   - Use `axum` to create HTTP server
-   - Wire `McpServer` to HTTP endpoint (e.g., `/mcp`)
-   - Support SSE transport for MCP streaming
+1. **Fix CDP connection management**:
+   - Implement `CdpClientPool` for connection reuse
+   - Add connection timeout and health check
+   - Consider using `ArcSwap` for thread-safe connection management
 
-2. **Code quality and cleanup**:
-   - Run `cargo clippy` and fix warnings
-   - Run `cargo fmt` and ensure consistent style
-   - Clean up temp files
+2. **Enhance error handling**:
+   - Add more descriptive error messages
+   - Add structured logging for debugging
+   - Ensure all errors are properly propagated
 
-3. **Update documentation**:
-   - Document the MCP server setup and usage
-   - Add examples for integrating with MCP clients
+3. **Performance optimization**:
+   - Profile MCP Server startup time (target: <150ms)
+   - Optimize CDP message round-trip latency
+   - Reduce memory footprint of `McpRunner`
+
+4. **Implement placeholder tools**:
+   - Coordinate with AuroraView core team to expose required APIs
+   - Implement `get_hwnd()`, `list_webviews()`, `create_webview()`, `close_webview()`
+
+---
+
+### Checklist for This Iteration
+
+- [x] auto-improve branch synced with origin/main?
+- [x] Previous iteration changes pushed to remote?
+- [x] All tests pass?
+- [x] OAuth authorize and token tests fixed?
+- [x] mDNS broadcast tests completed?
+- [x] Python bindings tested?
+- [ ] CDP connection management improved? (in progress)
+- [ ] Error handling enhanced?
+- [ ] Performance optimized?
+- [ ] Next step clear?
 
 ---
 
 ### Quick Status
 
-**Current State**: Iteration #67 in progress (implementing HTTP transport)
-**Branch**: `auto-improve` (worktree at `G:/PycharmProjects/github/.aurora-iterate`)
+**Current State**: Iteration #66 in progress - improving CDP connection management
+**Branch**: `auto-improve`
 **Tests**: 79 pass (63 library + 15 integration + 1 doc)
 **Python Bindings**: Tested and working
-**Known Blockers**: CdpClient not Clone, HTTP transport TODO
-**Next Priority**: Implement `start_mcp_server` HTTP transport
+**Known Blockers**: CdpClient not Clone, placeholder tools need core support
+**Next Priority**: Implement CdpClientPool for connection reuse

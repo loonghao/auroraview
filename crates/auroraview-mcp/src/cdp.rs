@@ -96,10 +96,7 @@ impl CdpClient {
         );
 
         let (ws, _resp) = connect_async(&info.web_socket_debugger_url).await?;
-        let inner = CdpClientInner {
-            ws,
-            next_id: 1,
-        };
+        let inner = CdpClientInner { ws, next_id: 1 };
         Ok(Self {
             inner: Arc::new(Mutex::new(inner)),
             endpoint: info.web_socket_debugger_url,

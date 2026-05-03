@@ -126,7 +126,7 @@ impl McpServer {
         &self,
         Parameters(params): Parameters<ScreenshotParams>,
     ) -> Result<String, rmcp::ErrorData> {
-        let mut client = self.create_client().await.map_err(|e| {
+        let client = self.create_client().await.map_err(|e| {
             rmcp::ErrorData::internal_error(format!("CDP connect failed: {e}"), None)
         })?;
         let bytes = client
@@ -152,7 +152,7 @@ impl McpServer {
         &self,
         Parameters(params): Parameters<EvalJsParams>,
     ) -> Result<String, rmcp::ErrorData> {
-        let mut client = self.create_client().await.map_err(|e| {
+        let client = self.create_client().await.map_err(|e| {
             rmcp::ErrorData::internal_error(format!("CDP connect failed: {e}"), None)
         })?;
         let value = client
@@ -168,7 +168,7 @@ impl McpServer {
         &self,
         Parameters(params): Parameters<LoadUrlParams>,
     ) -> Result<String, rmcp::ErrorData> {
-        let mut client = self.create_client().await.map_err(|e| {
+        let client = self.create_client().await.map_err(|e| {
             rmcp::ErrorData::internal_error(format!("CDP connect failed: {e}"), None)
         })?;
         client
@@ -186,7 +186,7 @@ impl McpServer {
         &self,
         Parameters(params): Parameters<SendEventParams>,
     ) -> Result<String, rmcp::ErrorData> {
-        let mut client = self.create_client().await.map_err(|e| {
+        let client = self.create_client().await.map_err(|e| {
             rmcp::ErrorData::internal_error(format!("CDP connect failed: {e}"), None)
         })?;
         let data_str = serde_json::to_string(&params.data).map_err(|e| {
