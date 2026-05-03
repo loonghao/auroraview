@@ -1,40 +1,32 @@
-//! AuroraView adapter for `dcc-mcp-core`.
+//! AuroraView MCP Server - exposes AuroraView as a standard MCP server.
 //!
-//! This crate exposes a running AuroraView instance as a
-//! [`DccAdapter`](dcc_mcp_protocols::adapters::DccAdapter), so that
-//! `dcc-mcp-server` (from `dcc-mcp-core v0.13+`) can discover it via
-//! `FileRegistry` and call into it over the Chrome DevTools Protocol.
+//! # Features
 //!
-//! # Status
+//! - `screenshot` - Capture WebView screenshot
+//! - `eval_js` - Evaluate JavaScript in WebView context
+//! - `load_url` - Navigate WebView to URL
+//! - `send_event` - Send event to WebView
+//! - `get_hwnd` - Get WebView window handle
+//! - `list_webviews` - List all WebView instances
+//! - `create_webview` - Create new WebView
+//! - `close_webview` - Close WebView
 //!
-//! **Skeleton / Phase 2 of Epic #364.** The crate currently implements:
+//! # Transport
 //!
-//! - [`CdpAuroraViewAdapter::info`] — static [`DccInfo`] for `dcc_type = "auroraview"`.
-//! - [`CdpAuroraViewAdapter::capabilities`] — advertises
-//!   `snapshot = true`, `has_embedded_python = false`,
-//!   [`BridgeKind::WebSocket`], and a WebSocket `bridge_endpoint`.
-//! - [`DccConnection`] — `connect` / `disconnect` / `health_check` against
-//!   the CDP browser-level WebSocket.
-//! - [`DccSnapshot`] — `capture_viewport` via `Page.captureScreenshot`.
-//!
-//! Deliberately **not yet wired**:
-//!
-//! - [`DccScriptEngine`] — blocked on upstream
-//!   [`dcc-mcp-core#222`](https://github.com/loonghao/dcc-mcp-core/issues/222)
-//!   adding `ScriptLanguage::JavaScript`. Once that lands, `Runtime.evaluate`
-//!   becomes a one-screen implementation.
-//! - [`DccSceneInfo`] / scene-manager / hierarchy / transform — AuroraView is
-//!   a web view, not a 3D DCC, so these stay `None` unless a skill explicitly
-//!   opts in.
-//!
-//! # Wiring
-//!
-//! The `auroraview-cli run` path (Phase 3 of #364) is responsible for opening
-//! a CDP debug port and constructing a [`CdpAuroraViewAdapter`] pointing at
-//! it, then handing that adapter to `dcc-mcp-server`'s registry.
+//! - HTTP/SSE via `StreamableHttpService` (rmcp)
+//! - mDNS broadcast for auto-discovery
+//! - AG-UI SSE events at `/agui/events`
 
+pub mod agui;
 pub mod cdp;
+pub mod error;
 pub mod mcp_server;
+pub mod mdns;
+pub mod oauth;
+pub mod python_bindings;
+pub mod registry;
+pub mod runner;
+pub mod types;
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;

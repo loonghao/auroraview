@@ -12,6 +12,8 @@ use serde::Deserialize;
 use tracing::info;
 
 use crate::cdp::{CdpClient, CdpError};
+use crate::agui::AguiBus;
+use crate::registry::WebViewRegistry;
 use crate::{CdpAdapterConfig, DEFAULT_CDP_TIMEOUT};
 
 // ---------------------------------------------------------------------------
@@ -51,19 +53,39 @@ pub struct LoadUrlParams {
 /// MCP Server that bridges rmcp protocol to a running AuroraView CDP endpoint.
 ///
 /// Creates a new CDP connection for each tool call (MVP approach).
+#[derive(Clone)]
 pub struct McpServer {
     config: CdpAdapterConfig,
+    registry: WebViewRegistry,
+    agui_bus: Option<AguiBus>,
 }
 
 impl McpServer {
     /// Create a new MCP server that will connect to the given CDP endpoint.
     pub fn new(config: CdpAdapterConfig) -> Self {
-        Self { config }
+        Self {
+            config,
+            registry: WebViewRegistry::new(),
+            agui_bus: None,
+        }
+    }
+
+    /// Set the AG-UI event bus.
+    #[must_use]
+    pub fn with_agui_bus(mut self, bus: AguiBus) -> Self {
+        self.agui_bus = Some(bus);
+        self
     }
 
     /// Create a CDP client for a tool call.
     async fn create_client(&self) -> Result<CdpClient, CdpError> {
         CdpClient::connect(&self.config.http_endpoint).await
+    }
+
+    /// Return a reference to the WebView registry.
+    #[must_use]
+    pub fn registry(&self) -> &WebViewRegistry {
+        &self.registry
     }
 }
 

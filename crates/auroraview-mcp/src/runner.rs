@@ -3,7 +3,8 @@ use crate::{
     error::{McpError, Result},
     mdns::MdnsBroadcaster,
     oauth::OAuthStore,
-    server::AuroraViewMcpServer,
+    CdpAdapterConfig,
+    mcp_server::McpServer,
     types::{McpServerConfig, WebViewId},
 };
 use axum::Router;
@@ -21,7 +22,7 @@ use tracing::{info, warn};
 /// at `/mcp` and an AG-UI SSE event stream at `/agui/events`.
 pub struct McpRunner {
     config: McpServerConfig,
-    server: AuroraViewMcpServer,
+    server: McpServer,
     oauth_store: Option<OAuthStore>,
     broadcaster: Option<MdnsBroadcaster>,
     agui_bus: AguiBus,
@@ -32,7 +33,9 @@ impl McpRunner {
     #[must_use]
     pub fn new(config: McpServerConfig) -> Self {
         let agui_bus = AguiBus::new();
-        let server = AuroraViewMcpServer::new(config.clone()).with_agui_bus(agui_bus.clone());
+        let cdp_config =
+            CdpAdapterConfig::localhost(config.port, env!("CARGO_PKG_VERSION"));
+        let server = McpServer::new(cdp_config).with_agui_bus(agui_bus.clone());
         let broadcaster = if config.enable_mdns {
             MdnsBroadcaster::new()
                 .map_err(|e| warn!("mDNS init failed: {e}"))
@@ -84,7 +87,7 @@ impl McpRunner {
     }
 
     #[must_use]
-    pub fn server(&self) -> &AuroraViewMcpServer {
+    pub fn server(&self) -> &McpServer {
         &self.server
     }
 
@@ -233,9 +236,9 @@ impl McpRunner {
 // ---------------------------------------------------------------------------
 
 fn build_mcp_service(
-    server: AuroraViewMcpServer,
+    server: McpServer,
     _cancel: CancellationToken,
-) -> StreamableHttpService<AuroraViewMcpServer, LocalSessionManager> {
+) -> StreamableHttpService<McpServer, LocalSessionManager> {
     let config = StreamableHttpServerConfig::default();
     StreamableHttpService::new(move || Ok(server.clone()), Default::default(), config)
 }

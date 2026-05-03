@@ -8,7 +8,7 @@ pub struct WebViewId(pub String);
 
 impl WebViewId {
     #[must_use]
-    #[inline)]
+    #[inline]
     pub fn new() -> Self {
         Self(Uuid::new_v4().to_string())
     }
@@ -28,7 +28,7 @@ impl Default for WebViewId {
 }
 
 impl std::fmt::Display for WebViewId {
-    #[inline)]
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
@@ -52,7 +52,7 @@ pub struct WebViewInfo {
 }
 
 impl std::fmt::Display for WebViewInfo {
-    #[inline)]
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -115,7 +115,7 @@ pub struct ScreenshotData {
 }
 
 impl std::fmt::Display for ScreenshotData {
-    #[inline)]
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -127,7 +127,7 @@ impl std::fmt::Display for ScreenshotData {
 
 impl ScreenshotData {
     #[must_use]
-    #[inline)]
+    #[inline]
     pub fn new_placeholder(width: u32, height: u32) -> Self {
         Self {
             data: String::new(),
@@ -139,7 +139,7 @@ impl ScreenshotData {
 
     /// Create `ScreenshotData` from raw image bytes (PNG/JPEG/WebP).
     #[must_use]
-    #[inline)]
+    #[inline]
     pub fn from_bytes(bytes: &[u8], width: u32, height: u32, format: &str) -> Self {
         let data = base64::engine::general_purpose::STANDARD.encode(bytes);
         Self {
@@ -170,12 +170,12 @@ impl std::fmt::Display for JsResult {
 
 impl JsResult {
     #[must_use]
-    #[inline)]
+    #[inline]
     pub fn ok(value: serde_json::Value) -> Self {
         Self { value, error: None }
     }
 
-    #[inline)]
+    #[inline]
     pub fn err(msg: impl Into<String>) -> Self {
         Self {
             value: serde_json::Value::Null,
@@ -218,7 +218,7 @@ impl std::fmt::Display for McpServerConfig {
 }
 
 impl Default for McpServerConfig {
-    #[inline)]
+    #[inline]
     fn default() -> Self {
         Self {
             host: "127.0.0.1".to_string(),
@@ -234,14 +234,14 @@ impl Default for McpServerConfig {
 impl McpServerConfig {
     /// Set the port number.
     #[must_use]
-    #[inline)]
+    #[inline]
     pub fn with_port(mut self, port: u16) -> Self {
         self.port = port;
         self
     }
 
     /// Set the bind host.
-    #[inline)]
+    #[inline]
     pub fn with_host(mut self, host: impl Into<String>) -> Self {
         self.host = host.into();
         self
@@ -249,7 +249,7 @@ impl McpServerConfig {
 
     /// Enable or disable mDNS broadcast.
     #[must_use]
-    #[inline)]
+    #[inline]
     pub fn with_mdns(mut self, enabled: bool) -> Self {
         self.enable_mdns = enabled;
         self
@@ -260,7 +260,7 @@ impl McpServerConfig {
     /// When enabled, clients must authenticate via OAuth 2.0
     /// to access MCP endpoints.
     #[must_use]
-    #[inline)]
+    #[inline]
     pub fn with_oauth(mut self, enabled: bool) -> Self {
         self.enable_oauth = enabled;
         self

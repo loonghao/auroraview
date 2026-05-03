@@ -51,6 +51,19 @@ warp = { version = "0.4", features = ["server"] }
 
 # Workspace dep unification (same as every other crate in this workspace).
 auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-hack" }
+jsonwebtoken = { version = "10.3.0", features = ["aws_lc_rs"] }
+sha2 = "0.11.0"
+uuid = "1.23.1"
+dashmap = "6.1.0"
+anyhow = "1.0.102"
+tokio-util = "0.7.18"
+base64-url = "3.0.3"
+axum = "0.8.9"
+tokio-stream = { version = "0.1.18", features = ["sync"] }
+futures = "0.3.32"
+chrono = "0.4.44"
+bcrypt = "0.19.0"
 
 [dev-dependencies]
+rstest = "0.26.1"
 tokio = { version = "1.48", features = ["macros", "rt-multi-thread"] }
