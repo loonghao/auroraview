@@ -115,10 +115,10 @@ pub struct AguiBus {
 }
 
 impl AguiBus {
-    /// Create a new bus with a buffer capacity of 256 events.
+    /// Create a new bus with a buffer capacity of 64 events.
     #[must_use]
     pub fn new() -> Self {
-        let (tx, _) = broadcast::channel(256);
+        let (tx, _) = broadcast::channel(64);
         Self { tx: Arc::new(tx) }
     }
 
