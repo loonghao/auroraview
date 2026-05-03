@@ -76,3 +76,5 @@ tokio = { version = "1.48", features = ["macros", "rt-multi-thread"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 # rmcp client for integration tests
 rmcp = { version = "1.5", features = ["client", "macros"] }
+# Serial test execution to avoid port conflicts
+serial_test = "3.2"
