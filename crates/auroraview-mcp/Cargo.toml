@@ -73,3 +73,4 @@ python-bindings = ["dep:pyo3"]
 [dev-dependencies]
 rstest = "0.26.1"
 tokio = { version = "1.48", features = ["macros", "rt-multi-thread"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
