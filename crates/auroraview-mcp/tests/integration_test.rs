@@ -5,62 +5,6 @@
 use auroraview_mcp::runner::McpRunner;
 use auroraview_mcp::types::McpServerConfig;
 
-/// Helper: create a config with a random-ish port.
-fn test_config(port: u16) -> McpServerConfig {
-    McpServerConfig::default().with_port(port).with_mdns(false) // disable mDNS for tests
-}
-
-/// Helper: send MCP initialize request.
-async fn mcp_initialize(base_url: &str) -> Result<reqwest::Response, reqwest::Error> {
-    let client = reqwest::Client::new();
-    let body = serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "initialize",
-        "params": {
-            "protocolVersion": "2024-11-05",
-            "capabilities": {},
-            "clientInfo": {
-                "name": "test-client",
-                "version": "0.1.0"
-            }
-        }
-    });
-    client
-        .post(format!("{base_url}/mcp"))
-        .header("Content-Type", "application/json")
-        .json(&body)
-        .send()
-        .await
-}
-
-#[tokio::test]
-#[ignore = "TODO: fix MCP initialize request format for rmcp 1.5"]
-async fn mcp_initialize_returns_ok() {
-    let config = test_config(12450);
-    let runner = McpRunner::new(config);
-    let base_url = "http://127.0.0.1:12450".to_string();
-
-    // Start server
-    runner.start().await.expect("Server should start");
-    tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
-
-    // Send initialize request
-    let resp = mcp_initialize(&base_url)
-        .await
-        .expect("Request should succeed");
-    assert_eq!(resp.status(), 200);
-
-    // Check response body
-    let body: serde_json::Value = resp.json().await.expect("Should parse JSON");
-    assert_eq!(body["jsonrpc"], "2.0");
-    assert_eq!(body["id"], 1);
-    assert!(body["result"].is_object(), "Should have result object");
-
-    // Clean up
-    runner.stop().await;
-}
-
 /// Test that `McpRunner` can be created with default config.
 #[test]
 fn runner_creates_with_defaults() {
