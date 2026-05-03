@@ -6,6 +6,9 @@ use auroraview_mcp::runner::McpRunner;
 use auroraview_mcp::types::McpServerConfig;
 use futures::StreamExt;
 use serial_test::serial;
+use sha2::{Sha256, Digest};
+use base64_url::encode;
+use urlencoding;
 
 /// Parse SSE response format: split by "\n\n", find "data: {...}" lines.
 fn parse_sse_response(sse_text: &str) -> serde_json::Value {
@@ -124,6 +127,22 @@ async fn start_test_server() -> (McpRunner, u16) {
     let runner = McpRunner::new(config);
     runner.start().await.expect("Server should start");
     // Give the server time to bind
+    tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+    (runner, port)
+}
+
+/// Helper to start a test server with OAuth enabled.
+async fn start_test_server_with_oauth() -> (McpRunner, u16) {
+    let port = 16000 + (std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .subsec_millis() as u16 % 1000);
+    let config = McpServerConfig::default()
+        .with_port(port)
+        .with_mdns(false)
+        .with_oauth(true); // Enable OAuth for tests
+    let runner = McpRunner::new(config);
+    runner.start().await.expect("Server should start");
     tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
     (runner, port)
 }
@@ -476,5 +495,178 @@ async fn agui_events_filters_by_run_id() {
     );
     assert_eq!(received_run_ids[0], "run-a");
 
+    runner.stop().await;
+}
+
+// ---------------------------------------------------------------------------
+// OAuth Endpoint Tests
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+#[serial]
+async fn oauth_metadata_endpoint_returns_correct_metadata() {
+    let (runner, port) = start_test_server_with_oauth().await;
+
+    let client = reqwest::Client::new();
+    let url = format!("http://127.0.0.1:{port}/.well-known/oauth-authorization-server");
+    let resp = client
+        .get(&url)
+        .send()
+        .await
+        .expect("Should send request");
+    
+    assert!(resp.status().is_success(), "Metadata endpoint should return 2xx");
+    
+    let json: serde_json::Value = resp.json().await.expect("Should parse JSON");
+    assert_eq!(json["issuer"], "auroraview-mcp");
+    assert!(json["authorization_endpoint"].is_string());
+    assert!(json["token_endpoint"].is_string());
+    assert!(json["registration_endpoint"].is_string());
+    assert!(json["code_challenge_methods_supported"].is_array());
+    assert!(json["scopes_supported"].is_array());
+    
+    runner.stop().await;
+}
+
+#[tokio::test]
+#[serial]
+async fn oauth_register_endpoint_creates_client() {
+    let (runner, port) = start_test_server_with_oauth().await;
+
+    let client = reqwest::Client::new();
+    let url = format!("http://127.0.0.1:{port}/oauth/register");
+    let resp = client
+        .post(&url)
+        .json(&serde_json::json!({
+            "client_name": "test-client",
+            "redirect_uris": ["http://localhost:3000/callback"],
+            "scope": "mcp:tools"
+        }))
+        .send()
+        .await
+        .expect("Should send request");
+    
+    assert!(resp.status().is_success(), "Register endpoint should return 2xx");
+    
+    let json: serde_json::Value = resp.json().await.expect("Should parse JSON");
+    assert!(json["client_id"].is_string());
+    assert!(json["client_secret"].is_string());
+    assert_eq!(json["client_name"], "test-client");
+    assert!(json["redirect_uris"].is_array());
+    assert_eq!(json["scope"], "mcp:tools");
+    
+    runner.stop().await;
+}
+
+#[tokio::test]
+#[serial]
+async fn oauth_authorize_endpoint_returns_redirect() {
+    let (runner, port) = start_test_server_with_oauth().await;
+    let client = reqwest::Client::new();
+    
+    // First register a client
+    let register_url = format!("http://127.0.0.1:{port}/oauth/register");
+    let register_resp = client
+        .post(&register_url)
+        .json(&serde_json::json!({
+            "client_name": "test-client",
+            "redirect_uris": ["http://localhost:3000/callback"],
+            "scope": "mcp:tools"
+        }))
+        .send()
+        .await
+        .expect("Should register client");
+    let register_json: serde_json::Value = register_resp.json().await.unwrap();
+    let client_id = register_json["client_id"].as_str().unwrap();
+    let code_verifier = "test-code-verifier-which-is-long-enough-to-be-valid";
+    let code_challenge = encode(&Sha256::digest(code_verifier.as_bytes()));
+    
+    // Now authorize
+    let auth_url = format!(
+        "http://127.0.0.1:{port}/oauth/authorize?client_id={}&redirect_uri={}&response_type=code&scope={}&code_challenge={}&code_challenge_method=S256",
+        client_id,
+        urlencoding::encode("http://localhost:3000/callback"),
+        urlencoding::encode("mcp:tools"),
+        code_challenge
+    );
+    println!("Auth URL: {auth_url}");
+    let resp = client
+        .get(&auth_url)
+        .send()
+        .await
+        .expect("Should send request");
+    
+    println!("Auth response status: {}", resp.status());
+    let headers = resp.headers().clone();
+    println!("Auth response headers: {:?}", headers);
+    let body = resp.text().await.expect("Should read body");
+    println!("Auth response body: {}", body);
+    
+    assert_eq!(resp.status(), reqwest::StatusCode::SEE_OTHER, "Authorize should return redirect: {body}");
+    
+    let location = headers.get("location").unwrap().to_str().unwrap();
+    assert!(location.contains("code="), "Redirect should contain authorization code");
+    
+    runner.stop().await;
+}
+
+#[tokio::test]
+#[serial]
+async fn oauth_token_endpoint_exchanges_code_for_token() {
+    let (runner, port) = start_test_server_with_oauth().await;
+    let client = reqwest::Client::new();
+    
+    // Register client
+    let register_url = format!("http://127.0.0.1:{port}/oauth/register");
+    let register_resp = client
+        .post(&register_url)
+        .json(&serde_json::json!({
+            "client_name": "test-client",
+            "redirect_uris": ["http://localhost:3000/callback"],
+            "scope": "mcp:tools"
+        }))
+        .send()
+        .await
+        .expect("Should register client");
+    let register_json: serde_json::Value = register_resp.json().await.unwrap();
+    let client_id = register_json["client_id"].as_str().unwrap();
+    let code_verifier = "test-code-verifier-which-is-long-enough-to-be-valid";
+    let code_challenge = encode(&Sha256::digest(code_verifier.as_bytes()));
+    
+    // Get authorization code
+    let auth_url = format!(
+        "http://127.0.0.1:{port}/oauth/authorize?client_id={}&redirect_uri={}&response_type=code&scope={}&code_challenge={}&code_challenge_method=S256",
+        client_id,
+        urlencoding::encode("http://localhost:3000/callback"),
+        urlencoding::encode("mcp:tools"),
+        code_challenge
+    );
+    let auth_resp = client.get(&auth_url).send().await.unwrap();
+    let location = auth_resp.headers().get("location").unwrap().to_str().unwrap();
+    let code = location.split("code=").nth(1).unwrap().split('&').next().unwrap();
+    
+    // Exchange code for token
+    let token_url = format!("http://127.0.0.1:{port}/oauth/token");
+    let resp = client
+        .post(&token_url)
+        .json(&serde_json::json!({
+            "grant_type": "authorization_code",
+            "client_id": client_id,
+            "code": code,
+            "redirect_uri": "http://localhost:3000/callback",
+            "code_verifier": code_verifier
+        }))
+        .send()
+        .await
+        .expect("Should send request");
+    
+    assert!(resp.status().is_success(), "Token endpoint should return 2xx");
+    
+    let json: serde_json::Value = resp.json().await.expect("Should parse JSON");
+    assert!(json["access_token"].is_string());
+    assert_eq!(json["token_type"], "Bearer");
+    assert!(json["expires_in"].is_number());
+    assert_eq!(json["scope"], "mcp:tools");
+    
     runner.stop().await;
 }

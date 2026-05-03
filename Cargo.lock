@@ -771,6 +771,7 @@ dependencies = [
  "tokio-tungstenite 0.24.0",
  "tokio-util",
  "tracing",
+ "urlencoding",
  "uuid",
  "warp",
 ]

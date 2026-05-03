@@ -78,3 +78,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 rmcp = { version = "1.5", features = ["client", "macros"] }
 # Serial test execution to avoid port conflicts
 serial_test = "3.2"
+# OAuth test dependencies
+sha2 = "0.11.0"
+base64-url = "3.0.3"
+urlencoding = "2.1.3"
