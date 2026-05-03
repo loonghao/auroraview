@@ -331,6 +331,12 @@ mod pyo3_impl {
     use super::*;
     use pyo3::prelude::*;
 
+    #[pymodule]
+    fn auroraview_mcp(_m: &Bound<'_, PyModule>) -> PyResult<()> {
+        register(_m)?;
+        Ok(())
+    }
+
     /// Python class: `McpConfig`
     ///
     /// ```python
