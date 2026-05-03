@@ -46,6 +46,37 @@ pub struct LoadUrlParams {
     pub url: String,
 }
 
+/// Parameters for the `send_event` tool.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SendEventParams {
+    /// Event name to emit in the WebView.
+    pub event: String,
+    /// Event payload (JSON value).
+    pub data: serde_json::Value,
+}
+
+/// Parameters for the `get_hwnd` tool (placeholder).
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct GetHwndParams {}
+
+/// Parameters for the `list_webviews` tool (placeholder).
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ListWebviewsParams {}
+
+/// Parameters for the `create_webview` tool (placeholder).
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct CreateWebviewParams {
+    /// WebView configuration (JSON).
+    pub config: serde_json::Value,
+}
+
+/// Parameters for the `close_webview` tool (placeholder).
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct CloseWebviewParams {
+    /// WebView ID to close.
+    pub id: String,
+}
+
 // ---------------------------------------------------------------------------
 // McpServer — rmcp ServerHandler implementation
 // ---------------------------------------------------------------------------
@@ -157,6 +188,90 @@ impl McpServer {
             })?;
         Ok(format!("navigated to {}", params.url))
     }
+
+    /// Send an event to the WebView.
+    ///
+    /// Emits `event` with `data` via `window.auroraview.trigger()`.
+    #[tool(description = "Send an event to the WebView via window.auroraview.trigger()")]
+    async fn send_event(
+        &self,
+        Parameters(params): Parameters<SendEventParams>,
+    ) -> Result<String, rmcp::ErrorData> {
+        let mut client = self.create_client().await.map_err(|e| {
+            rmcp::ErrorData::internal_error(format!("CDP connect failed: {e}"), None)
+        })?;
+        let data_str = serde_json::to_string(&params.data)
+            .map_err(|e| rmcp::ErrorData::internal_error(format!("JSON serialize failed: {e}"), None))?;
+        let script = format!("if(window.auroraview && window.auroraview.trigger){{ window.auroraview.trigger('{}', {}); }} else {{ console.error('[AuroraView] Event bridge not ready'); }}", params.event.replace('\'', "\\'"), data_str);
+        client
+            .evaluate_script(&script, DEFAULT_CDP_TIMEOUT)
+            .await
+            .map_err(|e| {
+                rmcp::ErrorData::internal_error(format!("send_event failed: {e}"), None)
+            })?;
+        Ok(format!("event '{}' sent", params.event))
+    }
+
+    /// Get the native window handle (HWND on Windows) of the WebView.
+    ///
+    /// **TODO**: Requires AuroraView core to expose a CDP extension API
+    /// (e.g., `AuroraView.getHwnd()`). Currently a placeholder.
+    #[tool(description = "Get the native window handle of the WebView (TODO: not yet implemented)")]
+    async fn get_hwnd(
+        &self,
+        Parameters(_): Parameters<GetHwndParams>,
+    ) -> Result<String, rmcp::ErrorData> {
+        Err(rmcp::ErrorData::internal_error(
+            "get_hwnd not yet implemented: requires AuroraView core CDP extension API",
+            None,
+        ))
+    }
+
+    /// List all active WebView instances.
+    ///
+    /// **TODO**: Requires AuroraView core to expose an API to list WebViews.
+    /// Currently a placeholder.
+    #[tool(description = "List all WebView instances (TODO: not yet implemented)")]
+    async fn list_webviews(
+        &self,
+        Parameters(_): Parameters<ListWebviewsParams>,
+    ) -> Result<String, rmcp::ErrorData> {
+        Err(rmcp::ErrorData::internal_error(
+            "list_webviews not yet implemented: requires AuroraView core API",
+            None,
+        ))
+    }
+
+    /// Create a new WebView instance.
+    ///
+    /// **TODO**: Requires AuroraView core to expose a CDP extension API
+    /// for creating new WebViews. Currently a placeholder.
+    #[tool(description = "Create a new WebView instance (TODO: not yet implemented)")]
+    async fn create_webview(
+        &self,
+        Parameters(_params): Parameters<CreateWebviewParams>,
+    ) -> Result<String, rmcp::ErrorData> {
+        Err(rmcp::ErrorData::internal_error(
+            "create_webview not yet implemented: requires AuroraView core CDP extension API",
+            None,
+        ))
+    }
+
+    /// Close a WebView instance by ID.
+    ///
+    /// **TODO**: Requires AuroraView core to expose a CDP extension API
+    /// for closing WebViews. Currently a placeholder.
+    #[tool(description = "Close a WebView instance by ID (TODO: not yet implemented)")]
+    async fn close_webview(
+        &self,
+        Parameters(params): Parameters<CloseWebviewParams>,
+    ) -> Result<String, rmcp::ErrorData> {
+        let _ = params; // Suppress unused variable warning
+        Err(rmcp::ErrorData::internal_error(
+            "close_webview not yet implemented: requires AuroraView core CDP extension API",
+            None,
+        ))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -220,5 +335,39 @@ mod tests {
         let p: LoadUrlParams =
             serde_json::from_str(r#"{"url": "https://example.com"}"#).unwrap();
         assert_eq!(p.url, "https://example.com");
+    }
+
+    #[test]
+    fn send_event_params_default() {
+        let json = r#"{"event": "test_event", "data": {"key": "value"}}"#;
+        let p: SendEventParams = serde_json::from_str(json).unwrap();
+        assert_eq!(p.event, "test_event");
+        assert_eq!(p.data, serde_json::json!({"key": "value"}));
+    }
+
+    #[test]
+    fn get_hwnd_params_empty() {
+        let p: GetHwndParams = serde_json::from_str(r#"{}"#).unwrap();
+        let _ = p; // empty struct
+    }
+
+    #[test]
+    fn list_webviews_params_empty() {
+        let p: ListWebviewsParams = serde_json::from_str(r#"{}"#).unwrap();
+        let _ = p; // empty struct
+    }
+
+    #[test]
+    fn create_webview_params() {
+        let json = r#"{"config": {"url": "https://example.com"}}"#;
+        let p: CreateWebviewParams = serde_json::from_str(json).unwrap();
+        assert_eq!(p.config, serde_json::json!({"url": "https://example.com"}));
+    }
+
+    #[test]
+    fn close_webview_params() {
+        let json = r#"{"id": "view-123"}"#;
+        let p: CloseWebviewParams = serde_json::from_str(json).unwrap();
+        assert_eq!(p.id, "view-123");
     }
 }
