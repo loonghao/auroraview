@@ -7,6 +7,7 @@ use rmcp::{handler::server::wrapper::Parameters, schemars::JsonSchema, tool, too
 use serde::Deserialize;
 use std::sync::Arc;
 use tokio::sync::OnceCell;
+use tracing::{debug, error, info, warn};
 
 use crate::agui::AguiBus;
 use crate::cdp::{CdpClient, CdpError};
@@ -135,14 +136,17 @@ impl McpServer {
         Parameters(params): Parameters<ScreenshotParams>,
     ) -> Result<String, rmcp::ErrorData> {
         let client = self.get_client().await.map_err(|e| {
+            error!(error = %e, "CDP connect failed");
             rmcp::ErrorData::internal_error(format!("CDP connect failed: {e}"), None)
         })?;
         let bytes = client
             .capture_screenshot(&params.format, DEFAULT_CDP_TIMEOUT)
             .await
             .map_err(|e| {
+                warn!(error = %e, "screenshot failed");
                 rmcp::ErrorData::internal_error(format!("screenshot failed: {e}"), None)
             })?;
+        debug!(format = %params.format, size = bytes.len(), "screenshot captured");
         let mime = match params.format.as_str() {
             "jpeg" => "image/jpeg",
             "webp" => "image/webp",
@@ -161,12 +165,17 @@ impl McpServer {
         Parameters(params): Parameters<EvalJsParams>,
     ) -> Result<String, rmcp::ErrorData> {
         let client = self.get_client().await.map_err(|e| {
+            error!(error = %e, "CDP connect failed");
             rmcp::ErrorData::internal_error(format!("CDP connect failed: {e}"), None)
         })?;
         let value = client
             .evaluate_script(&params.script, DEFAULT_CDP_TIMEOUT)
             .await
-            .map_err(|e| rmcp::ErrorData::internal_error(format!("eval_js failed: {e}"), None))?;
+            .map_err(|e| {
+                warn!(error = %e, script = %params.script, "eval_js failed");
+                rmcp::ErrorData::internal_error(format!("eval_js failed: {e}"), None)
+            })?;
+        debug!(script = %params.script, "eval_js completed");
         Ok(serde_json::to_string(&value).unwrap_or_else(|_| "null".to_owned()))
     }
 
@@ -177,12 +186,17 @@ impl McpServer {
         Parameters(params): Parameters<LoadUrlParams>,
     ) -> Result<String, rmcp::ErrorData> {
         let client = self.get_client().await.map_err(|e| {
+            error!(error = %e, "CDP connect failed");
             rmcp::ErrorData::internal_error(format!("CDP connect failed: {e}"), None)
         })?;
         client
             .navigate_to(&params.url, DEFAULT_CDP_TIMEOUT)
             .await
-            .map_err(|e| rmcp::ErrorData::internal_error(format!("load_url failed: {e}"), None))?;
+            .map_err(|e| {
+                warn!(error = %e, url = %params.url, "load_url failed");
+                rmcp::ErrorData::internal_error(format!("load_url failed: {e}"), None)
+            })?;
+        info!(url = %params.url, "URL loaded");
         Ok(format!("navigated to {}", params.url))
     }
 
@@ -195,9 +209,11 @@ impl McpServer {
         Parameters(params): Parameters<SendEventParams>,
     ) -> Result<String, rmcp::ErrorData> {
         let client = self.get_client().await.map_err(|e| {
+            error!(error = %e, "CDP connect failed");
             rmcp::ErrorData::internal_error(format!("CDP connect failed: {e}"), None)
         })?;
         let data_str = serde_json::to_string(&params.data).map_err(|e| {
+            warn!(error = %e, "JSON serialize failed");
             rmcp::ErrorData::internal_error(format!("JSON serialize failed: {e}"), None)
         })?;
         let script = format!("if(window.auroraview && window.auroraview.trigger){{ window.auroraview.trigger('{}', {}); }} else {{ console.error('[AuroraView] Event bridge not ready'); }}", params.event.replace('\'', "\\'"), data_str);
@@ -205,8 +221,10 @@ impl McpServer {
             .evaluate_script(&script, DEFAULT_CDP_TIMEOUT)
             .await
             .map_err(|e| {
+                warn!(error = %e, event = %params.event, "send_event failed");
                 rmcp::ErrorData::internal_error(format!("send_event failed: {e}"), None)
             })?;
+        debug!(event = %params.event, "event sent");
         Ok(format!("event '{}' sent", params.event))
     }
 
