@@ -115,6 +115,8 @@ impl McpRunner {
     /// Returns [`McpError::InvalidConfig`] if the configuration is invalid
     /// (e.g. `port == 0`, empty `host`, or empty `service_name`).
     pub async fn start(&self) -> Result<()> {
+        let start_time = std::time::Instant::now();
+
         self.config.validate().map_err(McpError::InvalidConfig)?;
 
         let mut lock = self.shutdown_tx.lock().await;
@@ -152,7 +154,8 @@ impl McpRunner {
             .await
             .map_err(McpError::Io)?;
 
-        info!("AuroraView MCP Server listening on http://{addr}");
+        let elapsed = start_time.elapsed();
+        info!(?elapsed, "AuroraView MCP Server listening on http://{addr}");
 
         tokio::spawn({
             let cancel = cancel.clone();

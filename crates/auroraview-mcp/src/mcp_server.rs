@@ -5,7 +5,8 @@
 
 use rmcp::{handler::server::wrapper::Parameters, schemars::JsonSchema, tool, tool_router};
 use serde::Deserialize;
-use tracing::info;
+use std::sync::Arc;
+use tokio::sync::OnceCell;
 
 use crate::agui::AguiBus;
 use crate::cdp::{CdpClient, CdpError};
@@ -79,12 +80,14 @@ pub struct CloseWebviewParams {
 
 /// MCP Server that bridges rmcp protocol to a running AuroraView CDP endpoint.
 ///
-/// Creates a new CDP connection for each tool call (MVP approach).
+/// Reuses a single CDP connection for all tool calls (established on first use).
 #[derive(Clone)]
 pub struct McpServer {
     config: CdpAdapterConfig,
     registry: WebViewRegistry,
     agui_bus: Option<AguiBus>,
+    /// Lazily initialized CDP client (shared across tool calls).
+    client: Arc<OnceCell<CdpClient>>,
 }
 
 impl McpServer {
@@ -94,6 +97,7 @@ impl McpServer {
             config,
             registry: WebViewRegistry::new(),
             agui_bus: None,
+            client: Arc::new(OnceCell::new()),
         }
     }
 
@@ -104,9 +108,13 @@ impl McpServer {
         self
     }
 
-    /// Create a CDP client for a tool call.
-    async fn create_client(&self) -> Result<CdpClient, CdpError> {
-        CdpClient::connect(&self.config.http_endpoint).await
+    /// Get or create a shared CDP client (lazily initialized on first use).
+    async fn get_client(&self) -> Result<CdpClient, CdpError> {
+        let client_ref = self
+            .client
+            .get_or_try_init(|| async { CdpClient::connect(&self.config.http_endpoint).await })
+            .await?;
+        Ok(client_ref.clone())
     }
 
     /// Return a reference to the WebView registry.
@@ -126,7 +134,7 @@ impl McpServer {
         &self,
         Parameters(params): Parameters<ScreenshotParams>,
     ) -> Result<String, rmcp::ErrorData> {
-        let client = self.create_client().await.map_err(|e| {
+        let client = self.get_client().await.map_err(|e| {
             rmcp::ErrorData::internal_error(format!("CDP connect failed: {e}"), None)
         })?;
         let bytes = client
@@ -152,7 +160,7 @@ impl McpServer {
         &self,
         Parameters(params): Parameters<EvalJsParams>,
     ) -> Result<String, rmcp::ErrorData> {
-        let client = self.create_client().await.map_err(|e| {
+        let client = self.get_client().await.map_err(|e| {
             rmcp::ErrorData::internal_error(format!("CDP connect failed: {e}"), None)
         })?;
         let value = client
@@ -168,7 +176,7 @@ impl McpServer {
         &self,
         Parameters(params): Parameters<LoadUrlParams>,
     ) -> Result<String, rmcp::ErrorData> {
-        let client = self.create_client().await.map_err(|e| {
+        let client = self.get_client().await.map_err(|e| {
             rmcp::ErrorData::internal_error(format!("CDP connect failed: {e}"), None)
         })?;
         client
@@ -186,7 +194,7 @@ impl McpServer {
         &self,
         Parameters(params): Parameters<SendEventParams>,
     ) -> Result<String, rmcp::ErrorData> {
-        let client = self.create_client().await.map_err(|e| {
+        let client = self.get_client().await.map_err(|e| {
             rmcp::ErrorData::internal_error(format!("CDP connect failed: {e}"), None)
         })?;
         let data_str = serde_json::to_string(&params.data).map_err(|e| {
@@ -264,37 +272,6 @@ impl McpServer {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Server start helper
-// ---------------------------------------------------------------------------
-
-/// Start the MCP server with HTTP transport.
-///
-/// # Arguments
-/// - `config`: CDP adapter configuration.
-/// - `bind_addr`: Socket address to listen on (e.g. "0.0.0.0:7890").
-pub async fn start_mcp_server(
-    config: CdpAdapterConfig,
-    bind_addr: &str,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let _server = McpServer::new(config);
-
-    info!(addr = %bind_addr, "starting AuroraView MCP server");
-
-    // TODO: Wire MCP service to HTTP listener using axum/tower-http
-    // The `server.serve(...)` needs a transport that implements
-    // `IntoTransport<RoleServer, ...>`.
-    // Example with axum:
-    // let service = server.serve(tower::service_fn(|req| ...));
-    // let app = axum::Router::new().route("/mcp", axum::routing::post(...));
-    // let listener = tokio::net::TcpListener::bind(bind_addr).await?;
-    // axum::serve(listener, app).await?;
-
-    // For now, just log that the server is ready
-    info!("AuroraView MCP server started (HTTP transport TODO)");
-
-    Ok(())
-}
 
 #[cfg(test)]
 mod tests {
