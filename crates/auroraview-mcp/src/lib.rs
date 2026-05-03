@@ -40,7 +40,7 @@ use tokio::runtime::{Handle, Runtime};
 use crate::cdp::{CdpClient, CdpError};
 
 /// Default timeout for any single CDP call the adapter makes.
-pub const DEFAULT_CDP_TIMEOUT: Duration = Duration::from_secs(10);
+pub const DEFAULT_CDP_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Configuration for wiring the adapter to a running AuroraView CDP port.
 #[derive(Debug, Clone)]
