@@ -1,124 +1,115 @@
-# AuroraView Auto-Improve Memory#
+# AuroraView Auto-Improve Memory #
 
-## Session Summary - 2026-05-02#
+## Session Summary - 2026-05-03 (Iteration #63 - Complete)
 
-### Iteration #33: MCP Server Implementation Verification#
+### ✅ Completed:
 
-**Startup Checklist:**
+- [x] **Worktree check**: Worktree exists at `G:/PycharmProjects/github/.aurora-iterate` ✓
 - [x] **Branch check**: `auto-improve` ✓
-- [x] **Sync with origin/main**: Already up to date (merge) ✓
-- [x] **All tests pass**: 37 tests passed ✓
-- [x] **MCP Server status**: Fully implemented ✓
-- [x] **mDNS Broadcast**: Implemented (`MdnsBroadcaster`) ✓
-- [x] **AG-UI Protocol**: SSE endpoint implemented (`/agui/events`) ✓
+- [x] **Synced with origin/main**: Already up to date ✓
+- [x] **Fixed OAuth integration tests**:
+  - Fixed compile error: borrow of moved value `resp` in `oauth_authorize_endpoint_returns_redirect`
+  - Fixed runtime error: `reqwest` auto-redirect caused connection refused
+  - Disabled `reqwest` redirect follow in OAuth tests
+  - Added `#[allow(dead_code)]` to `start_test_server_with_mdns`
+  - Committed as `fix(mcp): fix OAuth integration tests (reqwest redirect follow + compile error)` (eb0f388)
+- [x] **All passed tests**:
+  - 63 library tests pass
+  - 13 integration tests pass (11 original + 2 OAuth tests now FIXED)
+  - 1 doc test passes
+  - All workspace tests pass ✓
+- [x] **Committed and pushed**:
+  - Commit: `fix(mcp): fix OAuth integration tests...` (eb0f388)
+  - Pushed to `origin/auto-improve` ✓
 
-**Completed Modules (Verification):**
+### ⚠️ Known Issues:
 
-1. **`auroraview-mcp` crate** - Fully implemented
-   - `Cargo.toml`: Dependencies configured (rmcp 1.5.0, axum 0.7, mdns-sd 0.10, etc.)
-   - `src/lib.rs`: `CdpAuroraViewAdapter` implementing `DccAdapter` trait
-   - `src/server/mod.rs`: Sub-modules (types, tools, helpers, handler)
-   - `src/server/tools.rs`: `AuroraViewMcpServer` with 9 MCP tools:
-     - `screenshot` - Capture WebView screenshot
-     - `load_url` - Load URL in WebView
-     - `load_html` - Load HTML content
-     - `eval_js` - Execute JavaScript
-     - `send_event` - Send event to JS context
-     - `get_hwnd` - Get native window handle
-     - `list_webviews` - List all WebView instances
-     - `create_webview` - Create new WebView
-     - `close_webview` - Close WebView
-   - `src/server/handler.rs`: `ServerHandler` trait implementation
-   - `src/agui.rs`: AG-UI protocol support (`AguiEvent`, `AguiBus`)
-   - `src/mdns.rs`: mDNS broadcast (`MdnsBroadcaster`)
-   - `src/runner.rs`: MCP Server runner (axum HTTP + SSE)
-   - `src/python_bindings.rs`: PyO3 bindings for `McpServer` and `McpConfig`
-   - `src/oauth.rs`: OAuth 2.0 support
-   - `src/registry.rs`: WebView registry
-   - `src/types.rs`: Type definitions (`McpServerConfig`, `WebViewId`, etc.)
-   - `src/cdp.rs`: CDP client for WebView communication
-
-2. **Test Coverage**:
-   - Unit tests: 37 tests (all passed)
-   - Integration tests: `tests/integration_test.rs` (14.87 KB)
-   - Test categories: config, registry, server, tools, AG-UI, mDNS, OAuth
-
-**Code Quality Status:**
-
-- [x] **All tests pass**: `cargo test -p auroraview-mcp` (37 tests passed) ✓
-- [x] **Clippy**: No warnings ✓
-- [x] **Build**: Successful ✓
-
-**Commits Made This Session:**
-
-None yet - verification only.
-
-**What's Left (Future Iterations):**
-
-**Optimization tasks** (enter optimization loop per task description):
-1. **Performance optimization** - Profile and identify bottlenecks
-   - WebView startup time < 150ms
-   - Memory usage < 50MB
-   - IPC latency optimization
-2. **Stability optimization** - Error handling, crash recovery
-   - Enhance error context information
-   - Implement graceful degradation strategies
-   - Add retry mechanisms
-3. **Cross-platform consistency** - macOS WKWebView, Linux WebKitGTK
-   - Ensure consistent behavior across platforms
-4. **Security optimization** - XSS protection, resource isolation
-   - CSP policy enhancement
-   - Remote URL whitelist
-   - Sandbox mechanism
-
-**Integration tasks**:
-1. **`dcc-mcp-core` integration testing** - Verify `McpClient` can discover and call AuroraView tools
-2. **Documentation** - Add usage examples for `dcc-mcp-core` integration
-3. **End-to-end testing** - Test complete workflow: `dcc-mcp-core` → `AuroraViewMcpServer` → WebView
-
-**Next Iteration Plan:**
-
-When automation triggers next:
-
-1. **Enter optimization loop** (all core features implemented):
-   - Run benchmarks for performance baseline
-   - Identify and fix performance bottlenecks
-   - Enhance error handling and recovery
-2. **Cross-platform testing**:
-   - Test on macOS (WKWebView)
-   - Test on Linux (WebKitGTK)
-3. **Security audit**:
-   - Review CSP policies
-   - Test XSS protection
-   - Validate input sanitization
-4. **Continue the auto-improve loop**
+- `CdpClient` does not implement `Clone`, so CDP connection pool optimization is temporarily blocked
+- Placeholder tools (`get_hwnd`, `list_webviews`, `create_webview`, `close_webview`) need AuroraView core support
+- GitHub shows 43 vulnerabilities on `main` branch (18 high, 24 moderate, 1 low) - dependency issues
+- mDNS integration tests not yet implemented (`start_test_server_with_mdns` reserved)
 
 ---
 
-## Previous Sessions Summary#
+### MCP Server Status (Iteration #63 - Updated)
 
-### Session - 2026-05-02 (Iteration #32)#
+**Implemented:**
+- `screenshot(format?, viewport?)` - Capture WebView screenshot (returns base64 data URI)
+- `eval_js(script)` - Evaluate JavaScript in WebView context
+- `load_url(url)` - Navigate WebView to URL
+- `send_event(event, data)` - Send event via `window.auroraview.trigger()`
+- `McpRunner` - HTTP server lifecycle management
+- `StreamableHttpService` integration with axum
+- AG-UI SSE event streaming at `/agui/events`
+- OAuth 2.0 endpoints (metadata, register, authorize, token)
+- mDNS broadcast for auto-discovery (via `mdns-sd`)
+- Python bindings (`PyMcpServer`, `PyMcpConfig`) with `python-bindings` feature
+- MCP protocol integration tests (initialize, list_tools, call_tool)
+- AG-UI SSE endpoint integration tests (event stream, run_id filter)
+- OAuth metadata and registration endpoint integration tests
+- **NEW**: mDNS test helper function
+- **FIXED**: OAuth authorize and token exchange tests now pass
 
-**Completed:**
-1. Added `open_options_page()` and `reload_extension()` methods to `RuntimeManager`
-2. Implemented `RuntimeApiHandler` API methods
-3. Fixed clippy warnings
+**Placeholders (not yet implemented - need AuroraView core support):**
+- [ ] `get_hwnd()` - Need AuroraView core to expose CDP extension API
+- [ ] `list_webviews()` - Need AuroraView core API to list WebViews
+- [ ] `create_webview(config)` - Need AuroraView core CDP extension API
+- [ ] `close_webview(id)` - Need AuroraView core CDP extension API
 
-**Commit:** `3878b8d` - feat(extensions): implement runtime API methods and fix clippy warnings
+**Tests:**
+- [x] 63 library tests pass
+- [x] 13 integration tests pass (11 original + 2 OAuth tests now FIXED)
+- [x] OAuth authorize and token exchange tests - FIXED (reqwest redirect follow disabled)
+- [x] MCP protocol tests (initialize, list_tools, call_tool) - VERIFIED
+- [x] AG-UI SSE endpoint tests (event stream, run_id filter) - VERIFIED
+- [x] OAuth metadata and registration endpoint tests - VERIFIED
+- [ ] mDNS broadcast integration tests (placeholder added)
 
-### Session - 2026-05-02 (Iteration #31)#
-
-**Completed:**
-1. Fixed `Cargo.toml` duplicate `dashmap` dependency
-2. Fixed `auroraview-mcp/Cargo.toml` warp dependency
-3. Added `dashmap` dependency to `auroraview-signals/Cargo.toml`
-4. Migrated `auroraview-signals/src/signal.rs` to DashMap
-5. Migrated `auroraview-extensions/src/runtime.rs` to DashMap
-
-### Session - 2026-05-02 (Iteration #30)#
-
-**Completed:**
-1. Added `dashmap` dependency
-2. Migrated `WindowManager` to use `DashMap`
+**CDP Methods:**
+- `Runtime.evaluate` - Execute JavaScript
+- `Page.navigate` - Navigate to URL
+- `Page.reload` - Reload current page
+- `Page.captureScreenshot` - Capture screenshot
 
 ---
+
+### Next Iteration Plan (Iteration #64):
+
+1. **Fix dependency vulnerabilities** (43 vulnerabilities on `main` branch):
+   - Run `cargo audit` to identify specific CVEs
+   - Review and update vulnerable dependencies
+   - Prioritize high and moderate severity vulnerabilities
+
+2. **Complete mDNS broadcast integration tests**:
+   - Use `start_test_server_with_mdns()` helper
+   - Implement actual mDNS discovery logic in tests
+   - Verify mDNS service is discoverable
+   - Test service registration and unregistration
+
+3. **Test Python bindings** (need `maturin develop --features python-bindings`):
+   - Test `PyMcpServer` class
+   - Test `PyMcpConfig` class
+
+4. **Improve CDP connection management**:
+   - Investigate implementing `Clone` for `CdpClient`
+   - Consider using `Arc<CdpClient>` or refactoring `CdpClient`
+
+5. **Coordinate with AuroraView core team** to implement placeholder tools**
+
+6. **Performance optimization**:
+   - Profile MCP Server startup time (target: <150ms)
+   - Optimize CDP message round-trip latency
+   - Reduce memory footprint of `McpRunner`
+
+---
+
+### Checklist for Next Iteration
+
+- [x] auto-improve branch synced with origin/main?
+- [x] Previous iteration changes pushed to remote?
+- [x] All tests pass?
+- [x] OAuth authorize and token tests fixed?
+- [ ] Dependency vulnerabilities fixed?
+- [ ] mDNS broadcast tests completed?
+- [ ] Python bindings tested?
+- [ ] Next step clear?
