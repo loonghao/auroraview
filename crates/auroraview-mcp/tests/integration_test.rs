@@ -4,6 +4,7 @@
 
 use auroraview_mcp::runner::McpRunner;
 use auroraview_mcp::types::McpServerConfig;
+use futures::StreamExt;
 use serial_test::serial;
 
 /// Parse SSE response format: split by "\n\n", find "data: {...}" lines.
@@ -337,6 +338,143 @@ async fn mcp_call_tool_without_cdp_returns_error() {
         -32603,
         "Should return internal error code"
     );
+
+    runner.stop().await;
+}
+
+// ---------------------------------------------------------------------------
+// AG-UI SSE Endpoint Tests
+// ---------------------------------------------------------------------------
+
+use auroraview_mcp::agui::AguiEvent;
+
+/// Helper to parse SSE event from a line.
+fn parse_sse_event(line: &str) -> Option<serde_json::Value> {
+    let line = line.trim();
+    if line.starts_with("data: ") {
+        let json_str = line.strip_prefix("data: ").unwrap().trim();
+        serde_json::from_str(json_str).ok()
+    } else {
+        None
+    }
+}
+
+#[tokio::test]
+#[serial]
+async fn agui_events_returns_sse_stream() {
+    let (runner, port) = start_test_server().await;
+    let bus = runner.agui_bus().clone();
+
+    // Emit an event in the background
+    let emit_handle = tokio::spawn(async move {
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        bus.emit(AguiEvent::RunStarted {
+            run_id: "run-1".to_string(),
+            thread_id: "t-1".to_string(),
+        });
+    });
+
+    // Subscribe to SSE stream
+    let client = reqwest::Client::new();
+    let url = format!("http://127.0.0.1:{port}/agui/events");
+    let resp = client
+        .get(&url)
+        .send()
+        .await
+        .expect("Should send request");
+    assert!(resp.status().is_success(), "SSE endpoint should return 2xx");
+
+    // Read the first SSE event (with timeout)
+    let mut stream = resp.bytes_stream();
+    let mut received_event = None;
+    let start = tokio::time::Instant::now();
+    while start.elapsed() < tokio::time::Duration::from_secs(5) {
+        if let Some(chunk) = stream.next().await {
+            let chunk = chunk.expect("Should read chunk");
+            let text = String::from_utf8_lossy(&chunk);
+            for line in text.lines() {
+                if let Some(event) = parse_sse_event(line) {
+                    received_event = Some(event);
+                    break;
+                }
+            }
+            if received_event.is_some() {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+
+    emit_handle.await.expect("Emit task should complete");
+    assert!(
+        received_event.is_some(),
+        "Should receive at least one SSE event"
+    );
+    let event = received_event.unwrap();
+    assert_eq!(event["type"], "RUN_STARTED");
+    assert_eq!(event["run_id"], "run-1");
+
+    runner.stop().await;
+}
+
+#[tokio::test]
+#[serial]
+async fn agui_events_filters_by_run_id() {
+    let (runner, port) = start_test_server().await;
+    let bus = runner.agui_bus().clone();
+
+    // Emit events for two different runs
+    let emit_handle = tokio::spawn(async move {
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        bus.emit(AguiEvent::RunStarted {
+            run_id: "run-a".to_string(),
+            thread_id: "t-a".to_string(),
+        });
+        bus.emit(AguiEvent::RunStarted {
+            run_id: "run-b".to_string(),
+            thread_id: "t-b".to_string(),
+        });
+    });
+
+    // Subscribe to events for "run-a" only
+    let client = reqwest::Client::new();
+    let url = format!("http://127.0.0.1:{port}/agui/events?run_id=run-a");
+    let resp = client
+        .get(&url)
+        .send()
+        .await
+        .expect("Should send request");
+    assert!(resp.status().is_success(), "SSE endpoint should return 2xx");
+
+    // Read the first SSE event (should be run-a)
+    let mut stream = resp.bytes_stream();
+    let mut received_run_ids = Vec::new();
+    let start = tokio::time::Instant::now();
+    while start.elapsed() < tokio::time::Duration::from_secs(5) {
+        if let Some(chunk) = stream.next().await {
+            let chunk = chunk.expect("Should read chunk");
+            let text = String::from_utf8_lossy(&chunk);
+            for line in text.lines() {
+                if let Some(event) = parse_sse_event(line) {
+                    received_run_ids.push(event["run_id"].as_str().unwrap().to_string());
+                }
+            }
+            if received_run_ids.len() >= 1 {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+
+    emit_handle.await.expect("Emit task should complete");
+    assert_eq!(
+        received_run_ids.len(),
+        1,
+        "Should receive exactly one event for run-a"
+    );
+    assert_eq!(received_run_ids[0], "run-a");
 
     runner.stop().await;
 }
