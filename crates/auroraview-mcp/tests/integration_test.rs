@@ -147,6 +147,22 @@ async fn start_test_server_with_oauth() -> (McpRunner, u16) {
     (runner, port)
 }
 
+/// Helper to start a test server with mDNS enabled.
+async fn start_test_server_with_mdns() -> (McpRunner, u16) {
+    let port = 17000 + (std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .subsec_millis() as u16 % 1000);
+    let config = McpServerConfig::default()
+        .with_port(port)
+        .with_mdns(true) // Enable mDNS for tests
+        .with_service_name("test-auroraview-mcp");
+    let runner = McpRunner::new(config);
+    runner.start().await.expect("Server should start");
+    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await; // mDNS needs time to propagate
+    (runner, port)
+}
+
 #[tokio::test]
 #[serial]
 async fn mcp_initialize_returns_ok() {
