@@ -4,10 +4,10 @@
 
 use auroraview_mcp::runner::McpRunner;
 use auroraview_mcp::types::McpServerConfig;
+use base64_url::encode;
 use futures::StreamExt;
 use serial_test::serial;
-use sha2::{Sha256, Digest};
-use base64_url::encode;
+use sha2::{Digest, Sha256};
 use urlencoding;
 
 /// Parse SSE response format: split by "\n\n", find "data: {...}" lines.
@@ -18,8 +18,7 @@ fn parse_sse_response(sse_text: &str) -> serde_json::Value {
         if line.starts_with("data: ") {
             let json_str = line.strip_prefix("data: ").unwrap().trim();
             if !json_str.is_empty() && (json_str.starts_with('{') || json_str.starts_with('[')) {
-                return serde_json::from_str(json_str)
-                    .expect("Should parse SSE data as JSON");
+                return serde_json::from_str(json_str).expect("Should parse SSE data as JSON");
             }
         }
     }
@@ -117,13 +116,13 @@ fn jsonrpc_request(id: u64, method: &str, params: Option<serde_json::Value>) -> 
 async fn start_test_server() -> (McpRunner, u16) {
     // Use a different port for each test to avoid AddrInUse errors.
     // We use timestamp-based port selection to minimize collisions.
-    let port = 15000 + (std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .subsec_millis() as u16 % 1000);
-    let config = McpServerConfig::default()
-        .with_port(port)
-        .with_mdns(false); // Disable mDNS for tests
+    let port = 15000
+        + (std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .subsec_millis() as u16
+            % 1000);
+    let config = McpServerConfig::default().with_port(port).with_mdns(false); // Disable mDNS for tests
     let runner = McpRunner::new(config);
     runner.start().await.expect("Server should start");
     // Give the server time to bind
@@ -133,10 +132,12 @@ async fn start_test_server() -> (McpRunner, u16) {
 
 /// Helper to start a test server with OAuth enabled.
 async fn start_test_server_with_oauth() -> (McpRunner, u16) {
-    let port = 16000 + (std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .subsec_millis() as u16 % 1000);
+    let port = 16000
+        + (std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .subsec_millis() as u16
+            % 1000);
     let config = McpServerConfig::default()
         .with_port(port)
         .with_mdns(false)
@@ -151,10 +152,12 @@ async fn start_test_server_with_oauth() -> (McpRunner, u16) {
 // TODO: wire into mDNS integration tests (next iteration).
 #[allow(dead_code)]
 async fn start_test_server_with_mdns() -> (McpRunner, u16) {
-    let port = 17000 + (std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .subsec_millis() as u16 % 1000);
+    let port = 17000
+        + (std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .subsec_millis() as u16
+            % 1000);
     let config = McpServerConfig::default()
         .with_port(port)
         .with_mdns(true) // Enable mDNS for tests
@@ -194,11 +197,11 @@ async fn mcp_initialize_returns_ok() {
     let status = resp.status();
     let headers = resp.headers().clone();
     let text = resp.text().await.expect("Should read response");
-    
+
     println!("Response status: {status}");
     println!("Response headers: {headers:#?}");
     println!("Response body: {text}");
-    
+
     assert!(
         status.is_success(),
         "Initialize should return 2xx, got {status}: {text}"
@@ -206,7 +209,7 @@ async fn mcp_initialize_returns_ok() {
 
     // Parse SSE format response using helper function
     let json = parse_sse_response(&text);
-    
+
     assert_eq!(json["jsonrpc"], "2.0");
     assert_eq!(json["id"], 1);
     assert!(
@@ -242,7 +245,7 @@ async fn mcp_list_tools_returns_tools() {
         .send()
         .await
         .expect("Should send initialize request");
-    
+
     // Extract session ID from initialize response
     let session_id = init_resp
         .headers()
@@ -265,31 +268,31 @@ async fn mcp_list_tools_returns_tools() {
 
     let status = resp.status();
     let text = resp.text().await.expect("Should read response");
-    
-    assert!(status.is_success(), "tools/list should return 2xx, got {status}: {text}");
+
+    assert!(
+        status.is_success(),
+        "tools/list should return 2xx, got {status}: {text}"
+    );
 
     // Parse SSE format response
     let json = parse_sse_response(&text);
-    
+
     assert_eq!(json["jsonrpc"], "2.0");
     assert_eq!(json["id"], 2);
-    assert!(json["result"]["tools"].is_array(), "Should have tools array, got: {text}");
+    assert!(
+        json["result"]["tools"].is_array(),
+        "Should have tools array, got: {text}"
+    );
 
     let tools = json["result"]["tools"].as_array().unwrap();
-    let tool_names: Vec<&str> = tools
-        .iter()
-        .map(|t| t["name"].as_str().unwrap())
-        .collect();
+    let tool_names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
 
     // Verify expected tools are present
     assert!(
         tool_names.contains(&"screenshot"),
         "Should have screenshot tool"
     );
-    assert!(
-        tool_names.contains(&"eval_js"),
-        "Should have eval_js tool"
-    );
+    assert!(tool_names.contains(&"eval_js"), "Should have eval_js tool");
     assert!(
         tool_names.contains(&"load_url"),
         "Should have load_url tool"
@@ -327,7 +330,7 @@ async fn mcp_call_tool_without_cdp_returns_error() {
         .send()
         .await
         .expect("Should send initialize request");
-    
+
     // Extract session ID from initialize response
     let session_id = init_resp
         .headers()
@@ -357,12 +360,15 @@ async fn mcp_call_tool_without_cdp_returns_error() {
 
     let status = resp.status();
     let text = resp.text().await.expect("Should read response");
-    
-    assert!(status.is_success(), "tools/call should return 2xx, got {status}: {text}");
+
+    assert!(
+        status.is_success(),
+        "tools/call should return 2xx, got {status}: {text}"
+    );
 
     // Parse SSE format response
     let json = parse_sse_response(&text);
-    
+
     assert_eq!(json["jsonrpc"], "2.0");
     assert_eq!(json["id"], 2);
     // The tool call should return a JSON-RPC error (CDP not available)
@@ -371,8 +377,7 @@ async fn mcp_call_tool_without_cdp_returns_error() {
         "Tool call should return error when CDP is not available, got: {text}"
     );
     assert_eq!(
-        json["error"]["code"],
-        -32603,
+        json["error"]["code"], -32603,
         "Should return internal error code"
     );
 
@@ -414,11 +419,7 @@ async fn agui_events_returns_sse_stream() {
     // Subscribe to SSE stream
     let client = reqwest::Client::new();
     let url = format!("http://127.0.0.1:{port}/agui/events");
-    let resp = client
-        .get(&url)
-        .send()
-        .await
-        .expect("Should send request");
+    let resp = client.get(&url).send().await.expect("Should send request");
     assert!(resp.status().is_success(), "SSE endpoint should return 2xx");
 
     // Read the first SSE event (with timeout)
@@ -477,11 +478,7 @@ async fn agui_events_filters_by_run_id() {
     // Subscribe to events for "run-a" only
     let client = reqwest::Client::new();
     let url = format!("http://127.0.0.1:{port}/agui/events?run_id=run-a");
-    let resp = client
-        .get(&url)
-        .send()
-        .await
-        .expect("Should send request");
+    let resp = client.get(&url).send().await.expect("Should send request");
     assert!(resp.status().is_success(), "SSE endpoint should return 2xx");
 
     // Read the first SSE event (should be run-a)
@@ -527,14 +524,13 @@ async fn oauth_metadata_endpoint_returns_correct_metadata() {
 
     let client = reqwest::Client::new();
     let url = format!("http://127.0.0.1:{port}/.well-known/oauth-authorization-server");
-    let resp = client
-        .get(&url)
-        .send()
-        .await
-        .expect("Should send request");
-    
-    assert!(resp.status().is_success(), "Metadata endpoint should return 2xx");
-    
+    let resp = client.get(&url).send().await.expect("Should send request");
+
+    assert!(
+        resp.status().is_success(),
+        "Metadata endpoint should return 2xx"
+    );
+
     let json: serde_json::Value = resp.json().await.expect("Should parse JSON");
     assert_eq!(json["issuer"], "auroraview-mcp");
     assert!(json["authorization_endpoint"].is_string());
@@ -542,7 +538,7 @@ async fn oauth_metadata_endpoint_returns_correct_metadata() {
     assert!(json["registration_endpoint"].is_string());
     assert!(json["code_challenge_methods_supported"].is_array());
     assert!(json["scopes_supported"].is_array());
-    
+
     runner.stop().await;
 }
 
@@ -563,16 +559,19 @@ async fn oauth_register_endpoint_creates_client() {
         .send()
         .await
         .expect("Should send request");
-    
-    assert!(resp.status().is_success(), "Register endpoint should return 2xx");
-    
+
+    assert!(
+        resp.status().is_success(),
+        "Register endpoint should return 2xx"
+    );
+
     let json: serde_json::Value = resp.json().await.expect("Should parse JSON");
     assert!(json["client_id"].is_string());
     assert!(json["client_secret"].is_string());
     assert_eq!(json["client_name"], "test-client");
     assert!(json["redirect_uris"].is_array());
     assert_eq!(json["scope"], "mcp:tools");
-    
+
     runner.stop().await;
 }
 
@@ -585,7 +584,7 @@ async fn oauth_authorize_endpoint_returns_redirect() {
         .redirect(reqwest::redirect::Policy::none())
         .build()
         .expect("Should build client");
-    
+
     // First register a client
     let register_url = format!("http://127.0.0.1:{port}/oauth/register");
     let register_resp = client
@@ -602,7 +601,7 @@ async fn oauth_authorize_endpoint_returns_redirect() {
     let client_id = register_json["client_id"].as_str().unwrap();
     let code_verifier = "test-code-verifier-which-is-long-enough-to-be-valid";
     let code_challenge = encode(&Sha256::digest(code_verifier.as_bytes()));
-    
+
     // Now authorize
     let auth_url = format!(
         "http://127.0.0.1:{port}/oauth/authorize?client_id={}&redirect_uri={}&response_type=code&scope={}&code_challenge={}&code_challenge_method=S256",
@@ -617,19 +616,26 @@ async fn oauth_authorize_endpoint_returns_redirect() {
         .send()
         .await
         .expect("Should send request");
-    
+
     let status = resp.status(); // Save status before resp is moved
     let headers = resp.headers().clone();
     println!("Auth response status: {status}");
     println!("Auth response headers: {:?}", headers);
     let body = resp.text().await.expect("Should read body");
     println!("Auth response body: {body}");
-    
-    assert_eq!(status, reqwest::StatusCode::SEE_OTHER, "Authorize should return redirect: {body}");
-    
+
+    assert_eq!(
+        status,
+        reqwest::StatusCode::SEE_OTHER,
+        "Authorize should return redirect: {body}"
+    );
+
     let location = headers.get("location").unwrap().to_str().unwrap();
-    assert!(location.contains("code="), "Redirect should contain authorization code");
-    
+    assert!(
+        location.contains("code="),
+        "Redirect should contain authorization code"
+    );
+
     runner.stop().await;
 }
 
@@ -642,7 +648,7 @@ async fn oauth_token_endpoint_exchanges_code_for_token() {
         .redirect(reqwest::redirect::Policy::none())
         .build()
         .expect("Should build client");
-    
+
     // Register client
     let register_url = format!("http://127.0.0.1:{port}/oauth/register");
     let register_resp = client
@@ -659,7 +665,7 @@ async fn oauth_token_endpoint_exchanges_code_for_token() {
     let client_id = register_json["client_id"].as_str().unwrap();
     let code_verifier = "test-code-verifier-which-is-long-enough-to-be-valid";
     let code_challenge = encode(&Sha256::digest(code_verifier.as_bytes()));
-    
+
     // Get authorization code
     let auth_url = format!(
         "http://127.0.0.1:{port}/oauth/authorize?client_id={}&redirect_uri={}&response_type=code&scope={}&code_challenge={}&code_challenge_method=S256",
@@ -669,9 +675,20 @@ async fn oauth_token_endpoint_exchanges_code_for_token() {
         code_challenge
     );
     let auth_resp = client.get(&auth_url).send().await.unwrap();
-    let location = auth_resp.headers().get("location").unwrap().to_str().unwrap();
-    let code = location.split("code=").nth(1).unwrap().split('&').next().unwrap();
-    
+    let location = auth_resp
+        .headers()
+        .get("location")
+        .unwrap()
+        .to_str()
+        .unwrap();
+    let code = location
+        .split("code=")
+        .nth(1)
+        .unwrap()
+        .split('&')
+        .next()
+        .unwrap();
+
     // Exchange code for token
     let token_url = format!("http://127.0.0.1:{port}/oauth/token");
     let resp = client
@@ -686,14 +703,17 @@ async fn oauth_token_endpoint_exchanges_code_for_token() {
         .send()
         .await
         .expect("Should send request");
-    
-    assert!(resp.status().is_success(), "Token endpoint should return 2xx");
-    
+
+    assert!(
+        resp.status().is_success(),
+        "Token endpoint should return 2xx"
+    );
+
     let json: serde_json::Value = resp.json().await.expect("Should parse JSON");
     assert!(json["access_token"].is_string());
     assert_eq!(json["token_type"], "Bearer");
     assert!(json["expires_in"].is_number());
     assert_eq!(json["scope"], "mcp:tools");
-    
+
     runner.stop().await;
 }

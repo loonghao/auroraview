@@ -10,10 +10,12 @@ use std::time::Duration;
 
 // Helper to start a test server with mDNS enabled.
 async fn start_test_server_with_mdns() -> (McpRunner, u16) {
-    let port = 17000 + (std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .subsec_millis() as u16 % 1000);
+    let port = 17000
+        + (std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .subsec_millis() as u16
+            % 1000);
     let config = McpServerConfig::default()
         .with_port(port)
         .with_mdns(true)
@@ -31,13 +33,11 @@ async fn mdns_broadcast_is_discoverable() {
     let (runner, _port) = start_test_server_with_mdns().await;
 
     // Create a mDNS daemon to discover services
-    let daemon = ServiceDaemon::new()
-        .expect("Should create mDNS daemon");
+    let daemon = ServiceDaemon::new().expect("Should create mDNS daemon");
 
     // Browse for AuroraView MCP services
     let service_type = "_auroraview-mcp._tcp.local.";
-    let mut receiver = daemon.browse(service_type)
-        .expect("Should start browsing");
+    let mut receiver = daemon.browse(service_type).expect("Should start browsing");
 
     // Wait for service to be discovered (with timeout)
     let start = std::time::Instant::now();
@@ -67,12 +67,10 @@ async fn mdns_broadcast_stop_broadcast() {
     let (runner, _port) = start_test_server_with_mdns().await;
 
     // Create a mDNS daemon to discover services
-    let daemon = ServiceDaemon::new()
-        .expect("Should create mDNS daemon");
+    let daemon = ServiceDaemon::new().expect("Should create mDNS daemon");
 
     let service_type = "_auroraview-mcp._tcp.local.";
-    let mut receiver = daemon.browse(service_type)
-        .expect("Should start browsing");
+    let mut receiver = daemon.browse(service_type).expect("Should start browsing");
 
     // Wait for service to be discovered
     let start = std::time::Instant::now();
@@ -89,7 +87,10 @@ async fn mdns_broadcast_stop_broadcast() {
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
-    assert!(service_found, "mDNS service should be discoverable before stop");
+    assert!(
+        service_found,
+        "mDNS service should be discoverable before stop"
+    );
 
     // Stop the server (which stops mDNS broadcast)
     runner.stop().await;
