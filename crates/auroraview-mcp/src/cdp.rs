@@ -251,3 +251,62 @@ impl CdpClient {
         Ok(())
     }
 }
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn cdp_error_display_timeout() {
+        let dur = Duration::from_secs(5);
+        let err = CdpError::Timeout(dur);
+        let msg = format!("{err}");
+        assert!(msg.contains("timed out"), "got: {msg}");
+    }
+
+    #[test]
+    fn cdp_error_display_connection_closed() {
+        let err = CdpError::ConnectionClosed;
+        let msg = format!("{err}");
+        assert!(msg.contains("closed before"), "got: {msg}");
+    }
+
+    #[test]
+    fn cdp_error_display_remote() {
+        let err = CdpError::Remote("test error".to_owned());
+        let msg = format!("{err}");
+        assert!(msg.contains("test error"), "got: {msg}");
+    }
+
+    #[test]
+    fn cdp_error_display_malformed_response() {
+        let err = CdpError::MalformedResponse("result");
+        let msg = format!("{err}");
+        assert!(msg.contains("result"), "got: {msg}");
+    }
+
+    #[test]
+    fn browser_version_creation() {
+        let version = BrowserVersion {
+            product: "Chrome/120.0.6099.109".to_owned(),
+            protocol_version: "1.3".to_owned(),
+        };
+        assert_eq!(version.product, "Chrome/120.0.6099.109");
+        assert_eq!(version.protocol_version, "1.3");
+    }
+
+    #[test]
+    fn browser_version_debug() {
+        let version = BrowserVersion {
+            product: "test".to_owned(),
+            protocol_version: "1.0".to_owned(),
+        };
+        let debug = format!("{version:?}");
+        assert!(debug.contains("test"));
+    }
+}
