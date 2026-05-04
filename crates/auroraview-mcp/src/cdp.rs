@@ -333,6 +333,21 @@ impl CdpClient {
         tracing::debug!(?result, "DOM.getDocument succeeded");
         Ok(result)
     }
+
+    /// `CSS.getStylesForNode` — get computed styles for a DOM node.
+    ///
+    /// `node_id` is the DOM node ID (from `DOM.getDocument` or `DOM.querySelector`).
+    /// Returns the computed styles as JSON.
+    pub async fn get_styles_for_node(
+        &self,
+        node_id: i64,
+        timeout: Duration,
+    ) -> Result<Value, CdpError> {
+        let params = json!({"nodeId": node_id});
+        let result = self.call("CSS.getStylesForNode", params, timeout).await?;
+        tracing::debug!(?node_id, ?result, "CSS.getStylesForNode succeeded");
+        Ok(result)
+    }
 }
 
 // ---------------------------------------------------------------------------
