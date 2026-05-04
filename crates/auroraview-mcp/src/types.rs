@@ -1,3 +1,8 @@
+//! Type definitions for `AuroraView` MCP Server.
+//!
+//! This module provides type definitions used by the MCP Server,
+//! including `WebViewId`, `WebViewInfo`, `McpServerConfig`, etc.
+
 use base64::Engine;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
