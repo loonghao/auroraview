@@ -308,6 +308,22 @@ impl CdpClient {
         tracing::debug!(size = bytes.len(), "Page.printToPDF succeeded");
         Ok(bytes)
     }
+
+    /// `Network.enable` — enable network monitoring.
+    ///
+    /// Call this before using `Network.*` events.
+    pub async fn network_enable(&self, timeout: Duration) -> Result<(), CdpError> {
+        self.call("Network.enable", json!({}), timeout).await?;
+        tracing::debug!("Network monitoring enabled");
+        Ok(())
+    }
+
+    /// `Network.disable` — disable network monitoring.
+    pub async fn network_disable(&self, timeout: Duration) -> Result<(), CdpError> {
+        self.call("Network.disable", json!({}), timeout).await?;
+        tracing::debug!("Network monitoring disabled");
+        Ok(())
+    }
 }
 
 // ---------------------------------------------------------------------------
