@@ -85,7 +85,6 @@ sha2 = "0.11.0"
 base64-url = "3.0.3"
 urlencoding = "2.1.3"
 
-# Temporarily disabled due to compilation issues
-# [[bench]]
-# name = "mcp_benchmark"
-# harness = false
+[[bench]]
+name = "mcp_benchmark"
+harness = false
