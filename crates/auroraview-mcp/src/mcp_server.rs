@@ -136,11 +136,24 @@ impl McpServer {
     /// connection on first call, then reuses the same connection for subsequent calls.
     async fn get_client(&self) -> Result<CdpClient, CdpError> {
         let start = std::time::Instant::now();
+        let endpoint = &self.config.http_endpoint;
         let client_ref = self
             .client
-            .get_or_try_init(|| async { CdpClient::connect(&self.config.http_endpoint).await })
-            .await?;
-        debug!(elapsed = ?start.elapsed(), "get_client() completed");
+            .get_or_try_init(|| async { CdpClient::connect(endpoint).await })
+            .await
+            .map_err(|e| {
+                error!(
+                    error = %e,
+                    %endpoint,
+                    "CDP client initialization failed"
+                );
+                e
+            })?;
+        debug!(
+            elapsed = ?start.elapsed(),
+            %endpoint,
+            "get_client() completed"
+        );
         Ok(client_ref.clone())
     }
 
