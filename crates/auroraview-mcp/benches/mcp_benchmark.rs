@@ -8,42 +8,30 @@ use auroraview_mcp::types::McpServerConfig;
 
 fn bench_mcp_server_config_default(c: &mut Criterion) {
     c.bench_function("mcp_server_config_default", |b| {
-        b.iter(|| {
-            black_box(McpServerConfig::default())
-        })
+        b.iter(|| black_box(McpServerConfig::default()))
     });
 }
 
 fn bench_mcp_server_config_with_port(c: &mut Criterion) {
     c.bench_function("mcp_server_config_with_port", |b| {
-        b.iter(|| {
-            black_box(McpServerConfig::default().with_port(8080))
-        })
+        b.iter(|| black_box(McpServerConfig::default().with_port(8080)))
     });
 }
 
 fn bench_mcp_runner_with_capacity(c: &mut Criterion) {
     c.bench_function("mcp_runner_with_capacity", |b| {
-        b.iter(|| {
-            black_box(McpRunner::with_capacity(8080, 16))
-        })
+        b.iter(|| black_box(McpRunner::with_capacity(8080, 16)))
     });
 }
 
 fn bench_mcp_runner_with_mdns_port(c: &mut Criterion) {
     c.bench_function("mcp_runner_with_mdns_port", |b| {
-        b.iter(|| {
-            black_box(McpRunner::with_mdns_port(8080))
-        })
+        b.iter(|| black_box(McpRunner::with_mdns_port(8080)))
     });
 }
 
 fn bench_agui_bus_new(c: &mut Criterion) {
-    c.bench_function("agui_bus_new", |b| {
-        b.iter(|| {
-            black_box(AguiBus::new())
-        })
-    });
+    c.bench_function("agui_bus_new", |b| b.iter(|| black_box(AguiBus::new())));
 }
 
 fn bench_agui_bus_emit_without_subscribers(c: &mut Criterion) {
@@ -78,9 +66,7 @@ fn bench_agui_bus_emit_with_subscribers(c: &mut Criterion) {
                     thread_id: "bench-thread".to_string(),
                 };
                 // Only measure the emit call itself, use black_box to prevent over-optimization
-                b.iter(|| {
-                    bus.emit(black_box(event.clone()))
-                })
+                b.iter(|| bus.emit(black_box(event.clone())))
             },
         );
     }
@@ -90,9 +76,7 @@ fn bench_agui_bus_emit_with_subscribers(c: &mut Criterion) {
 fn bench_agui_bus_subscribe(c: &mut Criterion) {
     c.bench_function("agui_bus_subscribe", |b| {
         let bus = AguiBus::new();
-        b.iter(|| {
-            black_box(bus.subscribe())
-        })
+        b.iter(|| black_box(bus.subscribe()))
     });
 }
 
@@ -100,9 +84,7 @@ fn bench_agui_bus_receiver_count(c: &mut Criterion) {
     c.bench_function("agui_bus_receiver_count", |b| {
         let bus = AguiBus::new();
         let _rx = bus.subscribe();
-        b.iter(|| {
-            black_box(bus.receiver_count())
-        })
+        b.iter(|| black_box(bus.receiver_count()))
     });
 }
 

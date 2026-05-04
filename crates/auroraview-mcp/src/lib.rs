@@ -17,6 +17,8 @@
 //! - mDNS broadcast for auto-discovery
 //! - AG-UI SSE events at `/agui/events`
 
+#![warn(missing_docs)]
+
 pub mod agui;
 pub mod cdp;
 pub mod error;

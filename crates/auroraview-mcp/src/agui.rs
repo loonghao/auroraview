@@ -222,11 +222,43 @@ mod tests {
     fn run_id_returns_correct_value_for_all_variants() {
         // Test all AguiEvent variants have correct run_id
         let events: Vec<(AguiEvent, &str)> = vec![
-            (AguiEvent::RunStarted { run_id: "r1".to_string(), thread_id: "t1".to_string() }, "r1"),
-            (AguiEvent::RunFinished { run_id: "r2".to_string(), thread_id: "t2".to_string() }, "r2"),
-            (AguiEvent::RunError { run_id: "r3".to_string(), message: "err".to_string(), code: None }, "r3"),
-            (AguiEvent::StepStarted { run_id: "r4".to_string(), step_name: "s1".to_string(), step_id: "s1".to_string() }, "r4"),
-            (AguiEvent::StepFinished { run_id: "r5".to_string(), step_id: "s1".to_string() }, "r5"),
+            (
+                AguiEvent::RunStarted {
+                    run_id: "r1".to_string(),
+                    thread_id: "t1".to_string(),
+                },
+                "r1",
+            ),
+            (
+                AguiEvent::RunFinished {
+                    run_id: "r2".to_string(),
+                    thread_id: "t2".to_string(),
+                },
+                "r2",
+            ),
+            (
+                AguiEvent::RunError {
+                    run_id: "r3".to_string(),
+                    message: "err".to_string(),
+                    code: None,
+                },
+                "r3",
+            ),
+            (
+                AguiEvent::StepStarted {
+                    run_id: "r4".to_string(),
+                    step_name: "s1".to_string(),
+                    step_id: "s1".to_string(),
+                },
+                "r4",
+            ),
+            (
+                AguiEvent::StepFinished {
+                    run_id: "r5".to_string(),
+                    step_id: "s1".to_string(),
+                },
+                "r5",
+            ),
         ];
         for (event, expected_id) in events {
             assert_eq!(event.run_id(), expected_id);

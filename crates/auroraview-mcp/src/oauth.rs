@@ -96,6 +96,12 @@ pub struct OAuthStore {
     decoding_key: DecodingKey,
 }
 
+impl Default for OAuthStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OAuthStore {
     /// Create a new OAuth store with auto-generated JWT secret.
     ///

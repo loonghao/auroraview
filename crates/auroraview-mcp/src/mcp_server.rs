@@ -336,7 +336,6 @@ impl McpServer {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
