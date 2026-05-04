@@ -1,5 +1,8 @@
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::hint::black_box;
+
+// Type imports (benchmarks are part of the crate, can use internal modules)
+use auroraview_mcp::agui::{AguiBus, AguiEvent};
 use auroraview_mcp::runner::McpRunner;
 use auroraview_mcp::types::McpServerConfig;
 
@@ -35,5 +38,81 @@ fn bench_mcp_runner_with_mdns_port(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_mcp_server_config_default, bench_mcp_server_config_with_port, bench_mcp_runner_with_capacity, bench_mcp_runner_with_mdns_port);
+fn bench_agui_bus_new(c: &mut Criterion) {
+    c.bench_function("agui_bus_new", |b| {
+        b.iter(|| {
+            black_box(AguiBus::new())
+        })
+    });
+}
+
+fn bench_agui_bus_emit_without_subscribers(c: &mut Criterion) {
+    c.bench_function("agui_bus_emit_without_subscribers", |b| {
+        let bus = AguiBus::new();
+        let event = AguiEvent::RunStarted {
+            run_id: "bench-run".to_string(),
+            thread_id: "bench-thread".to_string(),
+        };
+        b.iter(|| {
+            bus.emit(event.clone())
+        })
+    });
+}
+
+fn bench_agui_bus_emit_with_subscribers(c: &mut Criterion) {
+    let mut group = c.benchmark_group("agui_bus_emit_with_subscribers");
+    for num_subscribers in [1, 10, 100] {
+        group.bench_with_input(
+            BenchmarkId::from_parameter(num_subscribers),
+            &num_subscribers,
+            |b, &num| {
+                let bus = AguiBus::new();
+                // Create subscribers
+                for _ in 0..num {
+                    let _rx = bus.subscribe();
+                }
+                let event = AguiEvent::RunStarted {
+                    run_id: "bench-run".to_string(),
+                    thread_id: "bench-thread".to_string(),
+                };
+                b.iter(|| {
+                    bus.emit(event.clone())
+                })
+            },
+        );
+    }
+    group.finish();
+}
+
+fn bench_agui_bus_subscribe(c: &mut Criterion) {
+    c.bench_function("agui_bus_subscribe", |b| {
+        let bus = AguiBus::new();
+        b.iter(|| {
+            black_box(bus.subscribe())
+        })
+    });
+}
+
+fn bench_agui_bus_receiver_count(c: &mut Criterion) {
+    c.bench_function("agui_bus_receiver_count", |b| {
+        let bus = AguiBus::new();
+        let _rx = bus.subscribe();
+        b.iter(|| {
+            black_box(bus.receiver_count())
+        })
+    });
+}
+
+criterion_group!(
+    benches,
+    bench_mcp_server_config_default,
+    bench_mcp_server_config_with_port,
+    bench_mcp_runner_with_capacity,
+    bench_mcp_runner_with_mdns_port,
+    bench_agui_bus_new,
+    bench_agui_bus_emit_without_subscribers,
+    bench_agui_bus_emit_with_subscribers,
+    bench_agui_bus_subscribe,
+    bench_agui_bus_receiver_count
+);
 criterion_main!(benches);
