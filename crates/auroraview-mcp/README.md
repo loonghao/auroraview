@@ -226,19 +226,17 @@ pub struct McpServerConfig {
 
 ```rust
 use auroraview_mcp::{
-    McpServerConfig, 
-    server::AuroraViewMcpServer,
+    McpServerConfig,
     runner::McpRunner,
 };
 
-let config = McpServerConfig::with_all(
-    7890,           // port
-    "127.0.0.1",  // host
-    "auroraview-mcp", // service_name
-    true,          // enable_mdns
-    false,         // enable_oauth
-    Some(10),      // max_webviews
-);
+let config = McpServerConfig::default()
+    .with_port(7890)
+    .with_host("127.0.0.1")
+    .with_service_name("auroraview-mcp")
+    .with_mdns(true)
+    .with_oauth(false)
+    .with_max_webviews(Some(10));
 
 let runner = McpRunner::new(config);
 // runner.start().await?; // Start the server
