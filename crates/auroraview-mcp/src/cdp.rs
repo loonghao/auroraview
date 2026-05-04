@@ -420,6 +420,115 @@ impl CdpClient {
         tracing::debug!(?node_id, html_len = html.len(), "DOM.getOuterHTML succeeded");
         Ok(html)
     }
+
+    /// `DOM.getAttributes` — get all attributes of a DOM node.
+    ///
+    /// `node_id` is the DOM node ID.
+    /// Returns a map of attribute name -> value.
+    pub async fn get_attributes(
+        &self,
+        node_id: i64,
+        timeout: Duration,
+    ) -> Result<std::collections::HashMap<String, String>, CdpError> {
+        let params = json!({"nodeId": node_id});
+        let result = self.call("DOM.getAttributes", params, timeout).await?;
+        let attrs_array = result
+            .get("attributes")
+            .and_then(Value::as_array)
+            .ok_or_else(|| {
+                tracing::warn!(?node_id, "DOM.getAttributes response missing 'attributes' field");
+                CdpError::MalformedResponse("DOM.getAttributes".to_string(), "attributes")
+            })?;
+
+        // CDP returns attributes as a flat array: ["name1", "value1", "name2", "value2", ...]
+        let mut attrs = std::collections::HashMap::new();
+        let mut i = 0;
+        while i + 1 < attrs_array.len() {
+            if let (Some(name), Some(value)) = (attrs_array[i].as_str(), attrs_array[i + 1].as_str()) {
+                attrs.insert(name.to_owned(), value.to_owned());
+            }
+            i += 2;
+        }
+        tracing::debug!(?node_id, count = attrs.len(), "DOM.getAttributes succeeded");
+        Ok(attrs)
+    }
+
+    /// `DOM.setNodeValue` — set the value of a text node.
+    ///
+    /// `node_id` is the DOM node ID (must be a text node).
+    /// `value` is the new text value.
+    pub async fn set_node_value(
+        &self,
+        node_id: i64,
+        value: &str,
+        timeout: Duration,
+    ) -> Result<(), CdpError> {
+        let params = json!({
+            "nodeId": node_id,
+            "value": value,
+        });
+        self.call("DOM.setNodeValue", params, timeout).await?;
+        tracing::debug!(?node_id, %value, "DOM.setNodeValue succeeded");
+        Ok(())
+    }
+
+    /// `Runtime.getProperties` — get object properties (for inspecting JS objects).
+    ///
+    /// `object_id` is the unique object ID (from `Runtime.evaluate` result with `objectId`).
+    /// Returns a list of property descriptors.
+    pub async fn get_properties(
+        &self,
+        object_id: &str,
+        timeout: Duration,
+    ) -> Result<Vec<Value>, CdpError> {
+        let params = json!({
+            "objectId": object_id,
+            "ownProperties": true,
+        });
+        let result = self.call("Runtime.getProperties", params, timeout).await?;
+        let props = result
+            .get("result")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        tracing::debug!(?object_id, count = props.len(), "Runtime.getProperties succeeded");
+        Ok(props)
+    }
+
+    /// `Network.getResponseBody` — get the response body for a network request.
+    ///
+    /// `request_id` is the network request ID (from `Network.requestWillBeSent` event).
+    /// Returns the response body as bytes (handles base64-encoded bodies).
+    pub async fn get_response_body(
+        &self,
+        request_id: &str,
+        timeout: Duration,
+    ) -> Result<Vec<u8>, CdpError> {
+        let params = json!({"requestId": request_id});
+        let result = self.call("Network.getResponseBody", params, timeout).await?;
+        let body = result
+            .get("body")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                tracing::warn!(?request_id, "Network.getResponseBody response missing 'body' field");
+                CdpError::MalformedResponse("Network.getResponseBody".to_string(), "body")
+            })?;
+        let is_base64 = result
+            .get("base64Encoded")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+
+        let bytes = if is_base64 {
+            <base64::engine::general_purpose::GeneralPurpose as base64::Engine>::decode(
+                &base64::engine::general_purpose::STANDARD,
+                body,
+            )?
+        } else {
+            body.as_bytes().to_vec()
+        };
+        tracing::debug!(?request_id, size = bytes.len(), "Network.getResponseBody succeeded");
+        Ok(bytes)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -564,5 +673,115 @@ mod tests {
             .map(String::from)
             .unwrap_or_default();
         assert_eq!(html, "");
+    }
+
+    /// Simulate a successful `DOM.getAttributes` response.
+    #[test]
+    fn get_attributes_returns_attributes() {
+        let json = serde_json::json!({"result": {"attributes": ["id", "my-id", "class", "my-class"]}});
+        let attrs_array = json
+            .get("result")
+            .and_then(|r| r.get("attributes"))
+            .and_then(serde_json::Value::as_array)
+            .unwrap();
+
+        let mut attrs = std::collections::HashMap::new();
+        let mut i = 0;
+        while i + 1 < attrs_array.len() {
+            if let (Some(name), Some(value)) = (attrs_array[i].as_str(), attrs_array[i + 1].as_str()) {
+                attrs.insert(name.to_owned(), value.to_owned());
+            }
+            i += 2;
+        }
+        assert_eq!(attrs.len(), 2);
+        assert_eq!(attrs.get("id"), Some(&"my-id".to_owned()));
+        assert_eq!(attrs.get("class"), Some(&"my-class".to_owned()));
+    }
+
+    /// Simulate a `DOM.getAttributes` response with no attributes.
+    #[test]
+    fn get_attributes_returns_empty() {
+        let json = serde_json::json!({"result": {"attributes": []}});
+        let attrs_array = json
+            .get("result")
+            .and_then(|r| r.get("attributes"))
+            .and_then(serde_json::Value::as_array)
+            .unwrap();
+
+        let mut attrs = std::collections::HashMap::new();
+        let mut i = 0;
+        while i + 1 < attrs_array.len() {
+            if let (Some(name), Some(value)) = (attrs_array[i].as_str(), attrs_array[i + 1].as_str()) {
+                attrs.insert(name.to_owned(), value.to_owned());
+            }
+            i += 2;
+        }
+        assert!(attrs.is_empty());
+    }
+
+    /// Simulate a successful `Runtime.getProperties` response.
+    #[test]
+    fn get_properties_returns_properties() {
+        let json = serde_json::json!({
+            "result": {
+                "result": [
+                    {"name": "prop1", "value": {"type": "string", "value": "hello"}},
+                    {"name": "prop2", "value": {"type": "number", "value": 42}}
+                ]
+            }
+        });
+        let props = json
+            .get("result")
+            .and_then(|r| r.get("result"))
+            .and_then(serde_json::Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        assert_eq!(props.len(), 2);
+        assert_eq!(props[0].get("name").and_then(|v| v.as_str()), Some("prop1"));
+        assert_eq!(props[1].get("name").and_then(|v| v.as_str()), Some("prop2"));
+    }
+
+    /// Simulate a `Network.getResponseBody` response with plain text.
+    #[test]
+    fn get_response_body_returns_text() {
+        let json = serde_json::json!({
+            "result": {
+                "body": "Hello, World!",
+                "base64Encoded": false
+            }
+        });
+        let body = json.get("result").and_then(|r| r.get("body")).and_then(|v| v.as_str()).unwrap();
+        let is_base64 = json.get("result").and_then(|r| r.get("base64Encoded")).and_then(|v| v.as_bool()).unwrap_or(false);
+        let bytes = if is_base64 {
+            <base64::engine::general_purpose::GeneralPurpose as base64::Engine>::decode(
+                &base64::engine::general_purpose::STANDARD,
+                body,
+            ).unwrap()
+        } else {
+            body.as_bytes().to_vec()
+        };
+        assert_eq!(bytes, b"Hello, World!");
+    }
+
+    /// Simulate a `Network.getResponseBody` response with base64-encoded data.
+    #[test]
+    fn get_response_body_returns_base64() {
+        let json = serde_json::json!({
+            "result": {
+                "body": "SGVsbG8sIFdvcmxkIQ==",
+                "base64Encoded": true
+            }
+        });
+        let body = json.get("result").and_then(|r| r.get("body")).and_then(|v| v.as_str()).unwrap();
+        let is_base64 = json.get("result").and_then(|r| r.get("base64Encoded")).and_then(|v| v.as_bool()).unwrap_or(false);
+        let bytes = if is_base64 {
+            <base64::engine::general_purpose::GeneralPurpose as base64::Engine>::decode(
+                &base64::engine::general_purpose::STANDARD,
+                body,
+            ).unwrap()
+        } else {
+            body.as_bytes().to_vec()
+        };
+        assert_eq!(bytes, b"Hello, World!");
     }
 }
