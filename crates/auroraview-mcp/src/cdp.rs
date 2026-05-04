@@ -40,17 +40,17 @@ pub enum CdpError {
     #[error("base64 decode error: {0}")]
     Base64(#[from] base64::DecodeError),
     /// CDP returned an error message in the response.
-    #[error("CDP returned an error response: {0}")]
-    Remote(String),
+    #[error("CDP method {0} returned error: {1}")]
+    Remote(String, String),
     /// CDP response is missing an expected field.
-    #[error("unexpected CDP response: missing `{0}` field")]
-    MalformedResponse(&'static str),
+    #[error("unexpected CDP response for {0}: missing `{1}` field")]
+    MalformedResponse(String, &'static str),
     /// CDP connection was closed before receiving a response.
-    #[error("CDP connection closed before a response was received")]
-    ConnectionClosed,
+    #[error("CDP connection closed before receiving response for {0}")]
+    ConnectionClosed(String),
     /// CDP request timed out waiting for a response.
-    #[error("CDP request timed out after {0:?}")]
-    Timeout(Duration),
+    #[error("CDP method {0} timed out after {1:?}")]
+    Timeout(String, Duration),
 }
 
 /// `http://<host>:<port>/json/version` response shape (subset we care about).
@@ -128,23 +128,38 @@ impl CdpClient {
         let id = inner.next_id;
         inner.next_id += 1;
 
+        tracing::debug!(%method, %id, "CDP call");
+
         let request = json!({
             "id": id,
             "method": method,
             "params": params,
         });
-        inner.ws.send(Message::Text(request.to_string())).await?;
+        inner.ws.send(Message::Text(request.to_string())).await.map_err(|e| {
+            tracing::warn!(%method, error = %e, "CDP send failed");
+            e
+        })?;
 
         let deadline = tokio::time::Instant::now() + timeout;
         loop {
             let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
             if remaining.is_zero() {
-                return Err(CdpError::Timeout(timeout));
+                tracing::warn!(%method, ?timeout, "CDP call timed out");
+                return Err(CdpError::Timeout(method.to_string(), timeout));
             }
             let msg = match tokio::time::timeout(remaining, inner.ws.next()).await {
-                Ok(Some(m)) => m?,
-                Ok(None) => return Err(CdpError::ConnectionClosed),
-                Err(_) => return Err(CdpError::Timeout(timeout)),
+                Ok(Some(m)) => m.map_err(|e| {
+                    tracing::warn!(%method, error = %e, "CDP WebSocket error");
+                    e
+                })?,
+                Ok(None) => {
+                    tracing::warn!(%method, "CDP connection closed");
+                    return Err(CdpError::ConnectionClosed(method.to_string()));
+                }
+                Err(_) => {
+                    tracing::warn!(%method, ?timeout, "CDP timeout waiting for response");
+                    return Err(CdpError::Timeout(method.to_string(), timeout));
+                }
             };
 
             let text = match msg {
@@ -152,20 +167,33 @@ impl CdpClient {
                 Message::Binary(_) | Message::Ping(_) | Message::Pong(_) | Message::Frame(_) => {
                     continue
                 }
-                Message::Close(_) => return Err(CdpError::ConnectionClosed),
+                Message::Close(_) => {
+                    tracing::warn!(%method, "CDP connection closed by peer");
+                    return Err(CdpError::ConnectionClosed(method.to_string()));
+                }
             };
 
-            let value: Value = serde_json::from_str(&text)?;
+            let value: Value = serde_json::from_str(&text).map_err(|e| {
+                tracing::warn!(%method, error = %e, "CDP JSON parse failed");
+                e
+            })?;
+
             // Events have no `id` — skip them in this minimal client.
             match value.get("id").and_then(Value::as_u64) {
                 Some(resp_id) if resp_id == id => {
                     if let Some(err) = value.get("error") {
-                        return Err(CdpError::Remote(err.to_string()));
+                        tracing::warn!(%method, error = %err, "CDP returned error");
+                        return Err(CdpError::Remote(method.to_string(), err.to_string()));
                     }
-                    return value
+                    let result = value
                         .get("result")
                         .cloned()
-                        .ok_or(CdpError::MalformedResponse("result"));
+                        .ok_or_else(|| {
+                            tracing::warn!(%method, "CDP response missing 'result' field");
+                            CdpError::MalformedResponse(method.to_string(), "result")
+                        })?;
+                    tracing::debug!(%method, %id, "CDP call succeeded");
+                    return Ok(result);
                 }
                 _ => continue,
             }
@@ -207,7 +235,10 @@ impl CdpClient {
         let data_b64 = result
             .get("data")
             .and_then(Value::as_str)
-            .ok_or(CdpError::MalformedResponse("data"))?;
+            .ok_or(CdpError::MalformedResponse(
+                "Page.captureScreenshot".to_string(),
+                "data",
+            ))?;
         let bytes = <base64::engine::general_purpose::GeneralPurpose as base64::Engine>::decode(
             &base64::engine::general_purpose::STANDARD,
             data_b64,
@@ -264,28 +295,28 @@ mod tests {
     #[test]
     fn cdp_error_display_timeout() {
         let dur = Duration::from_secs(5);
-        let err = CdpError::Timeout(dur);
+        let err = CdpError::Timeout("test_method".to_string(), dur);
         let msg = format!("{err}");
         assert!(msg.contains("timed out"), "got: {msg}");
     }
 
     #[test]
     fn cdp_error_display_connection_closed() {
-        let err = CdpError::ConnectionClosed;
+        let err = CdpError::ConnectionClosed("test_method".to_string());
         let msg = format!("{err}");
         assert!(msg.contains("closed before"), "got: {msg}");
     }
 
     #[test]
     fn cdp_error_display_remote() {
-        let err = CdpError::Remote("test error".to_owned());
+        let err = CdpError::Remote("test_method".to_string(), "test error".to_owned());
         let msg = format!("{err}");
         assert!(msg.contains("test error"), "got: {msg}");
     }
 
     #[test]
     fn cdp_error_display_malformed_response() {
-        let err = CdpError::MalformedResponse("result");
+        let err = CdpError::MalformedResponse("test_method".to_string(), "result");
         let msg = format!("{err}");
         assert!(msg.contains("result"), "got: {msg}");
     }
