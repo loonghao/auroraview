@@ -307,14 +307,14 @@ mod tests {
     #[test]
     fn subscribe_returns_valid_receiver() {
         let bus = AguiBus::new();
-        let rx = bus.subscribe();
+        let _rx = bus.subscribe();
         // Receiver should be valid (we can't do much with it without emitting,
         // but we can check that it's a different receiver each time)
-        let rx2 = bus.subscribe();
+        let _rx2 = bus.subscribe();
         // Two different subscribers should have different receiver IDs
         assert_eq!(bus.receiver_count(), 2);
         // Dropping receiver should decrement count
-        drop(rx);
+        drop(_rx);
         // Note: broadcast receiver count may not immediately decrement
     }
 }

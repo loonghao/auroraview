@@ -37,7 +37,7 @@ async fn mdns_broadcast_is_discoverable() {
 
     // Browse for AuroraView MCP services
     let service_type = "_auroraview-mcp._tcp.local.";
-    let mut receiver = daemon.browse(service_type).expect("Should start browsing");
+    let receiver = daemon.browse(service_type).expect("Should start browsing");
 
     // Wait for service to be discovered (with timeout)
     let start = std::time::Instant::now();
@@ -70,7 +70,7 @@ async fn mdns_broadcast_stop_broadcast() {
     let daemon = ServiceDaemon::new().expect("Should create mDNS daemon");
 
     let service_type = "_auroraview-mcp._tcp.local.";
-    let mut receiver = daemon.browse(service_type).expect("Should start browsing");
+    let receiver = daemon.browse(service_type).expect("Should start browsing");
 
     // Wait for service to be discovered
     let start = std::time::Instant::now();
