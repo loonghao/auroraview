@@ -1,3 +1,8 @@
+//! mDNS broadcast module for `AuroraView` MCP Server.
+//!
+//! This module provides mDNS broadcast functionality so that `dcc-mcp-client`
+//! can auto-discover the AuroraView MCP Server on the local network.
+
 use crate::{error::Result, types::McpServerConfig};
 use mdns_sd::{ServiceDaemon, ServiceInfo};
 use std::sync::Arc;
