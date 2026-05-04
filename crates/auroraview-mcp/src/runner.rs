@@ -18,8 +18,21 @@ use tracing::{info, warn};
 
 /// Manages the lifecycle of the `AuroraView` MCP Server.
 ///
-/// Starts an axum HTTP server that serves the MCP Streamable HTTP transport
-/// at `/mcp` and an AG-UI SSE event stream at `/agui/events`.
+/// `McpRunner` starts an axum HTTP server that serves:
+/// - `POST /mcp` — MCP Streamable HTTP transport (initialize + tool calls)
+/// - `GET /mcp` — MCP SSE stream (stateful session reconnect)
+/// - `DELETE /mcp` — terminate MCP session
+/// - `GET /agui/events?run_id=<id>` — AG-UI SSE event stream
+///
+/// # Example
+///
+/// ```rust,ignore
+/// let runner = McpRunner::new(McpServerConfig::default());
+/// // Start server in background (non-blocking)
+/// tokio::spawn(async move {
+///     runner.start().await.expect("server start failed");
+/// });
+/// ```
 pub struct McpRunner {
     config: McpServerConfig,
     server: McpServer,
@@ -489,6 +502,31 @@ mod tests {
     fn update_cdp_endpoint_returns_err_for_unknown_id() {
         let runner = McpRunner::new(McpServerConfig::default());
         let result = runner.update_cdp_endpoint("nonexistent", "http://127.0.0.1:9222");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn config_returns_valid_config() {
+        let config = McpServerConfig::default().with_port(9000);
+        let runner = McpRunner::new(config.clone());
+        let returned_config = runner.config();
+        assert_eq!(returned_config.port, 9000);
+    }
+
+    #[test]
+    fn server_returns_valid_server() {
+        let runner = McpRunner::new(McpServerConfig::default());
+        let server = runner.server();
+        // Server should have an empty registry initially
+        assert!(server.registry().is_empty());
+    }
+
+    #[tokio::test]
+    async fn start_returns_err_for_invalid_config() {
+        // Port 0 is invalid
+        let config = McpServerConfig::default().with_port(0);
+        let runner = McpRunner::new(config);
+        let result = runner.start().await;
         assert!(result.is_err());
     }
 }

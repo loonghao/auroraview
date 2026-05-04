@@ -81,7 +81,19 @@ pub struct CloseWebviewParams {
 
 /// MCP Server that bridges rmcp protocol to a running AuroraView CDP endpoint.
 ///
-/// Reuses a single CDP connection for all tool calls (established on first use).
+/// `McpServer` implements the `rmcp` crate's `ServerHandler` trait and exposes
+/// AuroraView capabilities as standard MCP tools (screenshot, eval_js, load_url, etc.).
+///
+/// It reuses a single CDP connection for all tool calls (lazily established on first use).
+///
+/// # Example
+///
+/// ```rust,ignore
+/// let config = CdpAdapterConfig::localhost(9222, "0.5.2");
+/// let server = McpServer::new(config);
+/// let bus = AguiBus::new();
+/// let server = server.with_agui_bus(bus);
+/// ```
 #[derive(Clone)]
 pub struct McpServer {
     config: CdpAdapterConfig,
@@ -93,6 +105,9 @@ pub struct McpServer {
 
 impl McpServer {
     /// Create a new MCP server that will connect to the given CDP endpoint.
+    ///
+    /// The server starts without an AG-UI bus. Use `with_agui_bus()` to enable
+    /// AG-UI event streaming.
     pub fn new(config: CdpAdapterConfig) -> Self {
         Self {
             config,
@@ -103,6 +118,9 @@ impl McpServer {
     }
 
     /// Set the AG-UI event bus.
+    ///
+    /// Call this to enable AG-UI event streaming via `/agui/events` SSE endpoint.
+    /// The bus is used to emit events that frontend clients can subscribe to.
     #[must_use]
     pub fn with_agui_bus(mut self, bus: AguiBus) -> Self {
         self.agui_bus = Some(bus);
@@ -110,6 +128,9 @@ impl McpServer {
     }
 
     /// Get or create a shared CDP client (lazily initialized on first use).
+    ///
+    /// This method is called internally by tool handlers. It establishes a CDP
+    /// connection on first call, then reuses the same connection for subsequent calls.
     async fn get_client(&self) -> Result<CdpClient, CdpError> {
         let start = std::time::Instant::now();
         let client_ref = self
@@ -121,6 +142,9 @@ impl McpServer {
     }
 
     /// Return a reference to the WebView registry.
+    ///
+    /// The registry tracks all registered WebView instances. Currently a placeholder
+    /// (will be used when `create_webview` tool is implemented).
     #[must_use]
     pub fn registry(&self) -> &WebViewRegistry {
         &self.registry

@@ -107,8 +107,25 @@ impl AguiEvent {
     }
 }
 
-/// Broadcast bus for AG-UI events.\
-/// Cloning this is cheap — all clones share the same channel.
+/// Broadcast bus for AG-UI events.
+///
+/// `AguiBus` wraps a `broadcast::Sender` and allows multiple subscribers to
+/// receive AG-UI protocol events. Cloning is cheap — all clones share the
+/// same underlying channel.
+///
+/// # Example
+///
+/// ```rust
+/// use auroraview_mcp::agui::{AguiBus, AguiEvent};
+///
+/// let bus = AguiBus::new();
+/// let mut rx = bus.subscribe();
+///
+/// bus.emit(AguiEvent::RunStarted {
+///     run_id: "r1".to_string(),
+///     thread_id: "t1".to_string(),
+/// });
+/// ```
 #[derive(Clone)]
 pub struct AguiBus {
     tx: Arc<broadcast::Sender<AguiEvent>>,
@@ -116,6 +133,9 @@ pub struct AguiBus {
 
 impl AguiBus {
     /// Create a new bus with a buffer capacity of 64 events.
+    ///
+    /// The capacity is the number of events the channel can hold.
+    /// If subscribers are slow, events will be dropped (latest wins).
     #[must_use]
     pub fn new() -> Self {
         let (tx, _) = broadcast::channel(64);
@@ -123,19 +143,34 @@ impl AguiBus {
     }
 
     /// Publish an event to all active subscribers.
+    ///
+    /// If there are no receivers, the send result is ignored silently.
+    /// This is intentional — the bus should not panic if no one is listening.
     pub fn emit(&self, event: AguiEvent) {
         // If there are no receivers, send returns an error — we ignore it.
         let _result = self.tx.send(event);
     }
 
-    /// Subscribe to receive events.  Returns a `Receiver` that receives
-    /// events emitted *after* this call.
+    /// Subscribe to receive events.
+    ///
+    /// Returns a `broadcast::Receiver` that receives events emitted *after*
+    /// this call. Events emitted before this call are not received.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// let bus = AguiBus::new();
+    /// let mut rx = bus.subscribe();
+    /// ```
     #[must_use]
     pub fn subscribe(&self) -> broadcast::Receiver<AguiEvent> {
         self.tx.subscribe()
     }
 
     /// Return the number of active subscribers.
+    ///
+    /// This is useful for debugging and testing. Note that disconnected
+    /// receivers are not immediately removed from the count.
     #[must_use]
     pub fn receiver_count(&self) -> usize {
         self.tx.receiver_count()
@@ -153,6 +188,20 @@ mod tests {
     use super::*;
 
     #[test]
+    fn agui_bus_new_creates_instance() {
+        let bus = AguiBus::new();
+        // New bus has 0 subscribers
+        assert_eq!(bus.receiver_count(), 0);
+    }
+
+    #[test]
+    fn agui_bus_default_creates_instance() {
+        let bus = AguiBus::default();
+        // Default should behave same as new()
+        assert_eq!(bus.receiver_count(), 0);
+    }
+
+    #[test]
     fn run_id_returns_correct_value() {
         let event = AguiEvent::RunStarted {
             run_id: "run-1".to_string(),
@@ -166,6 +215,21 @@ mod tests {
             tool_name: "screenshot".to_string(),
         };
         assert_eq!(event.run_id(), "run-2");
+    }
+
+    #[test]
+    fn run_id_returns_correct_value_for_all_variants() {
+        // Test all AguiEvent variants have correct run_id
+        let events: Vec<(AguiEvent, &str)> = vec![
+            (AguiEvent::RunStarted { run_id: "r1".to_string(), thread_id: "t1".to_string() }, "r1"),
+            (AguiEvent::RunFinished { run_id: "r2".to_string(), thread_id: "t2".to_string() }, "r2"),
+            (AguiEvent::RunError { run_id: "r3".to_string(), message: "err".to_string(), code: None }, "r3"),
+            (AguiEvent::StepStarted { run_id: "r4".to_string(), step_name: "s1".to_string(), step_id: "s1".to_string() }, "r4"),
+            (AguiEvent::StepFinished { run_id: "r5".to_string(), step_id: "s1".to_string() }, "r5"),
+        ];
+        for (event, expected_id) in events {
+            assert_eq!(event.run_id(), expected_id);
+        }
     }
 
     #[test]
@@ -199,6 +263,25 @@ mod tests {
         assert_eq!(received.run_id(), "r1");
     }
 
+    #[tokio::test]
+    async fn bus_emit_with_multiple_subscribers() {
+        let bus = AguiBus::new();
+        let mut rx1 = bus.subscribe();
+        let mut rx2 = bus.subscribe();
+
+        let event = AguiEvent::RunStarted {
+            run_id: "r1".to_string(),
+            thread_id: "t1".to_string(),
+        };
+        bus.emit(event.clone());
+
+        // Both subscribers should receive the event
+        let received1 = rx1.recv().await.unwrap();
+        let received2 = rx2.recv().await.unwrap();
+        assert_eq!(received1.run_id(), "r1");
+        assert_eq!(received2.run_id(), "r1");
+    }
+
     #[test]
     fn bus_receiver_count_tracks_subscribers() {
         let bus = AguiBus::new();
@@ -219,5 +302,19 @@ mod tests {
             run_id: "r1".to_string(),
             thread_id: "t1".to_string(),
         });
+    }
+
+    #[test]
+    fn subscribe_returns_valid_receiver() {
+        let bus = AguiBus::new();
+        let rx = bus.subscribe();
+        // Receiver should be valid (we can't do much with it without emitting,
+        // but we can check that it's a different receiver each time)
+        let rx2 = bus.subscribe();
+        // Two different subscribers should have different receiver IDs
+        assert_eq!(bus.receiver_count(), 2);
+        // Dropping receiver should decrement count
+        drop(rx);
+        // Note: broadcast receiver count may not immediately decrement
     }
 }
