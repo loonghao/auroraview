@@ -1,3 +1,5 @@
+//! Errors for the `AuroraView` MCP server.
+
 use thiserror::Error;
 
 /// Errors for the `AuroraView` MCP server.
