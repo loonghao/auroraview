@@ -289,7 +289,7 @@ impl PyMcpServer {
     pub fn emit_event(&self, event: AguiEvent) -> Result<(), String> {
         let lock = self.state.lock().map_err(|e| e.to_string())?;
         if let Some(state) = lock.as_ref() {
-            state.runner.emit_agui(event);
+            state.runner.emit_agui(Arc::new(event));
             Ok(())
         } else {
             Err("MCP server is not running".to_string())

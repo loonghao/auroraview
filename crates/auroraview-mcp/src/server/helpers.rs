@@ -1,6 +1,8 @@
 // Helper methods for AuroraViewMcpServer.
 // Extracted from server.rs to keep files under 1000 lines.
 
+use std::sync::Arc;
+
 use super::AuroraViewMcpServer;
 use crate::{
     agui::{AguiBus, AguiEvent},
@@ -47,21 +49,21 @@ impl AuroraViewMcpServer {
     /// Emit `ToolCallStart` when a tool begins execution.
     pub fn emit_tool_start(&self, tool_name: &str, call_id: &str, run_id: &str) {
         if let Some(bus) = &self.agui_bus {
-            bus.emit(AguiEvent::ToolCallStart {
+            bus.emit(Arc::new(AguiEvent::ToolCallStart {
                 run_id: run_id.to_string(),
                 tool_call_id: call_id.to_string(),
                 tool_name: tool_name.to_string(),
-            });
+            }));
         }
     }
 
     /// Emit `ToolCallEnd` when a tool finishes execution.
     pub fn emit_tool_end(&self, call_id: &str, run_id: &str) {
         if let Some(bus) = &self.agui_bus {
-            bus.emit(AguiEvent::ToolCallEnd {
+            bus.emit(Arc::new(AguiEvent::ToolCallEnd {
                 run_id: run_id.to_string(),
                 tool_call_id: call_id.to_string(),
-            });
+            }));
         }
     }
 }

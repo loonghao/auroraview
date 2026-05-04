@@ -1,5 +1,6 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::hint::black_box;
+use std::sync::Arc;
 
 // Type imports (benchmarks are part of the crate, can use internal modules)
 use auroraview_mcp::agui::{AguiBus, AguiEvent};
@@ -37,13 +38,14 @@ fn bench_agui_bus_new(c: &mut Criterion) {
 fn bench_agui_bus_emit_without_subscribers(c: &mut Criterion) {
     c.bench_function("agui_bus_emit_without_subscribers", |b| {
         let bus = AguiBus::new();
-        let event = AguiEvent::RunStarted {
+        let event = Arc::new(AguiEvent::RunStarted {
             run_id: "bench-run".to_string(),
             thread_id: "bench-thread".to_string(),
-        };
+        });
         b.iter(|| {
             // Use black_box to prevent over-optimization
-            bus.emit(black_box(event.clone()))
+            // Cloning Arc is cheap (atomic increment), measures emit() performance
+            bus.emit(black_box(Arc::clone(&event)))
         })
     });
 }
@@ -61,12 +63,13 @@ fn bench_agui_bus_emit_with_subscribers(c: &mut Criterion) {
                 for _ in 0..num {
                     let _rx = bus.subscribe();
                 }
-                let event = AguiEvent::RunStarted {
+                let event = Arc::new(AguiEvent::RunStarted {
                     run_id: "bench-run".to_string(),
                     thread_id: "bench-thread".to_string(),
-                };
+                });
                 // Only measure the emit call itself, use black_box to prevent over-optimization
-                b.iter(|| bus.emit(black_box(event.clone())))
+                // Cloning Arc is cheap (atomic increment), measures emit() performance
+                b.iter(|| bus.emit(black_box(Arc::clone(&event))))
             },
         );
     }

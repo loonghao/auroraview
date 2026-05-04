@@ -223,7 +223,9 @@ impl McpRunner {
     }
 
     /// Emit an AG-UI event to all active SSE subscribers.
-    pub fn emit_agui(&self, event: AguiEvent) {
+    ///
+    /// The event must be wrapped in an `Arc` for zero-copy broadcasting.
+    pub fn emit_agui(&self, event: Arc<AguiEvent>) {
         self.agui_bus.emit(event);
     }
 
@@ -234,15 +236,15 @@ impl McpRunner {
     ///
     /// Both events share the same `run_id` and `step_id`.
     pub fn emit_agui_step(&self, run_id: &str, step_name: &str, step_id: &str) {
-        self.agui_bus.emit(AguiEvent::StepStarted {
+        self.agui_bus.emit(Arc::new(AguiEvent::StepStarted {
             run_id: run_id.to_string(),
             step_name: step_name.to_string(),
             step_id: step_id.to_string(),
-        });
-        self.agui_bus.emit(AguiEvent::StepFinished {
+        }));
+        self.agui_bus.emit(Arc::new(AguiEvent::StepFinished {
             run_id: run_id.to_string(),
             step_id: step_id.to_string(),
-        });
+        }));
     }
 
     /// Update the CDP endpoint for a registered `WebView`.
@@ -493,7 +495,7 @@ mod tests {
             run_id: "test".to_string(),
             thread_id: "t1".to_string(),
         };
-        runner.emit_agui(event);
+        runner.emit_agui(Arc::new(event));
     }
 
     #[test]

@@ -2,6 +2,8 @@
 //!
 //! These tests verify the HTTP transport and MCP protocol integration.
 
+use std::sync::Arc;
+
 use auroraview_mcp::runner::McpRunner;
 use auroraview_mcp::types::McpServerConfig;
 use base64_url::encode;
@@ -410,10 +412,10 @@ async fn agui_events_returns_sse_stream() {
     // Emit an event in the background
     let emit_handle = tokio::spawn(async move {
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        bus.emit(AguiEvent::RunStarted {
+        bus.emit(Arc::new(AguiEvent::RunStarted {
             run_id: "run-1".to_string(),
             thread_id: "t-1".to_string(),
-        });
+        }));
     });
 
     // Subscribe to SSE stream
@@ -465,14 +467,14 @@ async fn agui_events_filters_by_run_id() {
     // Emit events for two different runs
     let emit_handle = tokio::spawn(async move {
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        bus.emit(AguiEvent::RunStarted {
+        bus.emit(Arc::new(AguiEvent::RunStarted {
             run_id: "run-a".to_string(),
             thread_id: "t-a".to_string(),
-        });
-        bus.emit(AguiEvent::RunStarted {
+        }));
+        bus.emit(Arc::new(AguiEvent::RunStarted {
             run_id: "run-b".to_string(),
             thread_id: "t-b".to_string(),
-        });
+        }));
     });
 
     // Subscribe to events for "run-a" only

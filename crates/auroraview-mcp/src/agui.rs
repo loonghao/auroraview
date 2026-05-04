@@ -161,22 +161,31 @@ impl AguiEvent {
 /// receive AG-UI protocol events. Cloning is cheap — all clones share the
 /// same underlying channel.
 ///
+/// # Performance
+///
+/// This bus uses `Arc<AguiEvent>` for zero-copy broadcasting. When calling
+/// `emit()`, the event is wrapped in an `Arc`, and each subscriber receives
+/// a clone of the `Arc` (atomic increment) rather than a deep clone of
+/// the event. This is important for large events (e.g., `StateDelta` with
+/// many JSON patches) and many subscribers.
+///
 /// # Example
 ///
 /// ```rust
 /// use auroraview_mcp::agui::{AguiBus, AguiEvent};
+/// use std::sync::Arc;
 ///
 /// let bus = AguiBus::new();
 /// let mut rx = bus.subscribe();
 ///
-/// bus.emit(AguiEvent::RunStarted {
+/// bus.emit(Arc::new(AguiEvent::RunStarted {
 ///     run_id: "r1".to_string(),
 ///     thread_id: "t1".to_string(),
-/// });
+/// }));
 /// ```
 #[derive(Clone)]
 pub struct AguiBus {
-    tx: Arc<broadcast::Sender<AguiEvent>>,
+    tx: Arc<broadcast::Sender<Arc<AguiEvent>>>,
 }
 
 impl AguiBus {
@@ -192,9 +201,13 @@ impl AguiBus {
 
     /// Publish an event to all active subscribers.
     ///
+    /// The event is wrapped in an `Arc` for zero-copy broadcasting.
+    /// Each subscriber receives a clone of the `Arc` (atomic increment),
+    /// avoiding expensive deep clones of large events.
+    ///
     /// If there are no receivers, the send result is ignored silently.
     /// This is intentional — the bus should not panic if no one is listening.
-    pub fn emit(&self, event: AguiEvent) {
+    pub fn emit(&self, event: Arc<AguiEvent>) {
         // If there are no receivers, send returns an error — we ignore it.
         let _result = self.tx.send(event);
     }
@@ -204,6 +217,9 @@ impl AguiBus {
     /// Returns a `broadcast::Receiver` that receives events emitted *after*
     /// this call. Events emitted before this call are not received.
     ///
+    /// The receiver yields `Arc<AguiEvent>` (not `AguiEvent` directly).
+    /// This allows zero-copy sharing of events across subscribers.
+    ///
     /// # Example
     ///
     /// ```rust
@@ -212,7 +228,7 @@ impl AguiBus {
     /// let mut rx = bus.subscribe();
     /// ```
     #[must_use]
-    pub fn subscribe(&self) -> broadcast::Receiver<AguiEvent> {
+    pub fn subscribe(&self) -> broadcast::Receiver<Arc<AguiEvent>> {
         self.tx.subscribe()
     }
 
@@ -334,10 +350,10 @@ mod tests {
         let bus = AguiBus::new();
         let mut rx = bus.subscribe();
 
-        let event = AguiEvent::RunStarted {
+        let event = Arc::new(AguiEvent::RunStarted {
             run_id: "r1".to_string(),
             thread_id: "t1".to_string(),
-        };
+        });
         bus.emit(event.clone());
 
         let received = rx.recv().await.unwrap();
@@ -350,10 +366,10 @@ mod tests {
         let mut rx1 = bus.subscribe();
         let mut rx2 = bus.subscribe();
 
-        let event = AguiEvent::RunStarted {
+        let event = Arc::new(AguiEvent::RunStarted {
             run_id: "r1".to_string(),
             thread_id: "t1".to_string(),
-        };
+        });
         bus.emit(event.clone());
 
         // Both subscribers should receive the event
@@ -379,10 +395,10 @@ mod tests {
     fn bus_emit_without_receivers_does_not_panic() {
         let bus = AguiBus::new();
         // Should not panic even with no receivers
-        bus.emit(AguiEvent::RunFinished {
+        bus.emit(Arc::new(AguiEvent::RunFinished {
             run_id: "r1".to_string(),
             thread_id: "t1".to_string(),
-        });
+        }));
     }
 
     #[test]
