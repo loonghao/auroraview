@@ -193,11 +193,69 @@
 
 ---
 
+## Session Summary - 2026-05-04 (Iteration #76 - Complete)
+
+### ✅ Completed (Iteration #76):
+
+#### Iteration #76:
+- [x] **Attempted to add unit tests for `CdpClient`**:
+  - Added `#[cfg(test)] mod tests { ... }` to `cdp.rs`
+  - Compilation failed (syntax errors)
+  - Restored `cdp.rs` to last committed version
+- [ ] **Fix benchmark compilation** (still fails, deferred to #77)
+- [x] **All tests pass**:
+  - 66 library tests pass
+  - 13 integration tests pass
+  - 2 mDNS integration tests pass
+  - 1 doc test passes
+
+### ⚠️ Known Issues:
+
+- **Benchmark compilation fails** — need to debug in Iteration #77
+- **43 security vulnerabilities remain** — mostly in indirect dependencies, require upstream fixes
+- Placeholder tools (`get_hwnd`, `list_webviews`, `create_webview`, `close_webview`) need AuroraView core support
+
+---
+
+### Next Iteration Plan (Iteration #77):
+
+1. **Fix benchmark compilation (retry)**:
+   - Use `cargo build --bench mcp_benchmark 2>&1 | tee bench_errors.txt` to capture errors
+   - Try simplifying benchmark code (remove complex setup)
+   - Check if `criterion` version is compatible with updated dependencies
+
+2. **Add unit tests (retry)**:
+   - Add tests for `AguiBus` (simpler than `CdpClient`)
+   - Test `AguiBus::emit()` with multiple subscribers
+   - Test `AguiBus::subscribe()` returns valid receiver
+   - Test `AguiBus::receiver_count()` accuracy
+
+3. **Improve `runner.rs` test coverage**:
+   - Add tests for `McpRunner::with_mdns_port()`
+   - Add tests for `McpRunner::start()` and `stop()` with mock server
+
+4. **Monitor security vulnerabilities**:
+   - Check GitHub Security page for new fixes
+   - Update specific packages when fixes available
+
+---
+
+### Checklist for This Iteration
+
+- [x] auto-improve branch synced with origin/main?
+- [x] Previous iteration changes pushed to remote?
+- [x] All tests pass?
+- [ ] Benchmarks fixed? (Iteration #77 task)
+- [ ] Unit tests added? (Iteration #77 task)
+- [ ] Next step clear?
+
+---
+
 ### Quick Status
 
-**Current State**: Iteration #75 complete (re-enable benchmarks + deps update), ready for #76 (fix benchmarks + add unit tests)
+**Current State**: Iteration #76 complete (attempted unit tests), ready for #77 (fix benchmarks + add unit tests)
 **Branch**: `auto-improve`
 **Tests**: 82 pass (66 library + 13 integration + 2 mDNS + 1 doc)
 **Python Bindings**: Tested and working
 **Known Blockers**: Benchmark compilation fails, 43 security vulnerabilities remain (indirect deps)
-**Next Priority**: Fix benchmark compilation, add unit tests for `CdpClient`, `runner.rs`, `agui.rs`
+**Next Priority**: Fix benchmark compilation, add unit tests for `AguiBus`, `runner.rs`
