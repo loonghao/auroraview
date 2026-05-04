@@ -1,3 +1,8 @@
+//! Thread-safe registry of all active `WebView` instances.
+//!
+//! This module provides `WebViewRegistry` for tracking all WebView instances
+//! created via the MCP server.
+
 use crate::{
     error::{McpError, Result},
     types::{WebViewConfig, WebViewId, WebViewInfo},
