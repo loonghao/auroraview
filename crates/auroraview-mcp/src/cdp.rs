@@ -281,6 +281,33 @@ impl CdpClient {
         self.call("Page.reload", params, timeout).await?;
         Ok(())
     }
+
+    /// `Page.printToPDF` — generate a PDF of the current page.
+    ///
+    /// Returns the PDF as raw bytes (already decoded from base64).
+    pub async fn print_to_pdf(
+        &self,
+        timeout: Duration,
+    ) -> Result<Vec<u8>, CdpError> {
+        let params = json!({
+            "printBackground": true,
+            "preferCSSPageSize": true,
+        });
+        let result = self.call("Page.printToPDF", params, timeout).await?;
+        let data_b64 = result
+            .get("data")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                tracing::warn!("Page.printToPDF response missing 'data' field");
+                CdpError::MalformedResponse("Page.printToPDF".to_string(), "data")
+            })?;
+        let bytes = <base64::engine::general_purpose::GeneralPurpose as base64::Engine>::decode(
+            &base64::engine::general_purpose::STANDARD,
+            data_b64,
+        )?;
+        tracing::debug!(size = bytes.len(), "Page.printToPDF succeeded");
+        Ok(bytes)
+    }
 }
 
 // ---------------------------------------------------------------------------
