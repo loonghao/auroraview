@@ -39,15 +39,25 @@ use tracing::{info, warn};
 /// });
 /// ```
 pub struct McpRunner {
+    /// Server configuration.
     config: McpServerConfig,
+    /// MCP server implementation (handles tool calls).
     server: McpServer,
+    /// OAuth 2.0 store (None if OAuth is disabled).
     oauth_store: Option<OAuthStore>,
+    /// mDNS broadcaster (None if mDNS is disabled).
     broadcaster: Option<MdnsBroadcaster>,
+    /// AG-UI event bus for streaming events to UI clients.
     agui_bus: AguiBus,
+    /// Shutdown signal sender (used to stop the server).
     shutdown_tx: Arc<Mutex<Option<oneshot::Sender<()>>>>,
 }
 
 impl McpRunner {
+    /// Create a new `McpRunner` with the given configuration.
+    ///
+    /// Initializes the AG-UI bus, CDP adapter, optional mDNS broadcaster,
+    /// and optional OAuth store based on the configuration.
     #[must_use]
     pub fn new(config: McpServerConfig) -> Self {
         let agui_bus = AguiBus::new();
@@ -103,11 +113,13 @@ impl McpRunner {
         Self::new(config)
     }
 
+    /// Return a reference to the inner `McpServer`.
     #[must_use]
     pub fn server(&self) -> &McpServer {
         &self.server
     }
 
+    /// Return a reference to the server configuration.
     #[must_use]
     pub fn config(&self) -> &McpServerConfig {
         &self.config

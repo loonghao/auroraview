@@ -12,6 +12,9 @@ use uuid::Uuid;
 pub struct WebViewId(pub String);
 
 impl WebViewId {
+    /// Create a new random `WebViewId`.
+    ///
+    /// Uses UUID v4 (random) to generate a unique identifier.
     #[must_use]
     #[inline]
     pub fn new() -> Self {
@@ -42,11 +45,17 @@ impl std::fmt::Display for WebViewId {
 /// Information about a `WebView` instance.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebViewInfo {
+    /// Unique identifier for this WebView instance.
     pub id: WebViewId,
+    /// Window title of the WebView.
     pub title: String,
+    /// Current URL loaded in the WebView.
     pub url: String,
+    /// Whether the WebView is visible.
     pub visible: bool,
+    /// Width of the WebView in pixels.
     pub width: u32,
+    /// Height of the WebView in pixels.
     pub height: u32,
     /// Raw HWND on Windows (0 if not available).
     pub hwnd: u64,
@@ -70,12 +79,19 @@ impl std::fmt::Display for WebViewInfo {
 /// Configuration for creating a new `WebView`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebViewConfig {
+    /// Window title (shown in title bar).
     pub title: Option<String>,
+    /// URL to load in the WebView.
     pub url: Option<String>,
+    /// HTML content to load (alternative to `url`).
     pub html: Option<String>,
+    /// Initial width in pixels.
     pub width: Option<u32>,
+    /// Initial height in pixels.
     pub height: Option<u32>,
+    /// Whether the WebView is visible.
     pub visible: Option<bool>,
+    /// Whether to open browser DevTools.
     pub debug: Option<bool>,
 }
 
@@ -112,10 +128,13 @@ impl Default for WebViewConfig {
 /// Screenshot result containing image data.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScreenshotData {
-    /// Base64-encoded PNG image data.
+    /// Base64-encoded PNG/JPEG/WebP image data.
     pub data: String,
+    /// Image width in pixels.
     pub width: u32,
+    /// Image height in pixels.
     pub height: u32,
+    /// Image format: "png", "jpeg", or "webp".
     pub format: String,
 }
 
@@ -131,6 +150,10 @@ impl std::fmt::Display for ScreenshotData {
 }
 
 impl ScreenshotData {
+    /// Create an empty placeholder `ScreenshotData`.
+    ///
+    /// Useful for testing or when the screenshot data is not available.
+    /// The `data` field will be an empty string.
     #[must_use]
     #[inline]
     pub fn new_placeholder(width: u32, height: u32) -> Self {
@@ -159,7 +182,9 @@ impl ScreenshotData {
 /// Result of JavaScript evaluation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsResult {
+    /// JSON value returned by the evaluated script.
     pub value: serde_json::Value,
+    /// Error message if the evaluation failed, or `None` on success.
     pub error: Option<String>,
 }
 
@@ -174,12 +199,14 @@ impl std::fmt::Display for JsResult {
 }
 
 impl JsResult {
+    /// Create a successful `JsResult` with the given JSON value.
     #[must_use]
     #[inline]
     pub fn ok(value: serde_json::Value) -> Self {
         Self { value, error: None }
     }
 
+    /// Create a failed `JsResult` with the given error message.
     #[inline]
     pub fn err(msg: impl Into<String>) -> Self {
         Self {
@@ -192,9 +219,13 @@ impl JsResult {
 /// MCP server configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpServerConfig {
+    /// Bind host (e.g. "127.0.0.1" or "0.0.0.0").
     pub host: String,
+    /// TCP port to listen on (default: 7890).
     pub port: u16,
+    /// mDNS service name for auto-discovery.
     pub service_name: String,
+    /// Enable mDNS broadcast for auto-discovery.
     pub enable_mdns: bool,
     /// Enable OAuth 2.0 authentication for MCP endpoints.
     /// When enabled, clients must authenticate via OAuth 2.0

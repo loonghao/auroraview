@@ -11,14 +11,20 @@ use tracing::{debug, info, warn};
 
 /// Broadcasts the `AuroraView` MCP Server via mDNS so that `dcc-mcp-client` can auto-discover it.
 pub struct MdnsBroadcaster {
+    /// mDNS daemon for service registration.
     daemon: ServiceDaemon,
+    /// mDNS service type (e.g. "_auroraview-mcp._tcp.local.").
     service_type: String,
+    /// Currently registered instance name (None if not broadcasting).
     instance_name: Arc<Mutex<Option<String>>>,
 }
 
 impl MdnsBroadcaster {
     const SERVICE_TYPE: &'static str = "_auroraview-mcp._tcp.local.";
 
+    /// Create a new mDNS broadcaster.
+    ///
+    /// Initializes the mDNS daemon. Returns an error if the daemon cannot be created.
     pub fn new() -> Result<Self> {
         let daemon = ServiceDaemon::new()
             .map_err(|e| crate::error::McpError::MdnsBroadcast(e.to_string()))?;

@@ -12,68 +12,115 @@ use tokio::sync::broadcast;
 #[serde(tag = "type", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AguiEvent {
     /// Run lifecycle: started
-    RunStarted { run_id: String, thread_id: String },
+    RunStarted {
+        /// Unique identifier for this run.
+        run_id: String,
+        /// Thread associated with this run.
+        thread_id: String,
+    },
     /// Run lifecycle: finished
-    RunFinished { run_id: String, thread_id: String },
+    RunFinished {
+        /// Unique identifier for this run.
+        run_id: String,
+        /// Thread associated with this run.
+        thread_id: String,
+    },
     /// Run lifecycle: error
     RunError {
+        /// Unique identifier for this run.
         run_id: String,
+        /// Human-readable error message.
         message: String,
+        /// Optional machine-readable error code.
         code: Option<String>,
     },
     /// Step (action) started
     StepStarted {
+        /// Unique identifier for this run.
         run_id: String,
+        /// Display name of the step.
         step_name: String,
+        /// Unique identifier for this step.
         step_id: String,
     },
     /// Step finished
-    StepFinished { run_id: String, step_id: String },
+    StepFinished {
+        /// Unique identifier for this run.
+        run_id: String,
+        /// Unique identifier for this step.
+        step_id: String,
+    },
     /// Text message delta (streaming)
     TextMessageStart {
+        /// Unique identifier for this run.
         run_id: String,
+        /// Unique identifier for this message.
         message_id: String,
+        /// Role of the message sender (e.g. "user", "assistant").
         role: String,
     },
     /// Text delta content
     TextMessageContent {
+        /// Unique identifier for this run.
         run_id: String,
+        /// Unique identifier for this message.
         message_id: String,
+        /// Text delta to append to the message.
         delta: String,
     },
     /// Text message finished
-    TextMessageEnd { run_id: String, message_id: String },
+    TextMessageEnd {
+        /// Unique identifier for this run.
+        run_id: String,
+        /// Unique identifier for this message.
+        message_id: String,
+    },
     /// Tool call started
     ToolCallStart {
+        /// Unique identifier for this run.
         run_id: String,
+        /// Unique identifier for this tool call.
         tool_call_id: String,
+        /// Name of the tool being called.
         tool_name: String,
     },
     /// Tool call argument delta
     ToolCallArgs {
+        /// Unique identifier for this run.
         run_id: String,
+        /// Unique identifier for this tool call.
         tool_call_id: String,
+        /// Argument delta (partial JSON string).
         delta: String,
     },
     /// Tool call finished
     ToolCallEnd {
+        /// Unique identifier for this run.
         run_id: String,
+        /// Unique identifier for this tool call.
         tool_call_id: String,
     },
     /// State snapshot update
     StateSnapshot {
+        /// Unique identifier for this run.
         run_id: String,
+        /// Full state snapshot.
         snapshot: serde_json::Value,
     },
     /// State delta update
     StateDelta {
+        /// Unique identifier for this run.
         run_id: String,
+        /// List of JSON patch operations.
         delta: Vec<serde_json::Value>,
     },
     /// Raw custom event
     Custom {
+        /// Unique identifier for this run.
         run_id: String,
+        /// Custom event name.
         name: String,
+        /// Arbitrary event payload.
         data: serde_json::Value,
     },
 }

@@ -27,20 +27,28 @@ use tokio_tungstenite::{
 /// Errors produced by the CDP client.
 #[derive(Debug, thiserror::Error)]
 pub enum CdpError {
+    /// HTTP error during CDP endpoint discovery (GET /json/version).
     #[error("HTTP target discovery failed: {0}")]
     Http(#[from] reqwest::Error),
+    /// WebSocket error during CDP communication.
     #[error("WebSocket error: {0}")]
     WebSocket(#[from] tokio_tungstenite::tungstenite::Error),
+    /// JSON serialization or deserialization error.
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
+    /// Base64 decoding error (e.g. when decoding screenshot data).
     #[error("base64 decode error: {0}")]
     Base64(#[from] base64::DecodeError),
+    /// CDP returned an error message in the response.
     #[error("CDP returned an error response: {0}")]
     Remote(String),
+    /// CDP response is missing an expected field.
     #[error("unexpected CDP response: missing `{0}` field")]
     MalformedResponse(&'static str),
+    /// CDP connection was closed before receiving a response.
     #[error("CDP connection closed before a response was received")]
     ConnectionClosed,
+    /// CDP request timed out waiting for a response.
     #[error("CDP request timed out after {0:?}")]
     Timeout(Duration),
 }
@@ -59,7 +67,9 @@ struct VersionInfo {
 /// Static information returned by `Browser.getVersion`.
 #[derive(Debug, Clone)]
 pub struct BrowserVersion {
+    /// Product identifier (e.g. "Chrome/120.0.6099.109").
     pub product: String,
+    /// CDP protocol version string.
     pub protocol_version: String,
 }
 

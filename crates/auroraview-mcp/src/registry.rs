@@ -25,6 +25,7 @@ impl Default for WebViewRegistry {
 }
 
 impl WebViewRegistry {
+    /// Create a new empty registry with no capacity limit.
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -120,6 +121,7 @@ impl WebViewRegistry {
     }
 
     #[must_use]
+    /// Return `true` if the registry has no `WebView` instances.
     pub fn is_empty(&self) -> bool {
         self.views.is_empty()
     }

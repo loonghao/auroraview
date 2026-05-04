@@ -31,9 +31,13 @@ use tokio::runtime::Runtime;
 ///
 /// Mirrors [`McpServerConfig`] with Python-friendly defaults.
 pub struct PyMcpConfig {
+    /// Bind host (e.g. "127.0.0.1").
     pub host: String,
+    /// TCP port to listen on.
     pub port: u16,
+    /// mDNS service name for auto-discovery.
     pub service_name: String,
+    /// Enable mDNS broadcast.
     pub enable_mdns: bool,
     /// Enable OAuth 2.0 authentication.
     pub enable_oauth: bool,
@@ -42,6 +46,16 @@ pub struct PyMcpConfig {
 }
 
 impl PyMcpConfig {
+    /// Create a new Python-facing MCP configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `host` — bind host (e.g. "127.0.0.1")
+    /// * `port` — TCP port to listen on
+    /// * `service_name` — mDNS service name
+    /// * `enable_mdns` — enable mDNS broadcast
+    /// * `enable_oauth` — enable OAuth 2.0
+    /// * `max_webviews` — max concurrent WebViews (`None` = unlimited)
     #[must_use]
     pub fn new(
         host: String,

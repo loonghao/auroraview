@@ -96,8 +96,11 @@ pub struct CloseWebviewParams {
 /// ```
 #[derive(Clone)]
 pub struct McpServer {
+    /// CDP adapter configuration (HTTP/WS endpoints).
     config: CdpAdapterConfig,
+    /// Registry of active WebView instances.
     registry: WebViewRegistry,
+    /// AG-UI event bus (None if not enabled).
     agui_bus: Option<AguiBus>,
     /// Lazily initialized CDP client (shared across tool calls).
     client: Arc<OnceCell<CdpClient>>,
