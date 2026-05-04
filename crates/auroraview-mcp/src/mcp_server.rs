@@ -134,6 +134,13 @@ impl McpServer {
     ///
     /// This method is called internally by tool handlers. It establishes a CDP
     /// connection on first call, then reuses the same connection for subsequent calls.
+    ///
+    /// # Errors
+    ///
+    /// Returns `CdpError` with detailed context if:
+    /// - The CDP endpoint is not reachable (check if AuroraView is running)
+    /// - The WebSocket connection fails (check firewall/permissions)
+    /// - The CDP endpoint returns invalid responses (possible version mismatch)
     async fn get_client(&self) -> Result<CdpClient, CdpError> {
         let start = std::time::Instant::now();
         let endpoint = &self.config.http_endpoint;
@@ -146,6 +153,14 @@ impl McpServer {
                     error = %e,
                     %endpoint,
                     "CDP client initialization failed"
+                );
+                warn!(
+                    %endpoint,
+                    "Troubleshooting: \
+                     1) Is AuroraView running with CDP enabled? \
+                     2) Is the port correct? \
+                     3) Check firewall allows connections to {}",
+                    endpoint
                 );
                 e
             })?;

@@ -397,6 +397,29 @@ impl CdpClient {
         tracing::debug!(?node_id, %selector, count = node_ids.len(), "DOM.querySelectorAll succeeded");
         Ok(node_ids)
     }
+
+    /// `DOM.getOuterHTML` — get the outer HTML of a DOM node.
+    ///
+    /// `node_id` is the DOM node ID (from `DOM.getDocument` or `DOM.querySelector`).
+    /// Returns the outer HTML as a string.
+    pub async fn get_outer_html(
+        &self,
+        node_id: i64,
+        timeout: Duration,
+    ) -> Result<String, CdpError> {
+        let params = json!({"nodeId": node_id});
+        let result = self.call("DOM.getOuterHTML", params, timeout).await?;
+        let html = result
+            .get("outerHTML")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                tracing::warn!(?node_id, "DOM.getOuterHTML response missing 'outerHTML' field");
+                CdpError::MalformedResponse("DOM.getOuterHTML".to_string(), "outerHTML")
+            })?
+            .to_owned();
+        tracing::debug!(?node_id, html_len = html.len(), "DOM.getOuterHTML succeeded");
+        Ok(html)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -515,5 +538,31 @@ mod tests {
             .map(|arr| arr.iter().filter_map(serde_json::Value::as_i64).collect::<Vec<_>>())
             .unwrap_or_default();
         assert!(node_ids.is_empty());
+    }
+
+    /// Simulate a successful `DOM.getOuterHTML` response.
+    #[test]
+    fn get_outer_html_returns_html() {
+        let json = serde_json::json!({"result": {"outerHTML": "<div>Hello</div>"}});
+        let html = json
+            .get("result")
+            .and_then(|r| r.get("outerHTML"))
+            .and_then(serde_json::Value::as_str)
+            .map(String::from)
+            .unwrap_or_default();
+        assert_eq!(html, "<div>Hello</div>");
+    }
+
+    /// Simulate a `DOM.getOuterHTML` response with missing field.
+    #[test]
+    fn get_outer_html_handles_missing_field() {
+        let json = serde_json::json!({"result": {}});
+        let html = json
+            .get("result")
+            .and_then(|r| r.get("outerHTML"))
+            .and_then(serde_json::Value::as_str)
+            .map(String::from)
+            .unwrap_or_default();
+        assert_eq!(html, "");
     }
 }
