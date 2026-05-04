@@ -72,6 +72,7 @@ python-bindings = ["dep:pyo3"]
 
 [dev-dependencies]
 rstest = "0.26.1"
+criterion = "0.8"
 tokio = { version = "1.48", features = ["macros", "rt-multi-thread"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 # rmcp client for integration tests
@@ -82,3 +83,7 @@ serial_test = "3.2"
 sha2 = "0.11.0"
 base64-url = "3.0.3"
 urlencoding = "2.1.3"
+
+[[bench]]
+name = "mcp_benchmark"
+harness = false
