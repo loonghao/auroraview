@@ -425,4 +425,62 @@ mod tests {
         let registry = server.registry();
         assert_eq!(registry.len(), 0);
     }
+
+    // ---------------------------------------------------------------------------
+    // Placeholder tool behavior tests
+    // ---------------------------------------------------------------------------
+
+    /// Helper to create a test server (won't actually connect to CDP).
+    fn test_server() -> McpServer {
+        let config = CdpAdapterConfig::localhost(9222, "0.5.2");
+        McpServer::new(config)
+    }
+
+    #[tokio::test]
+    async fn get_hwnd_returns_not_implemented() {
+        let server = test_server();
+        let params = Parameters(GetHwndParams {});
+        let result = server.get_hwnd(params).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        let msg = format!("{err}");
+        assert!(msg.contains("not yet implemented"), "Expected 'not yet implemented' in error: {msg}");
+    }
+
+    #[tokio::test]
+    async fn list_webviews_returns_not_implemented() {
+        let server = test_server();
+        let params = Parameters(ListWebviewsParams {});
+        let result = server.list_webviews(params).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        let msg = format!("{err}");
+        assert!(msg.contains("not yet implemented"), "Expected 'not yet implemented' in error: {msg}");
+    }
+
+    #[tokio::test]
+    async fn create_webview_returns_not_implemented() {
+        let server = test_server();
+        let params = Parameters(CreateWebviewParams {
+            config: serde_json::json!({}),
+        });
+        let result = server.create_webview(params).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        let msg = format!("{err}");
+        assert!(msg.contains("not yet implemented"), "Expected 'not yet implemented' in error: {msg}");
+    }
+
+    #[tokio::test]
+    async fn close_webview_returns_not_implemented() {
+        let server = test_server();
+        let params = Parameters(CloseWebviewParams {
+            id: "test-id".to_owned(),
+        });
+        let result = server.close_webview(params).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        let msg = format!("{err}");
+        assert!(msg.contains("not yet implemented"), "Expected 'not yet implemented' in error: {msg}");
+    }
 }
