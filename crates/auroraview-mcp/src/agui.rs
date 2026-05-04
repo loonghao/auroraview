@@ -159,6 +159,7 @@ impl AguiBus {
     /// # Example
     ///
     /// ```rust
+    /// # use auroraview_mcp::agui::AguiBus;
     /// let bus = AguiBus::new();
     /// let mut rx = bus.subscribe();
     /// ```
