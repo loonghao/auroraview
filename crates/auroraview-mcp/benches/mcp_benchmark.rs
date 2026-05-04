@@ -70,7 +70,7 @@ fn bench_agui_bus_emit_with_subscribers(c: &mut Criterion) {
                 // Setup: create bus and subscribers OUTSIDE the measured iteration
                 let bus = AguiBus::new();
                 // Create subscribers
-                for _ in 0..*num {
+                for _ in 0..num {
                     let _rx = bus.subscribe();
                 }
                 let event = AguiEvent::RunStarted {
