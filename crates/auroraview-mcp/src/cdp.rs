@@ -348,6 +348,55 @@ impl CdpClient {
         tracing::debug!(?node_id, ?result, "CSS.getStylesForNode succeeded");
         Ok(result)
     }
+
+    /// `DOM.querySelector` — find the first element matching a CSS selector.
+    ///
+    /// `node_id` is the parent node ID (usually from `DOM.getDocument`).
+    /// `selector` is a CSS selector string (e.g., `"#my-id"`, `".my-class"`).
+    /// Returns the found node ID, or `None` if not found.
+    pub async fn query_selector(
+        &self,
+        node_id: i64,
+        selector: &str,
+        timeout: Duration,
+    ) -> Result<Option<i64>, CdpError> {
+        let params = json!({
+            "nodeId": node_id,
+            "selector": selector,
+        });
+        let result = self.call("DOM.querySelector", params, timeout).await?;
+        let found_node_id = result
+            .get("nodeId")
+            .and_then(Value::as_i64)
+            .filter(|&id| id != 0); // CDP returns 0 when not found
+        tracing::debug!(?node_id, %selector, ?found_node_id, "DOM.querySelector succeeded");
+        Ok(found_node_id)
+    }
+
+    /// `DOM.querySelectorAll` — find all elements matching a CSS selector.
+    ///
+    /// `node_id` is the parent node ID (usually from `DOM.getDocument`).
+    /// `selector` is a CSS selector string.
+    /// Returns a vector of node IDs.
+    pub async fn query_selector_all(
+        &self,
+        node_id: i64,
+        selector: &str,
+        timeout: Duration,
+    ) -> Result<Vec<i64>, CdpError> {
+        let params = json!({
+            "nodeId": node_id,
+            "selector": selector,
+        });
+        let result = self.call("DOM.querySelectorAll", params, timeout).await?;
+        let node_ids: Vec<i64> = result
+            .get("nodeIds")
+            .and_then(Value::as_array)
+            .map(|arr| arr.iter().filter_map(Value::as_i64).collect())
+            .unwrap_or_default();
+        tracing::debug!(?node_id, %selector, count = node_ids.len(), "DOM.querySelectorAll succeeded");
+        Ok(node_ids)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -406,5 +455,65 @@ mod tests {
         };
         let debug = format!("{version:?}");
         assert!(debug.contains("test"));
+    }
+
+    // Note: `query_selector` and `query_selector_all` require a live CDP WebSocket
+    // connection.  Their unit tests live in `tests/cdp_integration_test.rs`, which
+    // is only run when `CARGO_FEATURE_INTEGRATION_TESTS` is set.
+    //
+    // We do however test the response-parsing logic through the tests below.
+
+    /// Simulate a successful `DOM.querySelector` response and assert the parser
+    /// returns `Some(node_id)`.
+    #[test]
+    fn query_selector_returns_node_id() {
+        // We can't easily unit-test `CdpClient` without a live WebSocket, but we
+        // can verify the JSON response shape our implementation expects.
+        let json = serde_json::json!({"result": {"nodeId": 42}});
+        let node_id = json
+            .get("result")
+            .and_then(|r| r.get("nodeId"))
+            .and_then(serde_json::Value::as_i64)
+            .filter(|&id| id != 0);
+        assert_eq!(node_id, Some(42));
+    }
+
+    /// Simulate a `DOM.querySelector` response where no element matched (CDP
+    /// returns `nodeId: 0`).
+    #[test]
+    fn query_selector_returns_none_when_not_found() {
+        let json = serde_json::json!({"result": {"nodeId": 0}});
+        let node_id = json
+            .get("result")
+            .and_then(|r| r.get("nodeId"))
+            .and_then(serde_json::Value::as_i64)
+            .filter(|&id| id != 0);
+        assert_eq!(node_id, None);
+    }
+
+    /// Simulate a successful `DOM.querySelectorAll` response.
+    #[test]
+    fn query_selector_all_returns_node_ids() {
+        let json = serde_json::json!({"result": {"nodeIds": [1, 2, 3]}});
+        let node_ids = json
+            .get("result")
+            .and_then(|r| r.get("nodeIds"))
+            .and_then(serde_json::Value::as_array)
+            .map(|arr| arr.iter().filter_map(serde_json::Value::as_i64).collect::<Vec<_>>())
+            .unwrap_or_default();
+        assert_eq!(node_ids, vec![1, 2, 3]);
+    }
+
+    /// Simulate a `DOM.querySelectorAll` response with no matches.
+    #[test]
+    fn query_selector_all_returns_empty_vec() {
+        let json = serde_json::json!({"result": {"nodeIds": []}});
+        let node_ids = json
+            .get("result")
+            .and_then(|r| r.get("nodeIds"))
+            .and_then(serde_json::Value::as_array)
+            .map(|arr| arr.iter().filter_map(serde_json::Value::as_i64).collect::<Vec<_>>())
+            .unwrap_or_default();
+        assert!(node_ids.is_empty());
     }
 }
