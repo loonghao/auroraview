@@ -15,7 +15,8 @@ name = "auroraview_mcp"
 
 [dependencies]
 # RMCP - Official Rust MCP SDK for Model Context Protocol Server implementation.
-rmcp = { version = "1.5", features = ["server", "macros", "transport-streamable-http-server"] }
+# Locked to 1.5.x to avoid breaking API changes in 1.6.0.
+rmcp = { version = "~1.5.0", features = ["server", "macros", "transport-streamable-http-server"] }
 
 # dcc-mcp-core protocols (DccAdapter trait + types). Pinned to v0.13.2; not
 # yet published to crates.io, so depend via git.
@@ -76,7 +77,7 @@ criterion = "0.8"
 tokio = { version = "1.48", features = ["macros", "rt-multi-thread"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 # rmcp client for integration tests
-rmcp = { version = "1.5", features = ["client", "macros"] }
+rmcp = { version = "~1.5.0", features = ["client", "macros"] }
 # Serial test execution to avoid port conflicts
 serial_test = "3.2"
 # OAuth test dependencies

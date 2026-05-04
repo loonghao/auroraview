@@ -54,7 +54,8 @@ fn bench_agui_bus_emit_without_subscribers(c: &mut Criterion) {
             thread_id: "bench-thread".to_string(),
         };
         b.iter(|| {
-            bus.emit(event.clone())
+            // Use black_box to prevent over-optimization
+            bus.emit(black_box(event.clone()))
         })
     });
 }
@@ -66,17 +67,19 @@ fn bench_agui_bus_emit_with_subscribers(c: &mut Criterion) {
             BenchmarkId::from_parameter(num_subscribers),
             &num_subscribers,
             |b, &num| {
+                // Setup: create bus and subscribers OUTSIDE the measured iteration
                 let bus = AguiBus::new();
                 // Create subscribers
-                for _ in 0..num {
+                for _ in 0..*num {
                     let _rx = bus.subscribe();
                 }
                 let event = AguiEvent::RunStarted {
                     run_id: "bench-run".to_string(),
                     thread_id: "bench-thread".to_string(),
                 };
+                // Only measure the emit call itself, use black_box to prevent over-optimization
                 b.iter(|| {
-                    bus.emit(event.clone())
+                    bus.emit(black_box(event.clone()))
                 })
             },
         );

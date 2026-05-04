@@ -750,6 +750,7 @@ dependencies = [
  "base64-url",
  "bcrypt",
  "chrono",
+ "criterion",
  "dashmap",
  "dcc-mcp-protocols",
  "futures",
@@ -6911,9 +6912,9 @@ dependencies = [
 
 [[package]]
 name = "rmcp"
-version = "1.6.0"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e12ca9067b5ebfbd5b3fcdc4acfceb81aa7d5ab2a879dff7cb75d22434276aad"
+checksum = "67d69668de0b0ccd9cc435f700f3b39a7861863cf37a15e1f304ea78688a4826"
 dependencies = [
  "async-trait",
  "base64",
