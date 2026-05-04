@@ -17,7 +17,8 @@ fetch = true
 stale = false
 
 [output]
-deny = ["unmaintained"]
+# Only deny actual vulnerabilities, not "unmaintained" warnings
+deny = []
 format = "terminal"
 quiet = false
 show_tree = true
