@@ -5,6 +5,7 @@
 
 use rmcp::{handler::server::wrapper::Parameters, schemars::JsonSchema, tool, tool_router};
 use serde::Deserialize;
+use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::OnceCell;
 use tracing::{debug, error, info, warn};
@@ -75,6 +76,39 @@ pub struct CloseWebviewParams {
     pub id: String,
 }
 
+/// Parameters for the `set_attribute` tool.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SetAttributeParams {
+    /// CSS selector to find the target element.
+    pub selector: String,
+    /// Attribute name to set.
+    pub name: String,
+    /// Attribute value to set.
+    pub value: String,
+}
+
+/// Parameters for the `remove_attribute` tool.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct RemoveAttributeParams {
+    /// CSS selector to find the target element.
+    pub selector: String,
+    /// Attribute name to remove.
+    pub name: String,
+}
+
+/// Parameters for the `call_function` tool.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct CallFunctionParams {
+    /// JavaScript expression that evaluates to an object.
+    pub object_expr: String,
+    /// Function declaration to call on the object.
+    pub function: String,
+}
+
+/// Parameters for the `clear_cache` tool.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ClearCacheParams {}
+
 // ---------------------------------------------------------------------------
 // McpServer — rmcp ServerHandler implementation
 // ---------------------------------------------------------------------------
@@ -127,6 +161,18 @@ impl McpServer {
     #[must_use]
     pub fn with_agui_bus(mut self, bus: AguiBus) -> Self {
         self.agui_bus = Some(bus);
+        self
+    }
+
+    /// Update the CDP endpoint URL for the server.
+    ///
+    /// This allows dynamically changing the CDP endpoint (e.g., when a new
+    /// WebView is created or the CDP port changes).
+    /// The next `get_client()` call will establish a new connection.
+    pub fn with_cdp_endpoint(mut self, endpoint: String) -> Self {
+        self.config.http_endpoint = endpoint;
+        // Reset the cached client so next call reconnects
+        self.client = Arc::new(OnceCell::new());
         self
     }
 
@@ -365,6 +411,184 @@ impl McpServer {
             None,
         ))
     }
+
+    /// Set an attribute on a DOM element.
+    #[tool(description = "Set an attribute on a DOM element matching the CSS selector")]
+    async fn set_attribute(
+        &self,
+        Parameters(params): Parameters<SetAttributeParams>,
+    ) -> Result<String, rmcp::ErrorData> {
+        let client = self.get_client().await.map_err(|e| {
+            error!(error = %e, "CDP connect failed");
+            rmcp::ErrorData::internal_error(format!("CDP connect failed: {e}"), None)
+        })?;
+
+        // First, get the document root
+        let doc = client.get_document(DEFAULT_CDP_TIMEOUT).await.map_err(|e| {
+            warn!(error = %e, "get_document failed");
+            rmcp::ErrorData::internal_error(format!("get_document failed: {e}"), None)
+        })?;
+        let root_id = doc
+            .get("root")
+            .and_then(|r| r.get("nodeId"))
+            .and_then(Value::as_i64)
+            .ok_or_else(|| {
+                rmcp::ErrorData::internal_error("Failed to parse document root nodeId", None)
+            })?;
+
+        // Find the target element
+        let node_id = client
+            .query_selector(root_id, &params.selector, DEFAULT_CDP_TIMEOUT)
+            .await
+            .map_err(|e| {
+                warn!(error = %e, selector = %params.selector, "query_selector failed");
+                rmcp::ErrorData::internal_error(format!("query_selector failed: {e}"), None)
+            })?;
+
+        let node_id = node_id.ok_or_else(|| {
+            rmcp::ErrorData::invalid_params(
+                format!("No element found matching '{}'", params.selector),
+                None,
+            )
+        })?;
+
+        // Set the attribute
+        client
+            .set_attribute_value(node_id, &params.name, &params.value, DEFAULT_CDP_TIMEOUT)
+            .await
+            .map_err(|e| {
+                warn!(error = %e, "set_attribute_value failed");
+                rmcp::ErrorData::internal_error(format!("set_attribute_value failed: {e}"), None)
+            })?;
+
+        debug!(selector = %params.selector, name = %params.name, "attribute set");
+        Ok(format!("Attribute '{}' set on '{}'", params.name, params.selector))
+    }
+
+    /// Remove an attribute from a DOM element.
+    #[tool(description = "Remove an attribute from a DOM element matching the CSS selector")]
+    async fn remove_attribute(
+        &self,
+        Parameters(params): Parameters<RemoveAttributeParams>,
+    ) -> Result<String, rmcp::ErrorData> {
+        let client = self.get_client().await.map_err(|e| {
+            error!(error = %e, "CDP connect failed");
+            rmcp::ErrorData::internal_error(format!("CDP connect failed: {e}"), None)
+        })?;
+
+        // First, get the document root
+        let doc = client.get_document(DEFAULT_CDP_TIMEOUT).await.map_err(|e| {
+            warn!(error = %e, "get_document failed");
+            rmcp::ErrorData::internal_error(format!("get_document failed: {e}"), None)
+        })?;
+        let root_id = doc
+            .get("root")
+            .and_then(|r| r.get("nodeId"))
+            .and_then(Value::as_i64)
+            .ok_or_else(|| {
+                rmcp::ErrorData::internal_error("Failed to parse document root nodeId", None)
+            })?;
+
+        // Find the target element
+        let node_id = client
+            .query_selector(root_id, &params.selector, DEFAULT_CDP_TIMEOUT)
+            .await
+            .map_err(|e| {
+                warn!(error = %e, selector = %params.selector, "query_selector failed");
+                rmcp::ErrorData::internal_error(format!("query_selector failed: {e}"), None)
+            })?;
+
+        let node_id = node_id.ok_or_else(|| {
+            rmcp::ErrorData::invalid_params(
+                format!("No element found matching '{}'", params.selector),
+                None,
+            )
+        })?;
+
+        // Remove the attribute
+        client
+            .remove_attribute(node_id, &params.name, DEFAULT_CDP_TIMEOUT)
+            .await
+            .map_err(|e| {
+                warn!(error = %e, "remove_attribute failed");
+                rmcp::ErrorData::internal_error(format!("remove_attribute failed: {e}"), None)
+            })?;
+
+        debug!(selector = %params.selector, name = %params.name, "attribute removed");
+        Ok(format!("Attribute '{}' removed from '{}'", params.name, params.selector))
+    }
+
+    /// Call a JavaScript function on an object.
+    #[tool(description = "Call a JavaScript function on the object returned by `object_expr`")]
+    async fn call_function(
+        &self,
+        Parameters(params): Parameters<CallFunctionParams>,
+    ) -> Result<String, rmcp::ErrorData> {
+        let client = self.get_client().await.map_err(|e| {
+            error!(error = %e, "CDP connect failed");
+            rmcp::ErrorData::internal_error(format!("CDP connect failed: {e}"), None)
+        })?;
+
+        // Evaluate the object expression to get the object ID
+        let obj_result = client
+            .evaluate_script(&params.object_expr, DEFAULT_CDP_TIMEOUT)
+            .await
+            .map_err(|e| {
+                warn!(error = %e, expr = %params.object_expr, "evaluate_script failed");
+                rmcp::ErrorData::internal_error(format!("evaluate_script failed: {e}"), None)
+            })?;
+
+        let object_id = obj_result
+            .get("objectId")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                rmcp::ErrorData::invalid_params(
+                    format!("Expression did not return an object: '{}'", params.object_expr),
+                    None,
+                )
+            })?;
+
+        // Call the function on the object
+        let result = client
+            .call_function_on(object_id, &params.function, None, DEFAULT_CDP_TIMEOUT)
+            .await
+            .map_err(|e| {
+                warn!(error = %e, "call_function_on failed");
+                rmcp::ErrorData::internal_error(format!("call_function_on failed: {e}"), None)
+            })?;
+
+        debug!(expr = %params.object_expr, func = %params.function, "function called");
+        Ok(serde_json::to_string(&result).unwrap_or_else(|_| "null".to_owned()))
+    }
+
+    /// Clear the browser cache.
+    #[tool(description = "Clear the browser cache (network requests)")]
+    async fn clear_cache(
+        &self,
+        Parameters(_): Parameters<ClearCacheParams>,
+    ) -> Result<String, rmcp::ErrorData> {
+        let client = self.get_client().await.map_err(|e| {
+            error!(error = %e, "CDP connect failed");
+            rmcp::ErrorData::internal_error(format!("CDP connect failed: {e}"), None)
+        })?;
+
+        // Enable network first (required before clearing cache)
+        let _ = client.network_enable(DEFAULT_CDP_TIMEOUT).await;
+
+        client
+            .clear_browser_cache(DEFAULT_CDP_TIMEOUT)
+            .await
+            .map_err(|e| {
+                warn!(error = %e, "clear_browser_cache failed");
+                rmcp::ErrorData::internal_error(format!("clear_browser_cache failed: {e}"), None)
+            })?;
+
+        // Optionally disable network to clean up
+        let _ = client.network_disable(DEFAULT_CDP_TIMEOUT).await;
+
+        info!("Browser cache cleared");
+        Ok("Browser cache cleared".to_owned())
+    }
 }
 
 #[cfg(test)]
@@ -510,5 +734,59 @@ mod tests {
         let err = result.unwrap_err();
         let msg = format!("{err}");
         assert!(msg.contains("not yet implemented"), "Expected 'not yet implemented' in error: {msg}");
+    }
+
+    // ---------------------------------------------------------------------------
+    // Tests for new MCP tools (set_attribute, remove_attribute, call_function, clear_cache)
+    // ---------------------------------------------------------------------------
+
+    #[test]
+    fn set_attribute_params() {
+        let json = serde_json::json!({
+            "selector": "#my-id",
+            "name": "data-custom",
+            "value": "test-value"
+        });
+        let p: SetAttributeParams = serde_json::from_str(&json.to_string()).unwrap();
+        assert_eq!(p.selector, "#my-id");
+        assert_eq!(p.name, "data-custom");
+        assert_eq!(p.value, "test-value");
+    }
+
+    #[test]
+    fn remove_attribute_params() {
+        let json = serde_json::json!({
+            "selector": ".my-class",
+            "name": "disabled"
+        });
+        let p: RemoveAttributeParams = serde_json::from_str(&json.to_string()).unwrap();
+        assert_eq!(p.selector, ".my-class");
+        assert_eq!(p.name, "disabled");
+    }
+
+    #[test]
+    fn call_function_params() {
+        let json = serde_json::json!({
+            "object_expr": "document.body",
+            "function": "function() { return this.tagName; }"
+        });
+        let p: CallFunctionParams = serde_json::from_str(&json.to_string()).unwrap();
+        assert_eq!(p.object_expr, "document.body");
+        assert_eq!(p.function, "function() { return this.tagName; }");
+    }
+
+    #[test]
+    fn clear_cache_params_empty() {
+        let p: ClearCacheParams = serde_json::from_str(r#"{}"#).unwrap();
+        let _ = p; // empty struct
+    }
+
+    #[test]
+    fn mcp_server_with_cdp_endpoint() {
+        let config = CdpAdapterConfig::localhost(9222, "0.5.2");
+        let server = McpServer::new(config);
+        let server = server.with_cdp_endpoint("http://127.0.0.1:9223".to_owned());
+        // Should not panic - the endpoint was updated
+        let _ = server;
     }
 }

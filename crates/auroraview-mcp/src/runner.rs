@@ -168,6 +168,7 @@ impl McpRunner {
         let agui_bus = self.agui_bus.clone();
 
         let mut router = Router::new()
+            .route("/health", axum::routing::get(health_handler))
             .nest_service("/mcp", mcp_service)
             .merge(agui_router(agui_bus));
 
@@ -451,6 +452,28 @@ fn oauth_router(oauth_store: OAuthStore) -> Router {
             }),
         )
         .with_state(oauth_store)
+}
+
+// ---------------------------------------------------------------------------
+// Health check handler
+// ---------------------------------------------------------------------------
+
+/// Health check handler for `GET /health`.
+///
+/// Returns a JSON response with server status:
+/// ```json
+/// {
+///   "status": "ok",
+///   "service": "auroraview-mcp",
+///   "version": "<version>"
+/// }
+/// ```
+async fn health_handler() -> axum::Json<serde_json::Value> {
+    axum::Json(serde_json::json!({
+        "status": "ok",
+        "service": "auroraview-mcp",
+        "version": env!("CARGO_PKG_VERSION")
+    }))
 }
 
 #[cfg(test)]

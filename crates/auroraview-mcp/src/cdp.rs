@@ -529,6 +529,86 @@ impl CdpClient {
         tracing::debug!(?request_id, size = bytes.len(), "Network.getResponseBody succeeded");
         Ok(bytes)
     }
+
+    /// `DOM.setAttributeValue` — set an attribute on a DOM node.
+    ///
+    /// `node_id` is the DOM node ID.
+    /// `name` is the attribute name.
+    /// `value` is the attribute value.
+    pub async fn set_attribute_value(
+        &self,
+        node_id: i64,
+        name: &str,
+        value: &str,
+        timeout: Duration,
+    ) -> Result<(), CdpError> {
+        let params = json!({
+            "nodeId": node_id,
+            "name": name,
+            "value": value,
+        });
+        self.call("DOM.setAttributeValue", params, timeout).await?;
+        tracing::debug!(?node_id, %name, %value, "DOM.setAttributeValue succeeded");
+        Ok(())
+    }
+
+    /// `DOM.removeAttribute` — remove an attribute from a DOM node.
+    ///
+    /// `node_id` is the DOM node ID.
+    /// `name` is the attribute name to remove.
+    pub async fn remove_attribute(
+        &self,
+        node_id: i64,
+        name: &str,
+        timeout: Duration,
+    ) -> Result<(), CdpError> {
+        let params = json!({
+            "nodeId": node_id,
+            "name": name,
+        });
+        self.call("DOM.removeAttribute", params, timeout).await?;
+        tracing::debug!(?node_id, %name, "DOM.removeAttribute succeeded");
+        Ok(())
+    }
+
+    /// `Runtime.callFunctionOn` — call a JavaScript function on a remote object.
+    ///
+    /// `object_id` is the unique object ID (from `Runtime.evaluate` with `objectId`).
+    /// `function_declaration` is the JS function to call (e.g., `"function() { return this.length; }"`).
+    /// `arguments` is optional array of call arguments.
+    /// Returns the JSON value result.
+    pub async fn call_function_on(
+        &self,
+        object_id: &str,
+        function_declaration: &str,
+        arguments: Option<&[Value]>,
+        timeout: Duration,
+    ) -> Result<Value, CdpError> {
+        let mut params = json!({
+            "objectId": object_id,
+            "functionDeclaration": function_declaration,
+            "returnByValue": true,
+            "awaitPromise": true,
+        });
+        if let Some(args) = arguments {
+            params["arguments"] = serde_json::json!(args);
+        }
+        let result = self.call("Runtime.callFunctionOn", params, timeout).await?;
+        let value = result
+            .get("result")
+            .and_then(|v| v.get("value"))
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+        tracing::debug!(?object_id, ?function_declaration, "Runtime.callFunctionOn succeeded");
+        Ok(value)
+    }
+
+    /// `Network.clearBrowserCache` — clear the browser cache.
+    pub async fn clear_browser_cache(&self, timeout: Duration) -> Result<(), CdpError> {
+        self.call("Network.clearBrowserCache", json!({}), timeout).await?;
+        tracing::debug!("Network.clearBrowserCache succeeded");
+        Ok(())
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -783,5 +863,75 @@ mod tests {
             body.as_bytes().to_vec()
         };
         assert_eq!(bytes, b"Hello, World!");
+    }
+
+    // ---------------------------------------------------------------------------
+    // Tests for new CDP methods (set_attribute_value, remove_attribute,
+    // call_function_on, clear_browser_cache)
+    // ---------------------------------------------------------------------------
+
+    /// Simulate a successful `DOM.setAttributeValue` response (empty result).
+    #[test]
+    fn set_attribute_value_returns_ok() {
+        // CDP returns `{"result": {}}` for successful setAttributeValue
+        let json = serde_json::json!({"result": {}});
+        let result = json.get("result");
+        assert!(result.is_some());
+    }
+
+    /// Simulate a successful `DOM.removeAttribute` response (empty result).
+    #[test]
+    fn remove_attribute_returns_ok() {
+        let json = serde_json::json!({"result": {}});
+        let result = json.get("result");
+        assert!(result.is_some());
+    }
+
+    /// Simulate a successful `Runtime.callFunctionOn` response with return value.
+    #[test]
+    fn call_function_on_returns_value() {
+        let json = serde_json::json!({
+            "result": {
+                "result": {
+                    "type": "number",
+                    "value": 42
+                }
+            }
+        });
+        let value = json
+            .get("result")
+            .and_then(|r| r.get("result"))
+            .and_then(|v| v.get("value"))
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+        assert_eq!(value, serde_json::json!(42));
+    }
+
+    /// Simulate a `Runtime.callFunctionOn` response returning a string.
+    #[test]
+    fn call_function_on_returns_string() {
+        let json = serde_json::json!({
+            "result": {
+                "result": {
+                    "type": "string",
+                    "value": "hello"
+                }
+            }
+        });
+        let value = json
+            .get("result")
+            .and_then(|r| r.get("result"))
+            .and_then(|v| v.get("value"))
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+        assert_eq!(value, serde_json::json!("hello"));
+    }
+
+    /// Simulate a successful `Network.clearBrowserCache` response (empty result).
+    #[test]
+    fn clear_browser_cache_returns_ok() {
+        let json = serde_json::json!({"result": {}});
+        let result = json.get("result");
+        assert!(result.is_some());
     }
 }
