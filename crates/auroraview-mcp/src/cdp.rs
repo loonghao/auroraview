@@ -324,6 +324,15 @@ impl CdpClient {
         tracing::debug!("Network monitoring disabled");
         Ok(())
     }
+
+    /// `DOM.getDocument` — get the DOM document node.
+    ///
+    /// Returns the root `Document` node as JSON.
+    pub async fn get_document(&self, timeout: Duration) -> Result<Value, CdpError> {
+        let result = self.call("DOM.getDocument", json!({}), timeout).await?;
+        tracing::debug!(?result, "DOM.getDocument succeeded");
+        Ok(result)
+    }
 }
 
 // ---------------------------------------------------------------------------
