@@ -1,3 +1,8 @@
+//! Manages the lifecycle of the `AuroraView` MCP Server.
+//!
+//! This module provides `McpRunner` for starting/stopping the MCP server
+//! with optional mDNS broadcast and AG-UI event streaming.
+
 use crate::{
     agui::{AguiBus, AguiEvent},
     error::{McpError, Result},
