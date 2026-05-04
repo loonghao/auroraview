@@ -1,7 +1,8 @@
-/// AG-UI protocol event types for `AuroraView` MCP Server.
-///
-/// AG-UI is a protocol for streaming agent state updates to UI clients.
-/// See: <https://docs.ag-ui.com>
+//! AG-UI protocol event types for `AuroraView` MCP Server.
+//!
+//! AG-UI is a protocol for streaming agent state updates to UI clients.
+//! See: <https://docs.ag-ui.com>
+
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::broadcast;
