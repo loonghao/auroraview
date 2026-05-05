@@ -55,7 +55,7 @@ impl PyMcpConfig {
     /// * `service_name` — mDNS service name
     /// * `enable_mdns` — enable mDNS broadcast
     /// * `enable_oauth` — enable OAuth 2.0
-    /// * `max_webviews` — max concurrent WebViews (`None` = unlimited)
+    /// * `max_webviews` — max concurrent `WebViews` (`None` = unlimited)
     #[must_use]
     pub fn new(
         host: String,

@@ -111,6 +111,7 @@ impl OAuthStore {
     /// # Errors
     ///
     /// Returns `McpError` if the secret is invalid.
+    #[must_use]
     pub fn new() -> Self {
         let jwt_secret =
             std::env::var("AURORAVIEW_JWT_SECRET").unwrap_or_else(|_| Uuid::new_v4().to_string());
@@ -141,6 +142,7 @@ impl OAuthStore {
     ///     "mcp:tools".to_string(),
     /// );
     /// ```
+    #[must_use]
     pub fn register_client(
         &self,
         name: String,
@@ -167,6 +169,7 @@ impl OAuthStore {
     /// Validate client credentials.
     ///
     /// Returns `Some(OAuthClient)` if credentials are valid, `None` otherwise.
+    #[must_use]
     pub fn validate_client(&self, client_id: &str, client_secret: &str) -> Option<OAuthClient> {
         let client = self.clients.get(client_id)?;
 
@@ -180,6 +183,7 @@ impl OAuthStore {
     /// Issue a new authorization code.
     ///
     /// The code is single-use and expires after 10 minutes.
+    #[must_use]
     pub fn issue_code(
         &self,
         client_id: String,
@@ -208,6 +212,7 @@ impl OAuthStore {
     ///
     /// Validates the code, redirect URI, and PKCE challenge.
     /// Returns `None` if validation fails.
+    #[must_use]
     pub fn exchange_code(
         &self,
         code: &str,
@@ -270,6 +275,7 @@ impl OAuthStore {
     /// Validate JWT access token.
     ///
     /// Returns `Some(AccessTokenClaims)` if the token is valid, `None` otherwise.
+    #[must_use]
     pub fn validate_token(&self, token: &str) -> Option<AccessTokenClaims> {
         let mut validation = Validation::default();
         validation.iss = Some(HashSet::from(["auroraview-mcp".to_string()]));
@@ -277,7 +283,7 @@ impl OAuthStore {
         match decode::<AccessTokenClaims>(token, &self.decoding_key, &validation) {
             Ok(data) => Some(data.claims),
             Err(e) => {
-                eprintln!("Token validation error: {:?}", e);
+                eprintln!("Token validation error: {e:?}");
                 None
             }
         }
@@ -285,8 +291,9 @@ impl OAuthStore {
 }
 
 /// Extract bearer token from Authorization header.
+#[must_use]
 pub fn extract_bearer_token(header: &str) -> Option<String> {
-    header.strip_prefix("Bearer ").map(|s| s.to_string())
+    header.strip_prefix("Bearer ").map(std::string::ToString::to_string)
 }
 
 #[cfg(test)]

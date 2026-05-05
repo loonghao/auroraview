@@ -45,17 +45,17 @@ impl std::fmt::Display for WebViewId {
 /// Information about a `WebView` instance.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebViewInfo {
-    /// Unique identifier for this WebView instance.
+    /// Unique identifier for this `WebView` instance.
     pub id: WebViewId,
-    /// Window title of the WebView.
+    /// Window title of the `WebView`.
     pub title: String,
-    /// Current URL loaded in the WebView.
+    /// Current URL loaded in the `WebView`.
     pub url: String,
-    /// Whether the WebView is visible.
+    /// Whether the `WebView` is visible.
     pub visible: bool,
-    /// Width of the WebView in pixels.
+    /// Width of the `WebView` in pixels.
     pub width: u32,
-    /// Height of the WebView in pixels.
+    /// Height of the `WebView` in pixels.
     pub height: u32,
     /// Raw HWND on Windows (0 if not available).
     pub hwnd: u64,
@@ -81,7 +81,7 @@ impl std::fmt::Display for WebViewInfo {
 pub struct WebViewConfig {
     /// Window title (shown in title bar).
     pub title: Option<String>,
-    /// URL to load in the WebView.
+    /// URL to load in the `WebView`.
     pub url: Option<String>,
     /// HTML content to load (alternative to `url`).
     pub html: Option<String>,
@@ -89,9 +89,9 @@ pub struct WebViewConfig {
     pub width: Option<u32>,
     /// Initial height in pixels.
     pub height: Option<u32>,
-    /// Whether the WebView is visible.
+    /// Whether the `WebView` is visible.
     pub visible: Option<bool>,
-    /// Whether to open browser DevTools.
+    /// Whether to open browser `DevTools`.
     pub debug: Option<bool>,
 }
 
@@ -277,6 +277,7 @@ impl McpServerConfig {
     }
 
     /// Set the bind host.
+    #[must_use]
     #[inline]
     pub fn with_host(mut self, host: impl Into<String>) -> Self {
         self.host = host.into();

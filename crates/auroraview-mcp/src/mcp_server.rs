@@ -34,21 +34,21 @@ fn default_format() -> String {
 /// Parameters for the `eval_js` tool.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct EvalJsParams {
-    /// JavaScript expression to evaluate in the WebView context.
+    /// JavaScript expression to evaluate in the `WebView` context.
     pub script: String,
 }
 
 /// Parameters for the `load_url` tool.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct LoadUrlParams {
-    /// URL to load in the WebView.
+    /// URL to load in the `WebView`.
     pub url: String,
 }
 
 /// Parameters for the `send_event` tool.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct SendEventParams {
-    /// Event name to emit in the WebView.
+    /// Event name to emit in the `WebView`.
     pub event: String,
     /// Event payload (JSON value).
     pub data: serde_json::Value,
@@ -65,14 +65,14 @@ pub struct ListWebviewsParams {}
 /// Parameters for the `create_webview` tool (placeholder).
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct CreateWebviewParams {
-    /// WebView configuration (JSON).
+    /// `WebView` configuration (JSON).
     pub config: serde_json::Value,
 }
 
 /// Parameters for the `close_webview` tool (placeholder).
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct CloseWebviewParams {
-    /// WebView ID to close.
+    /// `WebView` ID to close.
     pub id: String,
 }
 
@@ -145,10 +145,10 @@ pub struct SetIgnoreCertificateErrorsParams {
     pub ignore: bool,
 }
 
-/// MCP Server that bridges rmcp protocol to a running AuroraView CDP endpoint.
+/// MCP Server that bridges rmcp protocol to a running `AuroraView` CDP endpoint.
 ///
 /// `McpServer` implements the `rmcp` crate's `ServerHandler` trait and exposes
-/// AuroraView capabilities as standard MCP tools (screenshot, eval_js, load_url, etc.).
+/// `AuroraView` capabilities as standard MCP tools (screenshot, `eval_js`, `load_url`, etc.).
 ///
 /// It reuses a single CDP connection for all tool calls (lazily established on first use).
 ///
@@ -164,7 +164,7 @@ pub struct SetIgnoreCertificateErrorsParams {
 pub struct McpServer {
     /// CDP adapter configuration (HTTP/WS endpoints).
     config: CdpAdapterConfig,
-    /// Registry of active WebView instances.
+    /// Registry of active `WebView` instances.
     registry: WebViewRegistry,
     /// AG-UI event bus (None if not enabled).
     agui_bus: Option<AguiBus>,
@@ -189,6 +189,7 @@ impl McpServer {
     ///
     /// The server starts without an AG-UI bus. Use `with_agui_bus()` to enable
     /// AG-UI event streaming.
+    #[must_use]
     pub fn new(config: CdpAdapterConfig) -> Self {
         Self {
             config,
@@ -211,7 +212,7 @@ impl McpServer {
     /// Update the CDP endpoint URL for the server.
     ///
     /// This allows dynamically changing the CDP endpoint (e.g., when a new
-    /// WebView is created or the CDP port changes).
+    /// `WebView` is created or the CDP port changes).
     /// The next `get_client()` call will establish a new connection.
     #[must_use]
     pub fn with_cdp_endpoint(mut self, endpoint: String) -> Self {
@@ -229,7 +230,7 @@ impl McpServer {
     /// # Errors
     ///
     /// Returns `CdpError` with detailed context if:
-    /// - The CDP endpoint is not reachable (check if AuroraView is running)
+    /// - The CDP endpoint is not reachable (check if `AuroraView` is running)
     /// - The WebSocket connection fails (check firewall/permissions)
     /// - The CDP endpoint returns invalid responses (possible version mismatch)
     async fn get_client(&self) -> Result<CdpClient, CdpError> {
@@ -263,9 +264,9 @@ impl McpServer {
         Ok(client_ref.clone())
     }
 
-    /// Return a reference to the WebView registry.
+    /// Return a reference to the `WebView` registry.
     ///
-    /// The registry tracks all registered WebView instances. Currently a placeholder
+    /// The registry tracks all registered `WebView` instances. Currently a placeholder
     /// (will be used when `create_webview` tool is implemented).
     #[must_use]
     pub fn registry(&self) -> &WebViewRegistry {
@@ -275,7 +276,7 @@ impl McpServer {
 
 #[tool_router(server_handler)]
 impl McpServer {
-    /// Capture a screenshot of the current WebView.
+    /// Capture a screenshot of the current `WebView`.
     ///
     /// Returns the image as a base64-encoded data URI.
     #[tool(description = "Capture a screenshot of the current WebView")]
@@ -304,7 +305,7 @@ impl McpServer {
         Ok(format!("data:{mime};base64,{b64}"))
     }
 
-    /// Evaluate a JavaScript expression in the WebView context.
+    /// Evaluate a JavaScript expression in the `WebView` context.
     ///
     /// Returns the JSON-serialized result of the expression.
     ///
@@ -333,7 +334,7 @@ impl McpServer {
         Ok(serde_json::to_string(&value).unwrap_or_else(|_| "null".to_owned()))
     }
 
-    /// Navigate the WebView to a URL.
+    /// Navigate the `WebView` to a URL.
     ///
     /// # Errors
     ///
@@ -360,7 +361,7 @@ impl McpServer {
         Ok(format!("navigated to {}", params.url))
     }
 
-    /// Send an event to the WebView.
+    /// Send an event to the `WebView`.
     ///
     /// Emits `event` with `data` via `window.auroraview.trigger()`.
     ///
@@ -394,14 +395,14 @@ impl McpServer {
         Ok(format!("event '{}' sent", params.event))
     }
 
-    /// Get the native window handle (HWND on Windows, WID on Linux, NSView* on macOS).
+    /// Get the native window handle (HWND on Windows, WID on Linux, `NSView`* on macOS).
     ///
-    /// **TODO**: Requires AuroraView core to expose a CDP extension API:
+    /// **TODO**: Requires `AuroraView` core to expose a CDP extension API:
     /// - Method: `Browser.getWindowHandle`
     /// - Params: `{ "viewId": <string> }`
     /// - Returns: `{ "handle": <string> }` (hexadecimal representation)
     ///
-    /// Currently a placeholder; will be implemented when AuroraView core
+    /// Currently a placeholder; will be implemented when `AuroraView` core
     /// adds CDP extension support (target: Q3 2026).
     ///
     /// # Errors
@@ -418,14 +419,14 @@ impl McpServer {
         ))
     }
 
-    /// List all active WebView instances.
+    /// List all active `WebView` instances.
     ///
-    /// **TODO**: Requires AuroraView core to expose a CDP extension API:
+    /// **TODO**: Requires `AuroraView` core to expose a CDP extension API:
     /// - Method: `Browser.getWebViews`
     /// - Params: `{}`
     /// - Returns: `[ { "id": <string>, "url": <string>, "title": <string> } ]`
     ///
-    /// Currently a placeholder; will be implemented when AuroraView core
+    /// Currently a placeholder; will be implemented when `AuroraView` core
     /// adds CDP extension support (target: Q3 2026).
     ///
     /// # Errors
@@ -442,14 +443,14 @@ impl McpServer {
         ))
     }
 
-    /// Create a new WebView instance.
+    /// Create a new `WebView` instance.
     ///
-    /// **TODO**: Requires AuroraView core to expose a CDP extension API:
+    /// **TODO**: Requires `AuroraView` core to expose a CDP extension API:
     /// - Method: `Browser.newWebView`
     /// - Params: `{ "url": <string>, "width": <int>, "height": <int>, "title": <string> }`
     /// - Returns: `{ "id": <string>, "handle": <string> }`
     ///
-    /// Currently a placeholder; will be implemented when AuroraView core
+    /// Currently a placeholder; will be implemented when `AuroraView` core
     /// adds CDP extension support (target: Q3 2026).
     ///
     /// # Errors
@@ -466,14 +467,14 @@ impl McpServer {
         ))
     }
 
-    /// Close a WebView instance by ID.
+    /// Close a `WebView` instance by ID.
     ///
-    /// **TODO**: Requires AuroraView core to expose a CDP extension API:
+    /// **TODO**: Requires `AuroraView` core to expose a CDP extension API:
     /// - Method: `Browser.closeWebView`
     /// - Params: `{ "id": <string> }`
     /// - Returns: `{}`
     ///
-    /// Currently a placeholder; will be implemented when AuroraView core
+    /// Currently a placeholder; will be implemented when `AuroraView` core
     /// adds CDP extension support (target: Q3 2026).
     ///
     /// # Errors

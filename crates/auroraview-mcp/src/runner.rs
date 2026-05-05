@@ -404,6 +404,7 @@ fn agui_router(bus: AguiBus) -> Router {
 /// - `POST /oauth/register` — dynamic client registration
 /// - `GET  /oauth/authorize` — authorization endpoint (simplified)
 /// - `POST /oauth/token` — token endpoint
+#[allow(clippy::too_many_lines)]
 fn oauth_router(oauth_store: OAuthStore) -> Router {
     use axum::{
         extract::{Json, Query, State},
