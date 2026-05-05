@@ -149,12 +149,58 @@ Fixed 3 pedantic clippy warnings (reduced from 72 to 69).
 - [x] All tests pass? (133 tests passed ✅)
 - [x] `missing_backticks` fixed in all files? (0 warnings ✅)
 - [x] `# Errors` sections added to all functions? (17/17 ✅)
-- [ ] `missing_panics_doc` warnings fixed? (pending #120)
-- [ ] Next step clear? (Planning Iteration #120: fix panics doc + simple style warnings ✅)
+- [x] `missing_panics_doc` warnings fixed? (3/3 ✅)
+- [x] Next step clear? (UE Blueprint Node support ✅)
 
 ---
 
-## Quick Status:
+## Session Summary - 2026-05-05 (Iteration #121 - Complete):
+
+### ✅ Completed (Iteration #121):
+Implemented `UeBlueprintNode` placeholder and `UeBlueprintError` for UE compatibility.
+
+1. **`lib.rs`** (UeBlueprintNode structure):
+   - Added `UeBlueprintNode` struct with `id`, `title`, `inputs`, `outputs`, `connections`
+   - Implemented `new()`, `add_input()`, `add_output()`, `connect_to()`, `to_json()`
+   - Added `UeBlueprintError` enum with `NodeNotFound`, `InvalidPinType`, `CompilationFailed`
+   - Implemented `Display` and `Error` for `UeBlueprintError`
+
+2. **`tests/integration_test.rs`** (UeBlueprintNode tests):
+   - Added `blueprint_node_creation()` test
+   - Added `blueprint_node_add_pins()` test
+   - Added `blueprint_node_connect()` test
+   - Added `blueprint_node_to_json()` test
+   - Added `blueprint_error_display()` test
+
+3. **Compilation & Tests**:
+   - `cargo check -p auroraview-ue` → 0 errors ✅
+   - `cargo test -p auroraview-ue` → 23 passed, 0 failed ✅
+
+### Committed and pushed:
+- Commit: `9573997` - `feat(ue): implement UeBlueprintNode placeholder (Iteration #121)`
+- 2 files changed, 150 insertions(+)
+- Pushed to `auto-improve` ✅
+
+---
+
+## Next Iteration Plan (Iteration #122):
+
+### Priority 1: Fix pedantic clippy warnings (1-2 warnings)
+- Target: `auroraview-mcp` crate (69 warnings remaining)
+- Fix simple warnings (e.g., `manual_let_else`, `needless_pass_by_value`)
+- If fix is too complex, use `#[allow(...)]` to suppress.
+
+### Priority 2: Continue UE compatibility
+- Improve `UeBlueprintNode` actual implementation (interface with UE Python API)
+- Add `UeBlueprintNode` Python bindings (if compilation passes)
+
+### Priority 3: Improve test coverage
+- Add more tests for `auroraview-mcp` crate
+- Target: >95% coverage
+
+---
+
+## Checklist for Next Iteration (Iteration #122):
 
 **Current State**: Iteration #119 complete (added 17 `# Errors` sections) ✅$
 **Branch**: `auto-improve`$
@@ -180,6 +226,63 @@ Fixed 3 pedantic clippy warnings (reduced from 72 to 69).
 8. `manual_default` (use `Default::default()` or type::default())
 9. `too_long_function` (refactor if >100 lines)
 10. `must_use` attributes (add to appropriate functions)
+
+---
+
+## Session Summary - 2026-05-05 (Iteration #122 - Complete):
+
+### ✅ Completed (Iteration #122):
+Fixed 2 pedantic clippy warnings (reduced from 69 to 67).
+
+1. **`python_bindings.rs`** (`is_running()` function):
+   - Fixed `manual_let_else` warning: rewrote as `let...else` syntax
+
+2. **`types.rs`** (`with_service_name()` function):
+   - Fixed `return_self_not_must_use` warning: added `#[must_use]` attribute
+
+### Committed and pushed:
+- Commit: `f18c30a` - `fix(mcp): fix manual_let_else and return_self_not_must_use warnings (Iteration #122)`
+- 2 files changed, 4 insertions(+), 3 deletions(-)
+- Pushed to `auto-improve` ✅
+
+---
+
+## MCP Server Status (Iteration #122):
+- **Pedantic Clippy Warnings**: 67 remaining (reduced by 2)
+- **Test Status**: 133 passed ✅
+- **Compilation**: 0 errors ✅
+
+---
+
+## Next Iteration Plan (Iteration #123):
+
+### Priority 1: Fix `missing_backticks` warnings in `mcp_server.rs`
+- Function-level documentation comments (`/// ...`) have items missing backticks
+- Target: fix 5-10 warnings per iteration
+- Files: `mcp_server.rs`
+
+### Priority 2: Add `# Errors` sections to remaining functions
+- Functions returning `Result` need `# Errors` sections
+- Target: 5-10 functions per iteration
+
+### Priority 3: Fix `manual_default` warnings
+- Use `Default::default()` or `Type::default()` instead of `Type::new()`
+- Target: 2-5 warnings
+
+---
+
+## Checklist for Next Iteration (Iteration #123):
+
+### Priority 1: Fix documentation warnings
+- `missing_backticks` in `mcp_server.rs` (~10-15 warnings)
+- Add `# Errors` sections to functions returning `Result`
+
+### Priority 2: Fix style warnings
+- `manual_default`
+- `redundant_closure`
+- `map_unwrap_or`
+
+### Priority 3: Refactor long functions (if any >100 lines)
 
 ---
 
