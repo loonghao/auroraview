@@ -323,6 +323,13 @@ impl McpServerConfig {
     /// - `port` must be in the valid range 1–65535 (0 is reserved)
     /// - `host` must not be empty
     /// - `service_name` must not be empty
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` with a descriptive string if:
+    /// - `port == 0` (reserved, must be 1–65535)
+    /// - `host` is empty or whitespace-only
+    /// - `service_name` is empty or whitespace-only
     pub fn validate(&self) -> Result<(), String> {
         if self.port == 0 {
             return Err("port must be in range 1–65535 (got 0)".to_string());

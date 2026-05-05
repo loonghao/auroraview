@@ -380,6 +380,10 @@ impl CdpClient {
     }
 
     /// `Page.navigate` — navigate the `WebView` to a URL.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if the CDP call fails.
     #[tracing::instrument(skip(self, timeout), fields(%url, timeout_ms = ?timeout.as_millis()))]
     pub async fn navigate_to(&self, url: &str, timeout: Duration) -> Result<(), CdpError> {
         let params = json!({ "url": url });
@@ -437,6 +441,10 @@ impl CdpClient {
     /// `Network.enable` — enable network monitoring.
     ///
     /// Call this before using `Network.*` events.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if the CDP call fails.
     pub async fn network_enable(&self, timeout: Duration) -> Result<(), CdpError> {
         self.call("Network.enable", json!({}), timeout).await?;
         tracing::debug!("Network monitoring enabled");

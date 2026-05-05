@@ -144,6 +144,12 @@ impl CdpAuroraViewAdapter {
     /// Create a new adapter. Does not yet establish a CDP connection —
     /// callers must invoke [`DccConnection::connect`] (or let the MCP
     /// framework do so) before calling snapshot/script-engine APIs.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the tokio runtime cannot be created
+    /// (e.g. when called from an asynchronous context that conflicts
+    /// with `AdapterRuntime::current_or_owned()`).
     pub fn new(config: CdpAdapterConfig) -> std::io::Result<Self> {
         let info = DccInfo {
             dcc_type: "auroraview".to_owned(),

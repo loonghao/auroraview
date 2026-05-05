@@ -55,6 +55,11 @@ impl WebViewRegistry {
 
     /// Try to register a new `WebView`. Returns `Err(McpError::CapacityExceeded)` if
     /// the optional capacity limit has been reached.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`McpError::CapacityExceeded`] if the registry has a `max_webviews`
+    /// limit set and the current number of registered `WebView`s has reached that limit.
     pub fn try_register(&self, config: &WebViewConfig) -> Result<WebViewId> {
         if let Some(max) = self.max_webviews {
             if self.views.len() >= max {

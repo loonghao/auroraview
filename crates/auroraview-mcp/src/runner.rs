@@ -145,8 +145,14 @@ impl McpRunner {
     ///
     /// Returns immediately; the server runs until `stop()` is called.
     ///
+    /// # Errors
+    ///
     /// Returns [`McpError::InvalidConfig`] if the configuration is invalid
     /// (e.g. `port == 0`, empty `host`, or empty `service_name`).
+    ///
+    /// Returns [`McpError::AlreadyRunning`] if the server is already running.
+    ///
+    /// Returns [`McpError::Io`] if the TCP listener fails to bind.
     pub async fn start(&self) -> Result<()> {
         let start_time = std::time::Instant::now();
 
@@ -303,6 +309,11 @@ impl McpRunner {
     ///
     /// Returns `Ok(())` if the `WebView` was found and updated.
     /// Returns `Err(...)` if no `WebView` with the given ID exists.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` with a string error message if no `WebView` with the
+    /// given `id` exists in the registry.
     pub fn update_cdp_endpoint(&self, id: &str, endpoint: &str) -> std::result::Result<(), String> {
         let wid = id.parse::<WebViewId>().unwrap(); // Infallible
         if self

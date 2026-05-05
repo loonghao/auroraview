@@ -167,6 +167,14 @@ impl PyMcpServer {
     ///
     /// Returns an error string if the server is already running or the port
     /// is in use.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if:
+    /// - The state mutex is poisoned
+    /// - The server is already running
+    /// - The tokio runtime cannot be created
+    /// - The MCP server fails to start (port in use, invalid config)
     pub fn start(&self) -> Result<(), String> {
         let mut lock = self.state.lock().map_err(|e| e.to_string())?;
         if lock.is_some() {
@@ -186,6 +194,11 @@ impl PyMcpServer {
     }
 
     /// Stop the running server (no-op if not running).
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the state mutex is poisoned.
+    /// If the server is not running, this is a no-op and returns `Ok`.
     pub fn stop(&self) -> Result<(), String> {
         let mut lock = self.state.lock().map_err(|e| e.to_string())?;
         if let Some(state) = lock.take() {
@@ -209,6 +222,10 @@ impl PyMcpServer {
     }
 
     /// Emit an AG-UI `RunStarted` event.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the MCP server is not running.
     pub fn emit_run_started(&self, run_id: &str, thread_id: &str) -> Result<(), String> {
         self.emit_event(AguiEvent::RunStarted {
             run_id: run_id.to_string(),
@@ -217,6 +234,10 @@ impl PyMcpServer {
     }
 
     /// Emit an AG-UI `RunFinished` event.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the MCP server is not running.
     pub fn emit_run_finished(&self, run_id: &str, thread_id: &str) -> Result<(), String> {
         self.emit_event(AguiEvent::RunFinished {
             run_id: run_id.to_string(),
@@ -225,6 +246,10 @@ impl PyMcpServer {
     }
 
     /// Emit an AG-UI `ToolCallStart` event.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the MCP server is not running.
     pub fn emit_tool_call_start(
         &self,
         run_id: &str,
@@ -239,6 +264,10 @@ impl PyMcpServer {
     }
 
     /// Emit an AG-UI `ToolCallEnd` event.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the MCP server is not running.
     pub fn emit_tool_call_end(&self, run_id: &str, tool_call_id: &str) -> Result<(), String> {
         self.emit_event(AguiEvent::ToolCallEnd {
             run_id: run_id.to_string(),
@@ -247,6 +276,10 @@ impl PyMcpServer {
     }
 
     /// Emit an arbitrary AG-UI `Custom` event.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the MCP server is not running.
     pub fn emit_custom(
         &self,
         run_id: &str,
@@ -286,6 +319,12 @@ impl PyMcpServer {
     }
 
     /// Low-level: emit any `AguiEvent` through the bus.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if:
+    /// - The state mutex is poisoned
+    /// - The MCP server is not running
     pub fn emit_event(&self, event: AguiEvent) -> Result<(), String> {
         let lock = self.state.lock().map_err(|e| e.to_string())?;
         if let Some(state) = lock.as_ref() {

@@ -25,6 +25,11 @@ impl MdnsBroadcaster {
     /// Create a new mDNS broadcaster.
     ///
     /// Initializes the mDNS daemon. Returns an error if the daemon cannot be created.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::McpError::MdnsBroadcast`] if the mDNS daemon
+    /// cannot be created (e.g. Bonjour/mDNSResponder not available).
     pub fn new() -> Result<Self> {
         let daemon = ServiceDaemon::new()
             .map_err(|e| crate::error::McpError::MdnsBroadcast(e.to_string()))?;
@@ -36,6 +41,12 @@ impl MdnsBroadcaster {
     }
 
     /// Start broadcasting the MCP server on the network.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::McpError::MdnsBroadcast`] if:
+    /// - The mDNS service info cannot be created
+    /// - The service registration fails (e.g. instance name conflict)
     pub async fn start(&self, config: &McpServerConfig) -> Result<()> {
         let host_name = gethostname_str();
         let instance = format!("{}.{}", config.service_name, self.service_type);
