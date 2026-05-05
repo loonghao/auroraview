@@ -1,66 +1,89 @@
 # AuroraView Auto-Improve Memory #
 
-## Session Summary - 2026-05-06 (Iteration #135):
+## Session Summary - 2026-05-06 (Iteration #136):
 
-### ✅ Completed (Iteration #135):
-Fixed compilation errors in `auroraview-plugins` crate.
+### ✅ Completed (Iteration #136):
+Fixed code formatting issues across multiple crates.
 
-1. **Fixed module structure**:
-   - Moved `types.rs` to `extensions/types.rs` (correct Rust 2018+ module path)
-   - Changed `mod types;` to `pub mod types;` in `extensions.rs`
-   - Added `pub use types::*;` to re-export types for external access
+1. **Format fixes**:
+   - Fixed benchmark formatting in `mcp_benchmark.rs`
+   - Fixed `ws.send` formatting in `cdp.rs`
+   - Auto-fixed LF/CRLF line endings across 11 files via `cargo fmt`
 
-2. **Added missing `ExtensionsPlugin` struct definition**:
-   - Added struct with fields: `name`, `state`, `callbacks`
-   - Fixed E0422, E0425, E0433, E0583 compilation errors
+2. **Files modified**:
+   - `crates/auroraview-mcp/benches/mcp_benchmark.rs`
+   - `crates/auroraview-mcp/src/cdp.rs`
+   - `crates/auroraview-mcp/src/lib.rs`
+   - `crates/auroraview-mcp/src/mcp_server/mod.rs`
+   - `crates/auroraview-mcp/src/oauth.rs`
+   - `crates/auroraview-mcp/src/runner.rs`
+   - `crates/auroraview-plugins/src/extensions.rs`
+   - `crates/auroraview-ue/src/lib.rs`
+   - `crates/auroraview-ue/tests/integration_test.rs`
 
-3. **Fixed warnings**:
-   - Removed unused imports (`Deserialize`, `Serialize`)
-   - Fixed unused variable `name` in `clear` handler (implemented correct logic)
-   - `clear` now uses `name` to remove specific alarm or all alarms if name is empty
-
-4. **Tests**:
-   - `extensions_tests` passed: 58 passed, 0 failed ✅
-   - Fixed `ExtensionInfo` visibility (re-exported from `extensions` module)
+3. **Tests**:
+   - `cargo test -p auroraview-mcp`: All passed ✅
+   - `cargo clippy --workspace`: No warnings ✅
+   - `cargo fmt --check`: Passed after fixes ✅
 
 ### Committed and pushed:
-- Commit: `f1147a8` - `fix(plugins): add missing ExtensionsPlugin struct and fix module structure`
-- 2 files changed, 393 insertions(+), 361 deletions(-)
+- Commit: `ac2fb6d` - `chore(fmt): fix cargo fmt issues in auroraview-mcp and other crates`
+- 16 files changed, 590 insertions(+), 277 deletions(-)
 - Pushed to `auto-improve` ✅
 
-### Test Status:
-- `cargo check -p auroraview-plugins`: No errors, no warnings ✅
-- `extensions_tests`: 58 passed ✅
-- Full test suite: Timeout (need to run separately)
+### ⚠️ Issues to fix in next iteration:
+1. **Accidentally committed Python scripts** (should not be committed):
+   - `crates/auroraview-plugins/apply_types_refactoring.py`
+   - `crates/auroraview-plugins/extract_types.py`
+   - `crates/auroraview-plugins/manual_update.py`
+   - `crates/auroraview-plugins/update_extensions.py`
+   - `scan_large_files.py`
+   
+   These are helper scripts (not part of the project). Need to `git rm` them and add to `.gitignore`.
+
+2. **GitHub Dependabot alerts**: 43 vulnerabilities found (18 high, 24 moderate, 1 low)
+   - Should investigate and update dependencies in next iteration
 
 ---
 
-## Next Iteration Plan (Iteration #136):
+## Next Iteration Plan (Iteration #137):
 
-### Priority 1: Run full test suite
-- [ ] Run `cargo test --workspace` (may need to run in parts)
-- [ ] Fix any test failures
+### Priority 1: Clean up accidentally committed files
+- [ ] `git rm` the Python helper scripts (apply_types_refactoring.py, etc.)
+- [ ] Add `*.py` helper scripts to `.gitignore` (or specific files)
+- [ ] Commit with message `chore: remove accidentally committed helper scripts`
 
-### Priority 2: Scan for large files (>1000 lines)
-- [ ] Check `extensions.rs` line count (likely >1000 after adding struct definition)
-- [ ] Plan refactoring to split large files
+### Priority 2: Address Dependabot alerts
+- [ ] Review the 43 vulnerabilities: https://github.com/loonghao/auroraview/security/dependabot
+- [ ] Update dependencies with known vulnerabilities
+- [ ] Run `cargo update` and test
 
-### Priority 3: Code quality
-- [ ] Run `cargo clippy --workspace` and fix warnings
+### Priority 3: Scan for large files (>1000 lines)
+- [ ] Check all `.rs` files for >1000 lines
+- [ ] Plan refactoring for large files (split into modules)
+
+### Priority 4: Code quality
+- [ ] Run `cargo clippy --workspace` and fix any new warnings
 - [ ] Run `cargo fmt --check` and fix formatting
+- [ ] Run full test suite (`cargo test --workspace`)
 
 ---
 
-## Checklist for Next Iteration (Iteration #136):
+## Checklist for Next Iteration (Iteration #137):
 
-### Testing:
-- [ ] Run full test suite (`cargo test --workspace`)
-- [ ] Fix any failures
+### Cleanup:
+- [ ] Remove accidentally committed Python scripts
+- [ ] Add helper scripts to `.gitignore`
 
-### Scanning:
-- [ ] Find Rust files with >1000 lines
-- [ ] Find Python files with >1000 lines
-- [ ] Create list of refactoring candidates
+### Security:
+- [ ] Review Dependabot alerts
+- [ ] Update vulnerable dependencies
+
+### Code quality:
+- [ ] Scan for files >1000 lines
+- [ ] Fix any clippy warnings
+- [ ] Fix any fmt issues
+- [ ] Run full test suite
 
 ### Push:
 - [ ] Commit with descriptive message
@@ -69,7 +92,12 @@ Fixed compilation errors in `auroraview-plugins` crate.
 ---
 
 ## Notes:
-- `extensions.rs` module structure fixed: now uses `extensions/types.rs` for type definitions
-- `ExtensionsPlugin` struct definition added (was accidentally deleted in previous commit)
-- `clear` handler now correctly uses `name` parameter
-- Python scripts (`apply_types_refactoring.py`, etc.) are untracked helper scripts (not committed)
+- `auroraview-mcp` crate is well-implemented:
+  - MCP Server with 12 tools (4 PLACEHOLDER: `get_hwnd`, `list_webviews`, `create_webview`, `close_webview`)
+  - mDNS broadcast implemented (`MdnsBroadcaster`)
+  - AG-UI protocol implemented (`AguiEvent`, `AguiBus`, SSE streaming)
+  - Python bindings implemented (`PyMcpServer`, `PyMcpConfig`)
+  
+- PLACEHOLDER tools require AuroraView core CDP extension API (target: Q3 2026)
+
+- Accidentally committed files should be removed in next iteration
