@@ -351,7 +351,7 @@ class WebViewLifecycleMixin:
 
         # Remove from WindowManager
         if self._window_id:
-            from .window_manager import get_window_manager
+            from ..window_manager import get_window_manager
 
             wm = get_window_manager()
             wm.unregister(self._window_id)
