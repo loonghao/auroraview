@@ -1,6 +1,6 @@
-//! MCP Server implementation for AuroraView.
+//! MCP Server implementation for `AuroraView`.
 //!
-//! Exposes AuroraView capabilities as standard MCP tools via HTTP/SSE transport.
+//! Exposes `AuroraView` capabilities as standard MCP tools via HTTP/SSE transport.
 //! Uses `rmcp` crate with `StreamableHttpService` for HTTP-based MCP communication.
 
 use rmcp::{handler::server::wrapper::Parameters, schemars::JsonSchema, tool, tool_router};
@@ -144,10 +144,6 @@ pub struct SetIgnoreCertificateErrorsParams {
     /// If `true`, ignore all SSL certificate errors (DEV ONLY).
     pub ignore: bool,
 }
-
-// ---------------------------------------------------------------------------
-// McpServer — rmcp ServerHandler implementation
-// ---------------------------------------------------------------------------
 
 /// MCP Server that bridges rmcp protocol to a running AuroraView CDP endpoint.
 ///
