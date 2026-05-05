@@ -507,7 +507,7 @@ fn generate_storage_api() -> String {
             }
         }
     };
-"#.to_string()
+".to_string()
 }
 
 fn generate_tabs_api() -> String {
@@ -559,14 +559,15 @@ fn generate_tabs_api() -> String {
                 const idx = this._listeners.indexOf(callback);
                 if (idx >= 0) this._listeners.splice(idx, 1);
             }
+               }
         }
     };
-"#
+    "
     .to_string()
 }
 
 fn generate_side_panel_api() -> String {
-    r#"
+    r"
     // chrome.sidePanel API
     const sidePanel = {
         open: async function(options) {
@@ -588,12 +589,12 @@ fn generate_side_panel_api() -> String {
             return await callNative('sidePanel', 'getPanelBehavior', {});
         }
     };
-"#
+    "
     .to_string()
 }
 
 fn generate_scripting_api() -> String {
-    r#"
+    r"
     // chrome.scripting API
     const scripting = {
         executeScript: async function(injection) {
@@ -615,7 +616,7 @@ fn generate_scripting_api() -> String {
             return await callNative('scripting', 'getRegisteredContentScripts', filter || {});
         }
     };
-"#
+    "
     .to_string()
 }
 
