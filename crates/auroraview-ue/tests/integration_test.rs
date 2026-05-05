@@ -201,3 +201,67 @@ fn ue_error_display() {
     let err4 = auroraview_ue::UeError::ObjectCollected;
     assert_eq!(err4.to_string(), "UE object was garbage collected");
 }
+
+// ---------------------------------------------------------------------------
+// UeBlueprintNode tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn blueprint_node_creation() {
+    let node = auroraview_ue::UeBlueprintNode::new("node_1", "Print String");
+    assert_eq!(node.id, "node_1");
+    assert_eq!(node.title, "Print String");
+    assert!(node.inputs.is_empty());
+    assert!(node.outputs.is_empty());
+    assert!(node.connections.is_empty());
+}
+
+#[test]
+fn blueprint_node_add_pins() {
+    let mut node = auroraview_ue::UeBlueprintNode::new("node_2", "Add Numbers");
+    node.add_input("A", "float");
+    node.add_input("B", "float");
+    node.add_output("Result", "float");
+    
+    assert_eq!(node.inputs.len(), 2);
+    assert_eq!(node.outputs.len(), 1);
+    assert_eq!(node.inputs[0], ("A".to_string(), "float".to_string()));
+    assert_eq!(node.outputs[0], ("Result".to_string(), "float".to_string()));
+}
+
+#[test]
+fn blueprint_node_connect() {
+    let mut node1 = auroraview_ue::UeBlueprintNode::new("node_1", "Output");
+    let mut node2 = auroraview_ue::UeBlueprintNode::new("node_2", "Print");
+    
+    node1.connect_to("node_2");
+    assert_eq!(node1.connections.len(), 1);
+    assert_eq!(node1.connections[0], "node_2");
+}
+
+#[test]
+fn blueprint_node_to_json() {
+    let mut node = auroraview_ue::UeBlueprintNode::new("node_1", "Test Node");
+    node.add_input("Input1", "string");
+    node.add_output("Output1", "bool");
+    node.connect_to("node_2");
+    
+    let json = node.to_json();
+    assert_eq!(json["id"], "node_1");
+    assert_eq!(json["title"], "Test Node");
+    assert_eq!(json["inputs"][0][0], "Input1");
+    assert_eq!(json["outputs"][0][0], "Output1");
+    assert_eq!(json["connections"][0], "node_2");
+}
+
+#[test]
+fn blueprint_error_display() {
+    let err1 = auroraview_ue::UeBlueprintError::NodeNotFound("node_99".into());
+    assert!(err1.to_string().contains("node_99"));
+    
+    let err2 = auroraview_ue::UeBlueprintError::InvalidPinType("void".into());
+    assert!(err2.to_string().contains("void"));
+    
+    let err3 = auroraview_ue::UeBlueprintError::CompilationFailed("syntax error".into());
+    assert!(err3.to_string().contains("syntax error"));
+}

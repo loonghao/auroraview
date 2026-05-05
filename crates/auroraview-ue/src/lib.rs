@@ -441,3 +441,89 @@ mod tests {
         assert!(display.contains("SlateWidget"));
     }
 }
+
+// ---------------------------------------------------------------------------
+// UE Blueprint Node Support (Placeholder Implementation)
+// ---------------------------------------------------------------------------
+
+/// UE Blueprint node wrapper.
+///
+/// Represents a node in UE's Blueprint visual scripting system.
+/// This is a placeholder implementation — real implementation would
+/// interface with UE's `FKismetCompilerContext` or Python API.
+#[derive(Debug, Clone)]
+pub struct UeBlueprintNode {
+    /// Node identifier (matches UE's internal node ID).
+    pub id: String,
+    /// Human-readable node title.
+    pub title: String,
+    /// Input pins (name → type).
+    pub inputs: Vec<(String, String)>,
+    /// Output pins (name → type).
+    pub outputs: Vec<(String, String)>,
+    /// Connections to other nodes.
+    pub connections: Vec<String>,
+}
+
+impl UeBlueprintNode {
+    /// Create a new Blueprint node.
+    #[must_use]
+    pub fn new(id: impl Into<String>, title: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            title: title.into(),
+            inputs: Vec::new(),
+            outputs: Vec::new(),
+            connections: Vec::new(),
+        }
+    }
+
+    /// Add an input pin.
+    pub fn add_input(&mut self, name: impl Into<String>, type_name: impl Into<String>) {
+        self.inputs.push((name.into(), type_name.into()));
+    }
+
+    /// Add an output pin.
+    pub fn add_output(&mut self, name: impl Into<String>, type_name: impl Into<String>) {
+        self.outputs.push((name.into(), type_name.into()));
+    }
+
+    /// Connect this node to another node.
+    pub fn connect_to(&mut self, node_id: impl Into<String>) {
+        self.connections.push(node_id.into());
+    }
+
+    /// Get the node as JSON (for frontend/serialization).
+    pub fn to_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "id": self.id,
+            "title": self.title,
+            "inputs": self.inputs,
+            "outputs": self.outputs,
+            "connections": self.connections,
+        })
+    }
+}
+
+/// Errors that can occur in Blueprint node operations.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum UeBlueprintError {
+    /// Node with given ID not found.
+    NodeNotFound(String),
+    /// Invalid pin type.
+    InvalidPinType(String),
+    /// Compilation failed.
+    CompilationFailed(String),
+}
+
+impl std::fmt::Display for UeBlueprintError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NodeNotFound(id) => write!(f, "Blueprint node not found: {id}"),
+            Self::InvalidPinType(t) => write!(f, "invalid pin type: {t}"),
+            Self::CompilationFailed(msg) => write!(f, "compilation failed: {msg}"),
+        }
+    }
+}
+
+impl std::error::Error for UeBlueprintError {}
