@@ -1,4 +1,4 @@
-//! Minimal async CDP (Chrome DevTools Protocol) client for the [`AuroraView`] adapter.
+//! Minimal async CDP (`Chrome DevTools Protocol`) client for the [`AuroraView`] adapter.
 //!
 //! Only implements the handful of commands the adapter skeleton needs:
 //!
@@ -98,6 +98,13 @@ impl CdpClient {
     ///
     /// Performs `GET /json/version` to discover the browser-level WebSocket
     /// debugger URL, then opens a WebSocket to it.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if:
+    /// - HTTP request to `/json/version` fails ([`CdpError::Http`])
+    /// - WebSocket handshake fails ([`CdpError::WebSocket`])
+    /// - JSON response is malformed ([`CdpError::Json`])
     #[tracing::instrument(fields(%http_endpoint))]
     pub async fn connect(http_endpoint: &str) -> Result<Self, CdpError> {
         let url = format!("{}/json/version", http_endpoint.trim_end_matches('/'));
@@ -121,6 +128,16 @@ impl CdpClient {
     ///
     /// Any events received while waiting are dropped — the skeleton adapter
     /// is request/response only.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if:
+    /// - WebSocket send fails ([`CdpError::WebSocket`])
+    /// - Connection is closed before response ([`CdpError::ConnectionClosed`])
+    /// - Response times out ([`CdpError::Timeout`])
+    /// - JSON parsing fails ([`CdpError::Json`])
+    /// - CDP returns an error ([`CdpError::Remote`])
+    /// - Response is malformed ([`CdpError::MalformedResponse`])
     #[tracing::instrument(skip(self, params), fields(method = %method))]
     pub async fn call(
         &self,
@@ -169,6 +186,7 @@ impl CdpClient {
 
             let text = match msg {
                 Message::Text(t) => t,
+                #[allow(clippy::needless_continue)]
                 Message::Binary(_) | Message::Ping(_) | Message::Pong(_) | Message::Frame(_) => {
                     continue
                 }
@@ -218,7 +236,8 @@ impl CdpClient {
     ///
     /// # Errors
     ///
-    /// Returns `CdpError` if all retries are exhausted.
+    /// Returns [`CdpError`] if all retries are exhausted.
+    /// The error is the last [`CdpError`] encountered.
     #[tracing::instrument(skip(self, params), fields(method = %method, max_retries = %max_retries))]
     pub async fn call_with_retry(
         &self,
@@ -266,6 +285,10 @@ impl CdpClient {
     }
 
     /// `Browser.getVersion` — lightweight liveness probe.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if the CDP call fails (see [`Self::call_with_retry`] for details).
     #[tracing::instrument(skip(self, timeout), fields(timeout_ms = ?timeout.as_millis()))]
     pub async fn get_version(&self, timeout: Duration) -> Result<BrowserVersion, CdpError> {
         // Use retry logic for this idempotent probe
@@ -295,6 +318,13 @@ impl CdpClient {
     ///
     /// `format` is passed straight through (`"png"` / `"jpeg"` / `"webp"`).
     /// Callers are expected to pre-validate it.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if:
+    /// - CDP call fails ([`CdpError::WebSocket`], [`CdpError::Timeout`], etc.)
+    /// - Response is malformed ([`CdpError::MalformedResponse`])
+    /// - Base64 decoding fails ([`CdpError::Base64`])
     #[tracing::instrument(skip(self, timeout), fields(%format, timeout_ms = ?timeout.as_millis()))]
     pub async fn capture_screenshot(
         &self,
@@ -324,6 +354,10 @@ impl CdpClient {
     /// `Runtime.evaluate` — execute JavaScript and return the result.
     ///
     /// Returns the JSON value of the expression result.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if the CDP call fails or the response is malformed.
     #[tracing::instrument(skip(self, timeout), fields(script_len = script.len(), timeout_ms = ?timeout.as_millis()))]
     pub async fn evaluate_script(
         &self,
@@ -344,7 +378,7 @@ impl CdpClient {
         Ok(value)
     }
 
-    /// `Page.navigate` — navigate the WebView to a URL.
+    /// `Page.navigate` — navigate the `WebView` to a URL.
     #[tracing::instrument(skip(self, timeout), fields(%url, timeout_ms = ?timeout.as_millis()))]
     pub async fn navigate_to(&self, url: &str, timeout: Duration) -> Result<(), CdpError> {
         let params = json!({ "url": url });
@@ -353,6 +387,10 @@ impl CdpClient {
     }
 
     /// `Page.reload` — reload the current page.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if the CDP call fails.
     #[tracing::instrument(skip(self, timeout), fields(timeout_ms = ?timeout.as_millis()))]
     pub async fn reload(&self, timeout: Duration) -> Result<(), CdpError> {
         let params = json!({ "ignoreCache": false });
@@ -363,6 +401,13 @@ impl CdpClient {
     /// `Page.printToPDF` — generate a PDF of the current page.
     ///
     /// Returns the PDF as raw bytes (already decoded from base64).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if:
+    /// - CDP call fails ([`CdpError::WebSocket`], [`CdpError::Timeout`], etc.)
+    /// - Response is malformed ([`CdpError::MalformedResponse`])
+    /// - Base64 decoding fails ([`CdpError::Base64`])
     #[tracing::instrument(skip(self, timeout), fields(timeout_ms = ?timeout.as_millis()))]
     pub async fn print_to_pdf(
         &self,

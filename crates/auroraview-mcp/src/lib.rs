@@ -1,15 +1,15 @@
-//! AuroraView MCP Server - exposes AuroraView as a standard MCP server.
+//! `AuroraView` MCP Server - exposes `AuroraView` as a standard MCP server.
 //!
 //! # Features
 //!
-//! - `screenshot` - Capture WebView screenshot
-//! - `eval_js` - Evaluate JavaScript in WebView context
-//! - `load_url` - Navigate WebView to URL
-//! - `send_event` - Send event to WebView
-//! - `get_hwnd` - Get WebView window handle
-//! - `list_webviews` - List all WebView instances
-//! - `create_webview` - Create new WebView
-//! - `close_webview` - Close WebView
+//! - `screenshot` - Capture `WebView` screenshot
+//! - `eval_js` - Evaluate JavaScript in `WebView` context
+//! - `load_url` - Navigate `WebView` to URL
+//! - `send_event` - Send event to `WebView`
+//! - `get_hwnd` - Get `WebView` window handle
+//! - `list_webviews` - List all `WebView` instances
+//! - `create_webview` - Create new `WebView`
+//! - `close_webview` - Close `WebView`
 //!
 //! # Transport
 //!

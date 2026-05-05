@@ -7,7 +7,7 @@ use thiserror::Error;
 /// These errors are returned by `McpServer` and `McpRunner` methods.
 #[derive(Debug, Error)]
 pub enum McpError {
-    /// WebView instance with the given ID was not found.
+    /// `WebView` instance with the given ID was not found.
     #[error("WebView not found: {0}")]
     WebViewNotFound(String),
 
@@ -31,7 +31,7 @@ pub enum McpError {
     #[error("mDNS broadcast error: {0}")]
     MdnsBroadcast(String),
 
-    /// WebView registry has reached its capacity limit.
+    /// `WebView` registry has reached its capacity limit.
     #[error("WebView registry capacity exceeded: max {0} instances")]
     CapacityExceeded(usize),
 
