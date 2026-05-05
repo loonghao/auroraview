@@ -162,9 +162,9 @@ impl std::fmt::Display for UeEmbedMode {
 #[derive(Debug, Clone)]
 pub struct UeWebViewConfig {
     /// Initial size (width, height).
-        pub initial_size: (u32, u32),
-        /// Embed mode.
-        pub embed_mode: UeEmbedMode,
+    pub initial_size: (u32, u32),
+    /// Embed mode.
+    pub embed_mode: UeEmbedMode,
     /// Enable developer tools.
     pub dev_tools: bool,
     /// JavaScript to execute on load.
@@ -512,19 +512,19 @@ impl UeBlueprintNode {
     /// Remove an input pin by name.
     pub fn remove_input(&mut self, name: impl Into<String>) {
         let name = name.into();
-        self.inputs.retain(|(n, _)| n!= &name);
+        self.inputs.retain(|(n, _)| n != &name);
     }
 
     /// Remove an output pin by name.
     pub fn remove_output(&mut self, name: impl Into<String>) {
         let name = name.into();
-        self.outputs.retain(|(n, _)| n!= &name);
+        self.outputs.retain(|(n, _)| n != &name);
     }
 
     /// Remove a connection to another node.
     pub fn remove_connection(&mut self, node_id: impl Into<String>) {
         let node_id = node_id.into();
-        self.connections.retain(|c| c!= &node_id);
+        self.connections.retain(|c| c != &node_id);
     }
 
     /// Clear all input pins.

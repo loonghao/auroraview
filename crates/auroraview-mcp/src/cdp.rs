@@ -157,10 +157,14 @@ impl CdpClient {
             "method": method,
             "params": params,
         });
-        inner.ws.send(Message::Text(request.to_string())).await.map_err(|e| {
-            tracing::warn!(%method, error = %e, "CDP send failed");
-            e
-        })?;
+        inner
+            .ws
+            .send(Message::Text(request.to_string()))
+            .await
+            .map_err(|e| {
+                tracing::warn!(%method, error = %e, "CDP send failed");
+                e
+            })?;
 
         let deadline = tokio::time::Instant::now() + timeout;
         loop {
@@ -214,13 +218,10 @@ impl CdpClient {
                         );
                         return Err(CdpError::Remote(method.to_string(), error_json));
                     }
-                    let result = value
-                        .get("result")
-                        .cloned()
-                        .ok_or_else(|| {
-                            tracing::warn!(%method, "CDP response missing 'result' field");
-                            CdpError::MalformedResponse(method.to_string(), "result")
-                        })?;
+                    let result = value.get("result").cloned().ok_or_else(|| {
+                        tracing::warn!(%method, "CDP response missing 'result' field");
+                        CdpError::MalformedResponse(method.to_string(), "result")
+                    })?;
                     tracing::debug!(%method, %id, "CDP call succeeded");
                     return Ok(result);
                 }
@@ -293,14 +294,16 @@ impl CdpClient {
     #[tracing::instrument(skip(self, timeout), fields(timeout_ms = ?timeout.as_millis()))]
     pub async fn get_version(&self, timeout: Duration) -> Result<BrowserVersion, CdpError> {
         // Use retry logic for this idempotent probe
-        let result = self.call_with_retry(
-            "Browser.getVersion",
-            json!({}),
-            timeout,
-            3, // max_retries
-            Duration::from_millis(100), // initial_delay
-            Duration::from_secs(5), // max_delay
-        ).await?;
+        let result = self
+            .call_with_retry(
+                "Browser.getVersion",
+                json!({}),
+                timeout,
+                3,                          // max_retries
+                Duration::from_millis(100), // initial_delay
+                Duration::from_secs(5),     // max_delay
+            )
+            .await?;
         Ok(BrowserVersion {
             product: result
                 .get("product")
@@ -338,13 +341,14 @@ impl CdpClient {
             "fromSurface": true,
         });
         let result = self.call("Page.captureScreenshot", params, timeout).await?;
-        let data_b64 = result
-            .get("data")
-            .and_then(Value::as_str)
-            .ok_or(CdpError::MalformedResponse(
-                "Page.captureScreenshot".to_string(),
-                "data",
-            ))?;
+        let data_b64 =
+            result
+                .get("data")
+                .and_then(Value::as_str)
+                .ok_or(CdpError::MalformedResponse(
+                    "Page.captureScreenshot".to_string(),
+                    "data",
+                ))?;
         let bytes = <base64::engine::general_purpose::GeneralPurpose as base64::Engine>::decode(
             &base64::engine::general_purpose::STANDARD,
             data_b64,
@@ -414,22 +418,16 @@ impl CdpClient {
     /// - Response is malformed ([`CdpError::MalformedResponse`])
     /// - Base64 decoding fails ([`CdpError::Base64`])
     #[tracing::instrument(skip(self, timeout), fields(timeout_ms = ?timeout.as_millis()))]
-    pub async fn print_to_pdf(
-        &self,
-        timeout: Duration,
-    ) -> Result<Vec<u8>, CdpError> {
+    pub async fn print_to_pdf(&self, timeout: Duration) -> Result<Vec<u8>, CdpError> {
         let params = json!({
             "printBackground": true,
             "preferCSSPageSize": true,
         });
         let result = self.call("Page.printToPDF", params, timeout).await?;
-        let data_b64 = result
-            .get("data")
-            .and_then(Value::as_str)
-            .ok_or_else(|| {
-                tracing::warn!("Page.printToPDF response missing 'data' field");
-                CdpError::MalformedResponse("Page.printToPDF".to_string(), "data")
-            })?;
+        let data_b64 = result.get("data").and_then(Value::as_str).ok_or_else(|| {
+            tracing::warn!("Page.printToPDF response missing 'data' field");
+            CdpError::MalformedResponse("Page.printToPDF".to_string(), "data")
+        })?;
         let bytes = <base64::engine::general_purpose::GeneralPurpose as base64::Engine>::decode(
             &base64::engine::general_purpose::STANDARD,
             data_b64,
@@ -471,14 +469,16 @@ impl CdpClient {
     /// Returns [`CdpError`] if the CDP call fails or the response is malformed.
     pub async fn get_document(&self, timeout: Duration) -> Result<Value, CdpError> {
         // Use retry logic for this idempotent method
-        let result = self.call_with_retry(
-            "DOM.getDocument",
-            json!({}),
-            timeout,
-            3,
-            Duration::from_millis(100),
-            Duration::from_secs(5),
-        ).await?;
+        let result = self
+            .call_with_retry(
+                "DOM.getDocument",
+                json!({}),
+                timeout,
+                3,
+                Duration::from_millis(100),
+                Duration::from_secs(5),
+            )
+            .await?;
         tracing::debug!(?result, "DOM.getDocument succeeded");
         Ok(result)
     }
@@ -498,14 +498,16 @@ impl CdpClient {
     ) -> Result<Value, CdpError> {
         let params = json!({"nodeId": node_id});
         // Use retry logic for this idempotent method
-        let result = self.call_with_retry(
-            "CSS.getStylesForNode",
-            params,
-            timeout,
-            3,
-            Duration::from_millis(100),
-            Duration::from_secs(5),
-        ).await?;
+        let result = self
+            .call_with_retry(
+                "CSS.getStylesForNode",
+                params,
+                timeout,
+                3,
+                Duration::from_millis(100),
+                Duration::from_secs(5),
+            )
+            .await?;
         tracing::debug!(?node_id, ?result, "CSS.getStylesForNode succeeded");
         Ok(result)
     }
@@ -530,14 +532,16 @@ impl CdpClient {
             "selector": selector,
         });
         // Use retry logic for this idempotent method
-        let result = self.call_with_retry(
-            "DOM.querySelector",
-            params,
-            timeout,
-            3,
-            Duration::from_millis(100),
-            Duration::from_secs(5),
-        ).await?;
+        let result = self
+            .call_with_retry(
+                "DOM.querySelector",
+                params,
+                timeout,
+                3,
+                Duration::from_millis(100),
+                Duration::from_secs(5),
+            )
+            .await?;
         let found_node_id = result
             .get("nodeId")
             .and_then(Value::as_i64)
@@ -566,14 +570,16 @@ impl CdpClient {
             "selector": selector,
         });
         // Use retry logic for this idempotent method
-        let result = self.call_with_retry(
-            "DOM.querySelectorAll",
-            params,
-            timeout,
-            3,
-            Duration::from_millis(100),
-            Duration::from_secs(5),
-        ).await?;
+        let result = self
+            .call_with_retry(
+                "DOM.querySelectorAll",
+                params,
+                timeout,
+                3,
+                Duration::from_millis(100),
+                Duration::from_secs(5),
+            )
+            .await?;
         let node_ids: Vec<i64> = result
             .get("nodeIds")
             .and_then(Value::as_array)
@@ -600,23 +606,32 @@ impl CdpClient {
     ) -> Result<String, CdpError> {
         let params = json!({"nodeId": node_id});
         // Use retry logic for this idempotent method
-        let result = self.call_with_retry(
-            "DOM.getOuterHTML",
-            params,
-            timeout,
-            3,
-            Duration::from_millis(100),
-            Duration::from_secs(5),
-        ).await?;
+        let result = self
+            .call_with_retry(
+                "DOM.getOuterHTML",
+                params,
+                timeout,
+                3,
+                Duration::from_millis(100),
+                Duration::from_secs(5),
+            )
+            .await?;
         let html = result
             .get("outerHTML")
             .and_then(Value::as_str)
             .ok_or_else(|| {
-                tracing::warn!(?node_id, "DOM.getOuterHTML response missing 'outerHTML' field");
+                tracing::warn!(
+                    ?node_id,
+                    "DOM.getOuterHTML response missing 'outerHTML' field"
+                );
                 CdpError::MalformedResponse("DOM.getOuterHTML".to_string(), "outerHTML")
             })?
             .to_owned();
-        tracing::debug!(?node_id, html_len = html.len(), "DOM.getOuterHTML succeeded");
+        tracing::debug!(
+            ?node_id,
+            html_len = html.len(),
+            "DOM.getOuterHTML succeeded"
+        );
         Ok(html)
     }
 
@@ -635,19 +650,24 @@ impl CdpClient {
     ) -> Result<std::collections::HashMap<String, String>, CdpError> {
         let params = json!({"nodeId": node_id});
         // Use retry logic for this idempotent method
-        let result = self.call_with_retry(
-            "DOM.getAttributes",
-            params,
-            timeout,
-            3,
-            Duration::from_millis(100),
-            Duration::from_secs(5),
-        ).await?;
+        let result = self
+            .call_with_retry(
+                "DOM.getAttributes",
+                params,
+                timeout,
+                3,
+                Duration::from_millis(100),
+                Duration::from_secs(5),
+            )
+            .await?;
         let attrs_array = result
             .get("attributes")
             .and_then(Value::as_array)
             .ok_or_else(|| {
-                tracing::warn!(?node_id, "DOM.getAttributes response missing 'attributes' field");
+                tracing::warn!(
+                    ?node_id,
+                    "DOM.getAttributes response missing 'attributes' field"
+                );
                 CdpError::MalformedResponse("DOM.getAttributes".to_string(), "attributes")
             })?;
 
@@ -655,7 +675,9 @@ impl CdpClient {
         let mut attrs = std::collections::HashMap::new();
         let mut i = 0;
         while i + 1 < attrs_array.len() {
-            if let (Some(name), Some(value)) = (attrs_array[i].as_str(), attrs_array[i + 1].as_str()) {
+            if let (Some(name), Some(value)) =
+                (attrs_array[i].as_str(), attrs_array[i + 1].as_str())
+            {
                 attrs.insert(name.to_owned(), value.to_owned());
             }
             i += 2;
@@ -705,20 +727,26 @@ impl CdpClient {
             "ownProperties": true,
         });
         // Use retry logic for this idempotent method
-        let result = self.call_with_retry(
-            "Runtime.getProperties",
-            params,
-            timeout,
-            3,
-            Duration::from_millis(100),
-            Duration::from_secs(5),
-        ).await?;
+        let result = self
+            .call_with_retry(
+                "Runtime.getProperties",
+                params,
+                timeout,
+                3,
+                Duration::from_millis(100),
+                Duration::from_secs(5),
+            )
+            .await?;
         let props = result
             .get("result")
             .and_then(Value::as_array)
             .cloned()
             .unwrap_or_default();
-        tracing::debug!(?object_id, count = props.len(), "Runtime.getProperties succeeded");
+        tracing::debug!(
+            ?object_id,
+            count = props.len(),
+            "Runtime.getProperties succeeded"
+        );
         Ok(props)
     }
 
@@ -740,21 +768,23 @@ impl CdpClient {
     ) -> Result<Vec<u8>, CdpError> {
         let params = json!({"requestId": request_id});
         // Use retry logic for this idempotent method
-        let result = self.call_with_retry(
-            "Network.getResponseBody",
-            params,
-            timeout,
-            3,
-            Duration::from_millis(100),
-            Duration::from_secs(5),
-        ).await?;
-        let body = result
-            .get("body")
-            .and_then(Value::as_str)
-            .ok_or_else(|| {
-                tracing::warn!(?request_id, "Network.getResponseBody response missing 'body' field");
-                CdpError::MalformedResponse("Network.getResponseBody".to_string(), "body")
-            })?;
+        let result = self
+            .call_with_retry(
+                "Network.getResponseBody",
+                params,
+                timeout,
+                3,
+                Duration::from_millis(100),
+                Duration::from_secs(5),
+            )
+            .await?;
+        let body = result.get("body").and_then(Value::as_str).ok_or_else(|| {
+            tracing::warn!(
+                ?request_id,
+                "Network.getResponseBody response missing 'body' field"
+            );
+            CdpError::MalformedResponse("Network.getResponseBody".to_string(), "body")
+        })?;
         let is_base64 = result
             .get("base64Encoded")
             .and_then(Value::as_bool)
@@ -768,7 +798,11 @@ impl CdpClient {
         } else {
             body.as_bytes().to_vec()
         };
-        tracing::debug!(?request_id, size = bytes.len(), "Network.getResponseBody succeeded");
+        tracing::debug!(
+            ?request_id,
+            size = bytes.len(),
+            "Network.getResponseBody succeeded"
+        );
         Ok(bytes)
     }
 
@@ -853,7 +887,11 @@ impl CdpClient {
             .and_then(|v| v.get("value"))
             .cloned()
             .unwrap_or(serde_json::Value::Null);
-        tracing::debug!(?object_id, ?function_declaration, "Runtime.callFunctionOn succeeded");
+        tracing::debug!(
+            ?object_id,
+            ?function_declaration,
+            "Runtime.callFunctionOn succeeded"
+        );
         Ok(value)
     }
 
@@ -863,7 +901,8 @@ impl CdpClient {
     ///
     /// Returns [`CdpError`] if the CDP call fails.
     pub async fn clear_browser_cache(&self, timeout: Duration) -> Result<(), CdpError> {
-        self.call("Network.clearBrowserCache", json!({}), timeout).await?;
+        self.call("Network.clearBrowserCache", json!({}), timeout)
+            .await?;
         tracing::debug!("Network.clearBrowserCache succeeded");
         Ok(())
     }
@@ -882,7 +921,8 @@ impl CdpClient {
         timeout: Duration,
     ) -> Result<(), CdpError> {
         let params = json!({ "cacheDisabled": disabled });
-        self.call("Network.setCacheDisabled", params, timeout).await?;
+        self.call("Network.setCacheDisabled", params, timeout)
+            .await?;
         tracing::debug!(%disabled, "Network.setCacheDisabled succeeded");
         Ok(())
     }
@@ -909,7 +949,8 @@ impl CdpClient {
         if let Some(path) = download_path {
             params["downloadPath"] = serde_json::json!(path);
         }
-        self.call("Page.setDownloadBehavior", params, timeout).await?;
+        self.call("Page.setDownloadBehavior", params, timeout)
+            .await?;
         tracing::debug!(%behavior, ?download_path, "Page.setDownloadBehavior succeeded");
         Ok(())
     }
@@ -936,7 +977,8 @@ impl CdpClient {
             "deviceScaleFactor": device_scale_factor,
             "mobile": mobile,
         });
-        self.call("Emulation.setDeviceMetricsOverride", params, timeout).await?;
+        self.call("Emulation.setDeviceMetricsOverride", params, timeout)
+            .await?;
         tracing::debug!(%width, %height, %device_scale_factor, %mobile, "Emulation.setDeviceMetricsOverride succeeded");
         Ok(())
     }
@@ -955,7 +997,8 @@ impl CdpClient {
         timeout: Duration,
     ) -> Result<(), CdpError> {
         let params = json!({ "ignore": ignore });
-        self.call("Security.setIgnoreCertificateErrors", params, timeout).await?;
+        self.call("Security.setIgnoreCertificateErrors", params, timeout)
+            .await?;
         tracing::debug!(%ignore, "Security.setIgnoreCertificateErrors succeeded");
         Ok(())
     }

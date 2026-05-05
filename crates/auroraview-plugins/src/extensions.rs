@@ -937,10 +937,7 @@ impl ExtensionsPlugin {
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
                     .to_string();
-                let alarm_info = params
-                    .get("alarmInfo")
-                    .cloned()
-                    .unwrap_or(params.clone());
+                let alarm_info = params.get("alarmInfo").cloned().unwrap_or(params.clone());
 
                 let delay_in_minutes = alarm_info
                     .get("delayInMinutes")
@@ -971,15 +968,9 @@ impl ExtensionsPlugin {
                 Ok(serde_json::json!({}))
             }
             "get" => {
-                let name = params
-                    .get("name")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
+                let name = params.get("name").and_then(|v| v.as_str()).unwrap_or("");
                 let state = self.state.read();
-                let alarm = state
-                    .alarms
-                    .get(extension_id)
-                    .and_then(|a| a.get(name));
+                let alarm = state.alarms.get(extension_id).and_then(|a| a.get(name));
                 serde_json::to_value(alarm).map_err(PluginError::serialization_error)
             }
             "getAll" => {
@@ -992,10 +983,7 @@ impl ExtensionsPlugin {
                 serde_json::to_value(alarms).map_err(PluginError::serialization_error)
             }
             "clear" => {
-                let name = params
-                    .get("name")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
+                let name = params.get("name").and_then(|v| v.as_str()).unwrap_or("");
                 let mut state = self.state.write();
                 let cleared = if name.is_empty() {
                     // Clear all alarms
@@ -1184,7 +1172,10 @@ impl ExtensionsPlugin {
 
                 let menu_item = MenuItemInfo {
                     id: id.clone(),
-                    title: params.get("title").and_then(|v| v.as_str()).map(String::from),
+                    title: params
+                        .get("title")
+                        .and_then(|v| v.as_str())
+                        .map(String::from),
                     item_type: params
                         .get("type")
                         .and_then(|v| v.as_str())
@@ -1194,9 +1185,18 @@ impl ExtensionsPlugin {
                         .get("contexts")
                         .and_then(|v| serde_json::from_value(v.clone()).ok())
                         .unwrap_or_else(|| vec!["page".to_string()]),
-                    parent_id: params.get("parentId").and_then(|v| v.as_str()).map(String::from),
-                    enabled: params.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true),
-                    visible: params.get("visible").and_then(|v| v.as_bool()).unwrap_or(true),
+                    parent_id: params
+                        .get("parentId")
+                        .and_then(|v| v.as_str())
+                        .map(String::from),
+                    enabled: params
+                        .get("enabled")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(true),
+                    visible: params
+                        .get("visible")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(true),
                 };
 
                 let mut state = self.state.write();
@@ -1407,7 +1407,7 @@ impl ExtensionsPlugin {
                      This requires opening an external browser window for OAuth redirects. \
                      Workaround: extensions can open the auth URL in a new WebView window \
                      and intercept the redirect URL manually. \
-                     Track progress at: https://github.com/loonghao/auroraview/issues"
+                     Track progress at: https://github.com/loonghao/auroraview/issues",
                 ))
             }
             "getRedirectURL" => {
@@ -1830,7 +1830,8 @@ impl PluginHandler for ExtensionsPlugin {
 
                 // Attempt to load _locales messages from extension directory
                 let messages = if !extension_path.is_empty() {
-                    let locales_path = PathBuf::from(&extension_path).join("_locales/en/messages.json");
+                    let locales_path =
+                        PathBuf::from(&extension_path).join("_locales/en/messages.json");
                     if locales_path.exists() {
                         std::fs::read_to_string(&locales_path)
                             .ok()
@@ -1897,7 +1898,9 @@ impl PluginHandler for ExtensionsPlugin {
                 };
 
                 match view_manager.create_view(config) {
-                    Ok(info) => serde_json::to_value(info).map_err(PluginError::serialization_error),
+                    Ok(info) => {
+                        serde_json::to_value(info).map_err(PluginError::serialization_error)
+                    }
                     Err(e) => Err(PluginError::from_plugin("extensions", e)),
                 }
             }
@@ -1907,7 +1910,9 @@ impl PluginHandler for ExtensionsPlugin {
 
                 let view_manager = auroraview_extensions::ExtensionViewManager::global();
                 match view_manager.get_view(&req.view_id) {
-                    Some(info) => serde_json::to_value(info).map_err(PluginError::serialization_error),
+                    Some(info) => {
+                        serde_json::to_value(info).map_err(PluginError::serialization_error)
+                    }
                     None => Err(PluginError::invalid_args(format!(
                         "View not found: {}",
                         req.view_id
@@ -1983,7 +1988,9 @@ impl PluginHandler for ExtensionsPlugin {
 
                 let view_manager = auroraview_extensions::ExtensionViewManager::global();
                 match view_manager.get_cdp_info(&req.view_id) {
-                    Some(info) => serde_json::to_value(info).map_err(PluginError::serialization_error),
+                    Some(info) => {
+                        serde_json::to_value(info).map_err(PluginError::serialization_error)
+                    }
                     None => Err(PluginError::invalid_args(format!(
                         "View not found: {}",
                         req.view_id

@@ -130,11 +130,9 @@ fn bench_agui_event_to_sse_line(c: &mut Criterion) {
         ),
     ];
     for (name, event) in events {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(name),
-            &event,
-            |b, e| b.iter(|| black_box(e.to_sse_line())),
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(name), &event, |b, e| {
+            b.iter(|| black_box(e.to_sse_line()))
+        });
     }
     group.finish();
 }

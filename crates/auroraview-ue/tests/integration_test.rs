@@ -222,7 +222,7 @@ fn blueprint_node_add_pins() {
     node.add_input("A", "float");
     node.add_input("B", "float");
     node.add_output("Result", "float");
-    
+
     assert_eq!(node.inputs.len(), 2);
     assert_eq!(node.outputs.len(), 1);
     assert_eq!(node.inputs[0], ("A".to_string(), "float".to_string()));
@@ -244,7 +244,7 @@ fn blueprint_node_to_json() {
     node.add_input("Input1", "string");
     node.add_output("Output1", "bool");
     node.connect_to("node_2");
-    
+
     let json = node.to_json();
     assert_eq!(json["id"], "node_1");
     assert_eq!(json["title"], "Test Node");
@@ -257,10 +257,10 @@ fn blueprint_node_to_json() {
 fn blueprint_error_display() {
     let err1 = auroraview_ue::UeBlueprintError::NodeNotFound("node_99".into());
     assert!(err1.to_string().contains("node_99"));
-    
+
     let err2 = auroraview_ue::UeBlueprintError::InvalidPinType("void".into());
     assert!(err2.to_string().contains("void"));
-    
+
     let err3 = auroraview_ue::UeBlueprintError::CompilationFailed("syntax error".into());
     assert!(err3.to_string().contains("syntax error"));
 }
@@ -271,7 +271,7 @@ fn blueprint_node_remove_input() {
     node.add_input("Input1", "string");
     node.add_input("Input2", "float");
     assert_eq!(node.inputs.len(), 2);
-    
+
     node.remove_input("Input1");
     assert_eq!(node.inputs.len(), 1);
     assert_eq!(node.inputs[0], ("Input2".to_string(), "float".to_string()));
@@ -283,7 +283,7 @@ fn blueprint_node_remove_output() {
     node.add_output("Output1", "string");
     node.add_output("Output2", "bool");
     assert_eq!(node.outputs.len(), 2);
-    
+
     node.remove_output("Output1");
     assert_eq!(node.outputs.len(), 1);
     assert_eq!(node.outputs[0], ("Output2".to_string(), "bool".to_string()));
@@ -307,15 +307,15 @@ fn blueprint_node_clear() {
     node.add_output("C", "string");
     node.connect_to("node_x");
     node.connect_to("node_y");
-    
+
     assert!(!node.inputs.is_empty());
     assert!(!node.outputs.is_empty());
     assert!(!node.connections.is_empty());
-    
+
     node.clear_inputs();
     node.clear_outputs();
     node.clear_connections();
-    
+
     assert!(node.inputs.is_empty());
     assert!(node.outputs.is_empty());
     assert!(node.connections.is_empty());

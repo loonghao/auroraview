@@ -1,7 +1,7 @@
 // Tests for CdpClient (moved from cdp.rs to keep file under 1000 lines)
 // These are integration-style tests that verify JSON parsing logic.
 
-use auroraview_mcp::cdp::{CdpError, BrowserVersion};
+use auroraview_mcp::cdp::{BrowserVersion, CdpError};
 use serde_json;
 use std::time::Duration;
 
@@ -85,7 +85,11 @@ fn query_selector_all_returns_node_ids() {
         .get("result")
         .and_then(|r| r.get("nodeIds"))
         .and_then(serde_json::Value::as_array)
-        .map(|arr| arr.iter().filter_map(serde_json::Value::as_i64).collect::<Vec<_>>())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(serde_json::Value::as_i64)
+                .collect::<Vec<_>>()
+        })
         .unwrap_or_default();
     assert_eq!(node_ids, vec![1, 2, 3]);
 }
@@ -97,7 +101,11 @@ fn query_selector_all_returns_empty_vec() {
         .get("result")
         .and_then(|r| r.get("nodeIds"))
         .and_then(serde_json::Value::as_array)
-        .map(|arr| arr.iter().filter_map(serde_json::Value::as_i64).collect::<Vec<_>>())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(serde_json::Value::as_i64)
+                .collect::<Vec<_>>()
+        })
         .unwrap_or_default();
     assert!(node_ids.is_empty());
 }
@@ -197,10 +205,22 @@ fn get_response_body_returns_text() {
             "base64Encoded": false
         }
     });
-    let body = json.get("result").and_then(|r| r.get("body")).and_then(|v| v.as_str()).unwrap();
-    let is_base64 = json.get("result").and_then(|r| r.get("base64Encoded")).and_then(|v| v.as_bool()).unwrap_or(false);
+    let body = json
+        .get("result")
+        .and_then(|r| r.get("body"))
+        .and_then(|v| v.as_str())
+        .unwrap();
+    let is_base64 = json
+        .get("result")
+        .and_then(|r| r.get("base64Encoded"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     let bytes = if is_base64 {
-        <base64::engine::GeneralPurpose as base64::Engine>::decode(&base64::engine::general_purpose::STANDARD, body).unwrap()
+        <base64::engine::GeneralPurpose as base64::Engine>::decode(
+            &base64::engine::general_purpose::STANDARD,
+            body,
+        )
+        .unwrap()
     } else {
         body.as_bytes().to_vec()
     };
@@ -215,10 +235,22 @@ fn get_response_body_returns_base64() {
             "base64Encoded": true
         }
     });
-    let body = json.get("result").and_then(|r| r.get("body")).and_then(|v| v.as_str()).unwrap();
-    let is_base64 = json.get("result").and_then(|r| r.get("base64Encoded")).and_then(|v| v.as_bool()).unwrap_or(false);
+    let body = json
+        .get("result")
+        .and_then(|r| r.get("body"))
+        .and_then(|v| v.as_str())
+        .unwrap();
+    let is_base64 = json
+        .get("result")
+        .and_then(|r| r.get("base64Encoded"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     let bytes = if is_base64 {
-        <base64::engine::GeneralPurpose as base64::Engine>::decode(&base64::engine::general_purpose::STANDARD, body).unwrap()
+        <base64::engine::GeneralPurpose as base64::Engine>::decode(
+            &base64::engine::general_purpose::STANDARD,
+            body,
+        )
+        .unwrap()
     } else {
         body.as_bytes().to_vec()
     };

@@ -272,7 +272,10 @@ impl McpRunner {
         // Note: OnceCell doesn't have a clear() method, so we rely on
         // with_cdp_endpoint() to reset it when needed
 
-        info!(port = self.config.port, "AuroraView MCP Server fully stopped");
+        info!(
+            port = self.config.port,
+            "AuroraView MCP Server fully stopped"
+        );
     }
 
     /// Check if the server is currently running.

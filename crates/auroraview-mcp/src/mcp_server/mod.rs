@@ -401,10 +401,13 @@ impl McpServer {
         })?;
 
         // First, get the document root
-        let doc = client.get_document(DEFAULT_CDP_TIMEOUT).await.map_err(|e| {
-            warn!(error = %e, "get_document failed");
-            rmcp::ErrorData::internal_error(format!("get_document failed: {e}"), None)
-        })?;
+        let doc = client
+            .get_document(DEFAULT_CDP_TIMEOUT)
+            .await
+            .map_err(|e| {
+                warn!(error = %e, "get_document failed");
+                rmcp::ErrorData::internal_error(format!("get_document failed: {e}"), None)
+            })?;
         let root_id = doc
             .get("root")
             .and_then(|r| r.get("nodeId"))
@@ -439,7 +442,10 @@ impl McpServer {
             })?;
 
         debug!(selector = %params.selector, name = %params.name, "attribute set");
-        Ok(format!("Attribute '{}' set on '{}'", params.name, params.selector))
+        Ok(format!(
+            "Attribute '{}' set on '{}'",
+            params.name, params.selector
+        ))
     }
 
     /// Remove an attribute from a DOM element.
@@ -461,10 +467,13 @@ impl McpServer {
         })?;
 
         // First, get the document root
-        let doc = client.get_document(DEFAULT_CDP_TIMEOUT).await.map_err(|e| {
-            warn!(error = %e, "get_document failed");
-            rmcp::ErrorData::internal_error(format!("get_document failed: {e}"), None)
-        })?;
+        let doc = client
+            .get_document(DEFAULT_CDP_TIMEOUT)
+            .await
+            .map_err(|e| {
+                warn!(error = %e, "get_document failed");
+                rmcp::ErrorData::internal_error(format!("get_document failed: {e}"), None)
+            })?;
         let root_id = doc
             .get("root")
             .and_then(|r| r.get("nodeId"))
@@ -499,7 +508,10 @@ impl McpServer {
             })?;
 
         debug!(selector = %params.selector, name = %params.name, "attribute removed");
-        Ok(format!("Attribute '{}' removed from '{}'", params.name, params.selector))
+        Ok(format!(
+            "Attribute '{}' removed from '{}'",
+            params.name, params.selector
+        ))
     }
 
     /// Call a JavaScript function on an object.
@@ -534,7 +546,10 @@ impl McpServer {
             .and_then(Value::as_str)
             .ok_or_else(|| {
                 rmcp::ErrorData::invalid_params(
-                    format!("Expression did not return an object: '{}'", params.object_expr),
+                    format!(
+                        "Expression did not return an object: '{}'",
+                        params.object_expr
+                    ),
                     None,
                 )
             })?;
@@ -604,7 +619,11 @@ impl McpServer {
                 warn!(error = %e, "set_cache_disabled failed");
                 rmcp::ErrorData::internal_error(format!("set_cache_disabled failed: {e}"), None)
             })?;
-        let msg = if params.disabled { "Browser cache disabled" } else { "Browser cache enabled" };
+        let msg = if params.disabled {
+            "Browser cache disabled"
+        } else {
+            "Browser cache enabled"
+        };
         info!(%params.disabled, "Cache disabled/enabled");
         Ok(msg.to_owned())
     }
@@ -664,9 +683,16 @@ impl McpServer {
             .await
             .map_err(|e| {
                 warn!(error = %e, "set_device_metrics_override failed");
-                rmcp::ErrorData::internal_error(format!("set_device_metrics_override failed: {e}"), None)
+                rmcp::ErrorData::internal_error(
+                    format!("set_device_metrics_override failed: {e}"),
+                    None,
+                )
             })?;
-        info!(width = params.width, height = params.height, "Device metrics overridden");
+        info!(
+            width = params.width,
+            height = params.height,
+            "Device metrics overridden"
+        );
         Ok(format!(
             "Device metrics overridden: {}x{} @ {}x",
             params.width, params.height, params.device_scale_factor
@@ -688,7 +714,10 @@ impl McpServer {
             .await
             .map_err(|e| {
                 warn!(error = %e, "set_ignore_certificate_errors failed");
-                rmcp::ErrorData::internal_error(format!("set_ignore_certificate_errors failed: {e}"), None)
+                rmcp::ErrorData::internal_error(
+                    format!("set_ignore_certificate_errors failed: {e}"),
+                    None,
+                )
             })?;
         let msg = if params.ignore {
             "SSL certificate errors will be ignored (DEV ONLY)"
@@ -752,7 +781,10 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err();
         let msg = format!("{err}");
-        assert!(msg.contains("not yet implemented"), "Expected 'not yet implemented' in error: {msg}");
+        assert!(
+            msg.contains("not yet implemented"),
+            "Expected 'not yet implemented' in error: {msg}"
+        );
     }
 
     #[tokio::test]
@@ -763,7 +795,10 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err();
         let msg = format!("{err}");
-        assert!(msg.contains("not yet implemented"), "Expected 'not yet implemented' in error: {msg}");
+        assert!(
+            msg.contains("not yet implemented"),
+            "Expected 'not yet implemented' in error: {msg}"
+        );
     }
 
     #[tokio::test]
@@ -776,7 +811,10 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err();
         let msg = format!("{err}");
-        assert!(msg.contains("not yet implemented"), "Expected 'not yet implemented' in error: {msg}");
+        assert!(
+            msg.contains("not yet implemented"),
+            "Expected 'not yet implemented' in error: {msg}"
+        );
     }
 
     #[tokio::test]
@@ -789,7 +827,10 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err();
         let msg = format!("{err}");
-        assert!(msg.contains("not yet implemented"), "Expected 'not yet implemented' in error: {msg}");
+        assert!(
+            msg.contains("not yet implemented"),
+            "Expected 'not yet implemented' in error: {msg}"
+        );
     }
 
     // ---------------------------------------------------------------------------
@@ -860,8 +901,10 @@ mod tests {
 
     #[test]
     fn set_device_metrics_override_params() {
-        let p: SetDeviceMetricsOverrideParams =
-            serde_json::from_str(r#"{"width": 1920, "height": 1080, "device_scale_factor": 1.0, "mobile": false}"#).unwrap();
+        let p: SetDeviceMetricsOverrideParams = serde_json::from_str(
+            r#"{"width": 1920, "height": 1080, "device_scale_factor": 1.0, "mobile": false}"#,
+        )
+        .unwrap();
         assert_eq!(p.width, 1920);
         assert_eq!(p.height, 1080);
         assert_eq!(p.device_scale_factor, 1.0);

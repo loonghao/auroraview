@@ -100,10 +100,7 @@ impl std::fmt::Debug for CdpAuroraViewAdapter {
             .field("config", &self.config)
             .field("info", &self.info)
             .field("runtime", &self.runtime)
-            .field(
-                "connected",
-                &self.client.lock().is_ok_and(|g| g.is_some()),
-            )
+            .field("connected", &self.client.lock().is_ok_and(|g| g.is_some()))
             .finish()
     }
 }

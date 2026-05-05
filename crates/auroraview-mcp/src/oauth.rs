@@ -293,7 +293,9 @@ impl OAuthStore {
 /// Extract bearer token from Authorization header.
 #[must_use]
 pub fn extract_bearer_token(header: &str) -> Option<String> {
-    header.strip_prefix("Bearer ").map(std::string::ToString::to_string)
+    header
+        .strip_prefix("Bearer ")
+        .map(std::string::ToString::to_string)
 }
 
 #[cfg(test)]
