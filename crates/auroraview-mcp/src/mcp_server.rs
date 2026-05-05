@@ -217,6 +217,7 @@ impl McpServer {
     /// This allows dynamically changing the CDP endpoint (e.g., when a new
     /// WebView is created or the CDP port changes).
     /// The next `get_client()` call will establish a new connection.
+    #[must_use]
     pub fn with_cdp_endpoint(mut self, endpoint: String) -> Self {
         self.config.http_endpoint = endpoint;
         // Reset the cached client so next call reconnects
