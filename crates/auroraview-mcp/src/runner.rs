@@ -176,17 +176,17 @@ impl McpRunner {
         if let Some(oauth_store) = &self.oauth_store {
             let oauth_store = oauth_store.clone();
             router = router.merge(oauth_router(oauth_store));
-            info!("OAuth 2.0 endpoints enabled");
+            info!(oauth_enabled = true, "OAuth 2.0 endpoints enabled");
         }
 
-        info!("AuroraView MCP Server starting on http://{addr}");
+        info!(%addr, "AuroraView MCP Server starting");
 
         let tcp = tokio::net::TcpListener::bind(&addr)
             .await
             .map_err(McpError::Io)?;
 
         let elapsed = start_time.elapsed();
-        info!(?elapsed, "AuroraView MCP Server listening on http://{addr}");
+        info!(%addr, ?elapsed, "AuroraView MCP Server listening");
 
         tokio::spawn({
             let cancel = cancel.clone();
@@ -197,7 +197,7 @@ impl McpRunner {
                     cancel.cancel();
                 });
                 if let Err(e) = serve.await {
-                    warn!("MCP server error: {e}");
+                    warn!(error = %e, "MCP server error");
                 }
                 info!("AuroraView MCP Server exited");
             }
@@ -215,7 +215,7 @@ impl McpRunner {
         if let Some(broadcaster) = &self.broadcaster {
             broadcaster.stop().await;
         }
-        info!("AuroraView MCP Server stopped");
+        info!(port = self.config.port, "AuroraView MCP Server stopped");
     }
 
     /// Check if the server is currently running.

@@ -814,32 +814,19 @@ impl CdpClient {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use std::time::Duration;
-
     #[test]
-    fn call_with_retry_returns_ok_on_success() {
-        // This test verifies that `call_with_retry()` compiles correctly.
-        // Actual retry logic is tested via integration tests with a mock CDP server.
-        assert!(true);
-    }
-
-    #[test]
-    fn call_with_retry_respects_max_retries() {
-        // This test verifies that `call_with_retry()` respects `max_retries` parameter.
-        // Actual retry logic is tested via integration tests with a mock CDP server.
-        assert!(true);
-    }
-
-    #[test]
-    fn call_with_retry_uses_exponential_backoff() {
-        // This test verifies that `call_with_retry()` uses exponential backoff.
-        // Actual retry logic is tested via integration tests with a mock CDP server.
-        assert!(true);
+    fn cdp_error_display() {
+        // Test that CdpError implements Display correctly
+        // This is a minimal test to ensure the type is correctly defined
+        let err = CdpError::ConnectionClosed("Browser.getVersion".to_string());
+        let display = format!("{}", err);
+        assert!(!display.is_empty());
+        assert!(display.contains("Browser.getVersion"));
     }
 
     // Note: Full testing of `call_with_retry()` requires either:
     // 1. A mock CDP server (complex setup)
     // 2. Dependency injection for the `call()` method (requires refactoring)
     // For now, we rely on integration tests with a real CDP server.
+    // See `tests/cdp_tests.rs` for integration tests.
 }
