@@ -176,6 +176,18 @@ pub struct McpServer {
     client: Arc<OnceCell<CdpClient>>,
 }
 
+impl Default for McpServer {
+    fn default() -> Self {
+        let config = CdpAdapterConfig::localhost(9222, "0.5.2");
+        Self {
+            config,
+            registry: WebViewRegistry::new(),
+            agui_bus: None,
+            client: Arc::new(OnceCell::new()),
+        }
+    }
+}
+
 impl McpServer {
     /// Create a new MCP server that will connect to the given CDP endpoint.
     ///
