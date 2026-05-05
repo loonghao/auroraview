@@ -15,7 +15,6 @@
 //! - `get_side_panel_state` - Get the current side panel visibility state
 //! - `get_polyfill` - Get the Chrome API polyfill script
 //! - `dispatch_event` - Dispatch an event to extension listeners
-
 //!
 //! ## Example
 //!
@@ -42,309 +41,19 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use parking_lot::RwLock;
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use auroraview_plugin_core::{PluginError, PluginHandler, PluginResult, ScopeConfig};
 
-/// Callback for navigating to a URL (tabs.create, tabs.update)
-pub type NavigateCallback = Box<dyn Fn(&str) + Send + Sync>;
+// Types module
+pub mod types;
+pub use types::*;
 
-/// Callback for sending messages to content scripts
-pub type SendMessageCallback = Box<dyn Fn(i32, Value) -> Option<Value> + Send + Sync>;
-
-/// Callback for opening a popup
-pub type OpenPopupCallback = Box<dyn Fn(&str, Option<&str>) + Send + Sync>;
-
-/// Callback for opening an options page
-pub type OpenOptionsPageCallback = Box<dyn Fn(&str, &str) + Send + Sync>;
-
-/// Callback for reloading a page
-pub type ReloadPageCallback = Box<dyn Fn() + Send + Sync>;
-
-/// Callback for reloading an extension
-pub type ReloadExtensionCallback = Box<dyn Fn(&str) + Send + Sync>;
-
-/// Callback for executing a script
-pub type ExecuteScriptCallback = Box<dyn Fn(&str, &Value) -> Vec<Value> + Send + Sync>;
-
-/// Callback for injecting/removing CSS
-pub type CssCallback = Box<dyn Fn(&str, &Value) + Send + Sync>;
-
-/// Callback for showing a system notification
-pub type NotificationCallback = Box<dyn Fn(&NotificationInfo) + Send + Sync>;
-
-/// Callback for creating a window
-pub type CreateWindowCallback = Box<dyn Fn(&Value) -> Value + Send + Sync>;
-
-/// Callback for dispatching an event to an extension
-pub type EventDispatchCallback = Box<dyn Fn(&str, &str, &str, &[Value]) + Send + Sync>;
-
-/// Callback for persisting storage data
-pub type StoragePersistCallback = Box<dyn Fn(&str, &str, &HashMap<String, Value>) + Send + Sync>;
-
-/// Callback for runtime message routing
-pub type RuntimeMessageCallback = Box<dyn Fn(&str, Value) -> Option<Value> + Send + Sync>;
-
-/// Callbacks for the extensions plugin
-#[derive(Default)]
-pub struct ExtensionsCallbacks {
-    /// Navigation callback (tabs.create, tabs.update)
-    pub on_navigate: Option<NavigateCallback>,
-    /// Send message to content scripts
-    pub on_send_message: Option<SendMessageCallback>,
-    /// Open popup
-    pub on_open_popup: Option<OpenPopupCallback>,
-    /// Open options page
-    pub on_open_options_page: Option<OpenOptionsPageCallback>,
-    /// Reload the current page
-    pub on_reload_page: Option<ReloadPageCallback>,
-    /// Reload an extension
-    pub on_reload_extension: Option<ReloadExtensionCallback>,
-    /// Execute script
-    pub on_execute_script: Option<ExecuteScriptCallback>,
-    /// Insert CSS
-    pub on_insert_css: Option<CssCallback>,
-    /// Remove CSS
-    pub on_remove_css: Option<CssCallback>,
-    /// Show system notification
-    pub on_notification: Option<NotificationCallback>,
-    /// Create window
-    pub on_create_window: Option<CreateWindowCallback>,
-    /// Dispatch event to extension
-    pub on_event_dispatch: Option<EventDispatchCallback>,
-    /// Persist storage data
-    pub on_storage_persist: Option<StoragePersistCallback>,
-    /// Runtime message routing
-    pub on_runtime_message: Option<RuntimeMessageCallback>,
-}
-
-/// Extensions plugin
+/// Extensions plugin - provides Chrome Extension API compatibility
 pub struct ExtensionsPlugin {
     name: String,
-    /// Extension host state (shared with the application)
     state: Arc<RwLock<ExtensionsState>>,
-    /// Registered callbacks for host integration
     callbacks: Arc<RwLock<ExtensionsCallbacks>>,
-}
-
-/// State for the extensions plugin
-#[derive(Default)]
-pub struct ExtensionsState {
-    /// Loaded extensions
-    pub extensions: HashMap<String, ExtensionInfo>,
-    /// Storage data per extension per area
-    pub storage: HashMap<String, HashMap<String, Value>>,
-    /// Side panel state per extension
-    pub side_panels: HashMap<String, SidePanelState>,
-    /// Action state per extension
-    pub actions: HashMap<String, ActionState>,
-    /// Alarms per extension
-    pub alarms: HashMap<String, HashMap<String, AlarmInfo>>,
-    /// Notifications per extension
-    pub notifications: HashMap<String, HashMap<String, NotificationInfo>>,
-    /// Context menus per extension
-    pub context_menus: HashMap<String, HashMap<String, MenuItemInfo>>,
-    /// Registered content scripts
-    pub content_scripts: HashMap<String, Vec<ContentScriptInfo>>,
-    /// Message handlers (for runtime.onMessage)
-    pub message_handlers: HashMap<String, Vec<String>>,
-    /// Extensions directory
-    pub extensions_dir: Option<PathBuf>,
-    /// Storage directory
-    pub storage_dir: Option<PathBuf>,
-}
-
-/// Extension information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ExtensionInfo {
-    /// Extension ID
-    pub id: String,
-    /// Extension name
-    pub name: String,
-    /// Extension version
-    pub version: String,
-    /// Extension description
-    pub description: String,
-    /// Whether extension is enabled
-    pub enabled: bool,
-    /// Side panel path (if any)
-    pub side_panel_path: Option<String>,
-    /// Popup path (if any)
-    pub popup_path: Option<String>,
-    /// Options page path (if any)
-    pub options_page: Option<String>,
-    /// Root directory
-    pub root_dir: String,
-    /// Permissions
-    pub permissions: Vec<String>,
-    /// Host permissions
-    pub host_permissions: Vec<String>,
-    /// Manifest data
-    pub manifest: Option<Value>,
-}
-
-/// Side panel state
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SidePanelState {
-    /// Whether the panel is open
-    pub is_open: bool,
-    /// Current path
-    pub path: Option<String>,
-    /// Panel options
-    pub options: Option<SidePanelOptions>,
-}
-
-/// Side panel options
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SidePanelOptions {
-    pub path: Option<String>,
-    pub enabled: Option<bool>,
-}
-
-/// Action (toolbar button) state
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ActionState {
-    pub title: Option<String>,
-    pub badge_text: Option<String>,
-    pub badge_background_color: Option<String>,
-    pub badge_text_color: Option<String>,
-    pub popup: Option<String>,
-    pub enabled: bool,
-    pub icon: Option<Value>,
-}
-
-/// Alarm information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AlarmInfo {
-    pub name: String,
-    pub scheduled_time: f64,
-    pub period_in_minutes: Option<f64>,
-}
-
-/// Notification information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct NotificationInfo {
-    pub id: String,
-    pub title: String,
-    pub message: String,
-    pub icon_url: Option<String>,
-    pub notification_type: String,
-    pub created_at: i64,
-}
-
-/// Context menu item information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MenuItemInfo {
-    pub id: String,
-    pub title: Option<String>,
-    pub item_type: String,
-    pub contexts: Vec<String>,
-    pub parent_id: Option<String>,
-    pub enabled: bool,
-    pub visible: bool,
-}
-
-/// Content script information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ContentScriptInfo {
-    pub id: String,
-    pub matches: Vec<String>,
-    pub js: Vec<String>,
-    pub css: Vec<String>,
-    pub run_at: String,
-    pub all_frames: bool,
-}
-
-/// API call request
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ApiCallRequest {
-    /// Extension ID
-    pub extension_id: String,
-    /// API namespace (storage, tabs, etc.)
-    pub api: String,
-    /// Method name
-    pub method: String,
-    /// Parameters
-    #[serde(default)]
-    pub params: Value,
-}
-
-/// Extension ID request
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ExtensionIdRequest {
-    /// Extension ID
-    pub extension_id: String,
-}
-
-/// Event dispatch request
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct EventDispatchRequest {
-    pub extension_id: String,
-    pub api: String,
-    pub event: String,
-    pub args: Vec<Value>,
-}
-
-/// View type for API requests
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ViewTypeRequest {
-    ServiceWorker,
-    Popup,
-    SidePanel,
-    Options,
-    DevToolsPanel,
-}
-
-impl From<ViewTypeRequest> for auroraview_extensions::ExtensionViewType {
-    fn from(req: ViewTypeRequest) -> Self {
-        match req {
-            ViewTypeRequest::ServiceWorker => {
-                auroraview_extensions::ExtensionViewType::ServiceWorker
-            }
-            ViewTypeRequest::Popup => auroraview_extensions::ExtensionViewType::Popup,
-            ViewTypeRequest::SidePanel => auroraview_extensions::ExtensionViewType::SidePanel,
-            ViewTypeRequest::Options => auroraview_extensions::ExtensionViewType::Options,
-            ViewTypeRequest::DevToolsPanel => {
-                auroraview_extensions::ExtensionViewType::DevToolsPanel
-            }
-        }
-    }
-}
-
-/// Create view request
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CreateViewRequest {
-    pub extension_id: String,
-    pub view_type: ViewTypeRequest,
-    pub html_path: String,
-    pub title: Option<String>,
-    pub width: Option<u32>,
-    pub height: Option<u32>,
-    pub dev_tools: Option<bool>,
-    pub debug_port: Option<u16>,
-    pub visible: Option<bool>,
-    pub parent_hwnd: Option<u64>,
-}
-
-/// View ID request
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ViewIdRequest {
-    pub view_id: String,
 }
 
 impl ExtensionsPlugin {
@@ -1155,6 +864,7 @@ impl ExtensionsPlugin {
                     .content_scripts
                     .entry(extension_id.to_string())
                     .or_default();
+
                 ext_scripts.extend(scripts);
 
                 Ok(serde_json::json!({}))
@@ -1227,7 +937,10 @@ impl ExtensionsPlugin {
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
                     .to_string();
-                let alarm_info = params.get("alarmInfo").cloned().unwrap_or(params.clone());
+                let alarm_info = params
+                    .get("alarmInfo")
+                    .cloned()
+                    .unwrap_or(params.clone());
 
                 let delay_in_minutes = alarm_info
                     .get("delayInMinutes")
@@ -1252,18 +965,21 @@ impl ExtensionsPlugin {
 
                 let mut state = self.state.write();
                 let ext_alarms = state.alarms.entry(extension_id.to_string()).or_default();
+
                 ext_alarms.insert(name, alarm);
 
                 Ok(serde_json::json!({}))
             }
             "get" => {
-                let name = params.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                let name = params
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
                 let state = self.state.read();
                 let alarm = state
                     .alarms
                     .get(extension_id)
-                    .and_then(|a| a.get(name))
-                    .cloned();
+                    .and_then(|a| a.get(name));
                 serde_json::to_value(alarm).map_err(PluginError::serialization_error)
             }
             "getAll" => {
@@ -1276,13 +992,30 @@ impl ExtensionsPlugin {
                 serde_json::to_value(alarms).map_err(PluginError::serialization_error)
             }
             "clear" => {
-                let name = params.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                let name = params
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
                 let mut state = self.state.write();
-                let cleared = state
-                    .alarms
-                    .get_mut(extension_id)
-                    .map(|a| a.remove(name).is_some())
-                    .unwrap_or(false);
+                let cleared = if name.is_empty() {
+                    // Clear all alarms
+                    state
+                        .alarms
+                        .get_mut(extension_id)
+                        .map(|a| {
+                            let had_alarms = !a.is_empty();
+                            a.clear();
+                            had_alarms
+                        })
+                        .unwrap_or(false)
+                } else {
+                    // Clear only the alarm with given name
+                    state
+                        .alarms
+                        .get_mut(extension_id)
+                        .and_then(|a| a.remove(name))
+                        .is_some()
+                };
                 Ok(serde_json::json!(cleared))
             }
             "clearAll" => {
@@ -1348,6 +1081,10 @@ impl ExtensionsPlugin {
                     .and_then(|v| v.as_str())
                     .unwrap_or("basic")
                     .to_string();
+                let created_at = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis() as i64;
 
                 let notification = NotificationInfo {
                     id: id.clone(),
@@ -1355,10 +1092,7 @@ impl ExtensionsPlugin {
                     message,
                     icon_url,
                     notification_type,
-                    created_at: std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap_or_default()
-                        .as_millis() as i64,
+                    created_at,
                 };
 
                 // Show system notification via callback
@@ -1374,6 +1108,7 @@ impl ExtensionsPlugin {
                     .notifications
                     .entry(extension_id.to_string())
                     .or_default();
+
                 ext_notifs.insert(id.clone(), notification);
 
                 Ok(serde_json::json!(id))
@@ -1400,13 +1135,12 @@ impl ExtensionsPlugin {
                     .ok_or_else(|| PluginError::invalid_args("notificationId is required"))?;
 
                 let mut state = self.state.write();
-                let cleared = state
-                    .notifications
-                    .get_mut(extension_id)
-                    .map(|n| n.remove(id).is_some())
-                    .unwrap_or(false);
-
-                Ok(serde_json::json!(cleared))
+                if let Some(notifs) = state.notifications.get_mut(extension_id) {
+                    let cleared = notifs.remove(id).is_some();
+                    Ok(serde_json::json!(cleared))
+                } else {
+                    Ok(serde_json::json!(false))
+                }
             }
             "getAll" => {
                 let state = self.state.read();
@@ -1450,10 +1184,7 @@ impl ExtensionsPlugin {
 
                 let menu_item = MenuItemInfo {
                     id: id.clone(),
-                    title: params
-                        .get("title")
-                        .and_then(|v| v.as_str())
-                        .map(String::from),
+                    title: params.get("title").and_then(|v| v.as_str()).map(String::from),
                     item_type: params
                         .get("type")
                         .and_then(|v| v.as_str())
@@ -1463,18 +1194,9 @@ impl ExtensionsPlugin {
                         .get("contexts")
                         .and_then(|v| serde_json::from_value(v.clone()).ok())
                         .unwrap_or_else(|| vec!["page".to_string()]),
-                    parent_id: params
-                        .get("parentId")
-                        .and_then(|v| v.as_str())
-                        .map(String::from),
-                    enabled: params
-                        .get("enabled")
-                        .and_then(|v| v.as_bool())
-                        .unwrap_or(true),
-                    visible: params
-                        .get("visible")
-                        .and_then(|v| v.as_bool())
-                        .unwrap_or(true),
+                    parent_id: params.get("parentId").and_then(|v| v.as_str()).map(String::from),
+                    enabled: params.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true),
+                    visible: params.get("visible").and_then(|v| v.as_bool()).unwrap_or(true),
                 };
 
                 let mut state = self.state.write();
@@ -1482,6 +1204,7 @@ impl ExtensionsPlugin {
                     .context_menus
                     .entry(extension_id.to_string())
                     .or_default();
+
                 ext_menus.insert(id.clone(), menu_item);
 
                 Ok(serde_json::json!(id))
@@ -1495,12 +1218,11 @@ impl ExtensionsPlugin {
                 let mut state = self.state.write();
                 if let Some(ext_menus) = state.context_menus.get_mut(extension_id) {
                     if let Some(menu) = ext_menus.get_mut(id) {
-                        if let Some(title) = params
-                            .get("updateProperties")
-                            .and_then(|u| u.get("title"))
-                            .and_then(|v| v.as_str())
-                        {
-                            menu.title = Some(title.to_string());
+                        if let Some(updates) = params.get("updateProperties") {
+                            // Update menu item properties
+                            if let Some(title) = updates.get("title").and_then(|v| v.as_str()) {
+                                menu.title = Some(title.to_string());
+                            }
                         }
                     }
                 }
@@ -1612,14 +1334,14 @@ impl ExtensionsPlugin {
     ) -> PluginResult<Value> {
         match method {
             "contains" => {
+                let requested: Vec<String> = params
+                    .get("permissions")
+                    .and_then(|p| p.get("permissions"))
+                    .and_then(|v| serde_json::from_value(v.clone()).ok())
+                    .unwrap_or_default();
+
                 let state = self.state.read();
                 if let Some(ext) = state.extensions.get(extension_id) {
-                    let requested: Vec<String> = params
-                        .get("permissions")
-                        .and_then(|p| p.get("permissions"))
-                        .and_then(|v| serde_json::from_value(v.clone()).ok())
-                        .unwrap_or_default();
-
                     let has_all = requested.iter().all(|p| ext.permissions.contains(p));
                     return Ok(serde_json::json!(has_all));
                 }
@@ -1685,13 +1407,9 @@ impl ExtensionsPlugin {
                      This requires opening an external browser window for OAuth redirects. \
                      Workaround: extensions can open the auth URL in a new WebView window \
                      and intercept the redirect URL manually. \
-                     Track progress at: https://github.com/loonghao/auroraview/issues",
+                     Track progress at: https://github.com/loonghao/auroraview/issues"
                 ))
             }
-            "getProfileUserInfo" => Ok(serde_json::json!({
-                "email": "",
-                "id": ""
-            })),
             "getRedirectURL" => {
                 let path = params.get("path").and_then(|v| v.as_str()).unwrap_or("");
                 Ok(serde_json::json!(format!(
@@ -2068,6 +1786,7 @@ impl PluginHandler for ExtensionsPlugin {
                     .side_panels
                     .entry(req.extension_id.clone())
                     .or_default();
+
                 panel.is_open = true;
 
                 Ok(serde_json::json!({ "success": true }))
@@ -2111,8 +1830,7 @@ impl PluginHandler for ExtensionsPlugin {
 
                 // Attempt to load _locales messages from extension directory
                 let messages = if !extension_path.is_empty() {
-                    let locales_path =
-                        PathBuf::from(&extension_path).join("_locales/en/messages.json");
+                    let locales_path = PathBuf::from(&extension_path).join("_locales/en/messages.json");
                     if locales_path.exists() {
                         std::fs::read_to_string(&locales_path)
                             .ok()
@@ -2126,7 +1844,7 @@ impl PluginHandler for ExtensionsPlugin {
 
                 // Generate the polyfill script using SDK
                 let polyfill = auroraview_extensions::generate_polyfill_from_sdk(
-                    &req.extension_id.clone(),
+                    &req.extension_id,
                     &extension_path,
                     manifest.as_ref(),
                     messages.as_ref(),
@@ -2179,9 +1897,7 @@ impl PluginHandler for ExtensionsPlugin {
                 };
 
                 match view_manager.create_view(config) {
-                    Ok(info) => {
-                        serde_json::to_value(info).map_err(PluginError::serialization_error)
-                    }
+                    Ok(info) => serde_json::to_value(info).map_err(PluginError::serialization_error),
                     Err(e) => Err(PluginError::from_plugin("extensions", e)),
                 }
             }
@@ -2191,9 +1907,7 @@ impl PluginHandler for ExtensionsPlugin {
 
                 let view_manager = auroraview_extensions::ExtensionViewManager::global();
                 match view_manager.get_view(&req.view_id) {
-                    Some(info) => {
-                        serde_json::to_value(info).map_err(PluginError::serialization_error)
-                    }
+                    Some(info) => serde_json::to_value(info).map_err(PluginError::serialization_error),
                     None => Err(PluginError::invalid_args(format!(
                         "View not found: {}",
                         req.view_id
@@ -2269,9 +1983,7 @@ impl PluginHandler for ExtensionsPlugin {
 
                 let view_manager = auroraview_extensions::ExtensionViewManager::global();
                 match view_manager.get_cdp_info(&req.view_id) {
-                    Some(info) => {
-                        serde_json::to_value(info).map_err(PluginError::serialization_error)
-                    }
+                    Some(info) => serde_json::to_value(info).map_err(PluginError::serialization_error),
                     None => Err(PluginError::invalid_args(format!(
                         "View not found: {}",
                         req.view_id
