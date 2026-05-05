@@ -1743,26 +1743,6 @@ class WebView(
         self._core.set_title(value)
         self._title = value
 
-    @property
-    def width(self) -> int:
-        """Get the window width."""
-        return self._width
-
-    @property
-    def height(self) -> int:
-        """Get the window height."""
-        return self._height
-
-    @property
-    def x(self) -> Optional[int]:
-        """Get the window x position."""
-        return self._x
-
-    @property
-    def y(self) -> Optional[int]:
-        """Get the window y position."""
-        return self._y
-
     def __repr__(self) -> str:
         """String representation of the WebView."""
         return f"WebView(title='{self._title}', width={self._width}, height={self._height})"
