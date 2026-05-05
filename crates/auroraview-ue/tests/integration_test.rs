@@ -232,8 +232,7 @@ fn blueprint_node_add_pins() {
 #[test]
 fn blueprint_node_connect() {
     let mut node1 = auroraview_ue::UeBlueprintNode::new("node_1", "Output");
-    let mut node2 = auroraview_ue::UeBlueprintNode::new("node_2", "Print");
-    
+
     node1.connect_to("node_2");
     assert_eq!(node1.connections.len(), 1);
     assert_eq!(node1.connections[0], "node_2");
@@ -293,10 +292,9 @@ fn blueprint_node_remove_output() {
 #[test]
 fn blueprint_node_remove_connection() {
     let mut node1 = auroraview_ue::UeBlueprintNode::new("node_1", "Source");
-    let mut node2 = auroraview_ue::UeBlueprintNode::new("node_2", "Target");
     node1.connect_to("node_2");
     assert_eq!(node1.connections.len(), 1);
-    
+
     node1.remove_connection("node_2");
     assert!(node1.connections.is_empty());
 }

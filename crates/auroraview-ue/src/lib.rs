@@ -12,8 +12,8 @@ use std::thread::{self, ThreadId};
 
 // --- Core Types ---
 
-/// UE `GameThread` ID wrapper.
-/// UE requires Slate UI operations to run on the `GameThread`.
+/// `GameThread` ID wrapper.
+/// UE requires `Slate` UI operations to run on the `GameThread`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GameThreadId(ThreadId);
 
@@ -42,7 +42,7 @@ type GameThreadTask = Box<dyn FnOnce() + Send>;
 
 /// Executor that ensures operations are run on UE's `GameThread`.
 ///
-/// UE requires certain operations (like Slate UI updates) to be on the `GameThread`.
+/// UE requires certain operations (like `Slate` UI updates) to be on the `GameThread`.
 /// This executor provides a channel-based dispatch mechanism.
 pub struct UeGameThreadExecutor {
     task_tx: Sender<GameThreadTask>,
@@ -105,9 +105,9 @@ impl UeGameThreadExecutor {
     }
 }
 
-/// Slate UI widget handle (FFI placeholder).
+/// `Slate` UI widget handle (`FFI` placeholder).
 ///
-/// In real implementation, this would be a pointer to a Slate widget.
+/// In real implementation, this would be a pointer to a `Slate` widget.
 /// For now, we use an opaque handle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SlateWidgetHandle(pub u64);
@@ -136,14 +136,14 @@ impl SlateWidgetHandle {
     }
 }
 
-/// `WebView` embedding mode within UE Slate.
+/// `WebView` embedding mode within UE `Slate`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UeEmbedMode {
-    /// Embed as a Slate widget (SWindow/SWidget).
+    /// Embed as a `Slate` widget (`SWindow`/`SWidget`).
     SlateWidget,
-    /// Embed as a child window (Win32 HWND parenting).
+    /// Embed as a child window (Win32 `HWND` parenting).
     NativeChildWindow,
-    /// Floating tool window (for non-Slate DCCs).
+    /// Floating tool window (for non-`Slate` DCCs).
     FloatingWindow,
 }
 
@@ -164,7 +164,7 @@ pub struct UeWebViewConfig {
     /// Initial size (width, height).
         pub initial_size: (u32, u32),
         /// Embed mode.
-        pub embed_mode: `UeEmbedMode`,
+        pub embed_mode: UeEmbedMode,
     /// Enable developer tools.
     pub dev_tools: bool,
     /// JavaScript to execute on load.
@@ -194,7 +194,7 @@ impl Default for UeWebViewConfig {
 
 /// UE integration manager.
 ///
-/// Manages `WebView` embedding within Unreal Engine's Slate UI system.
+/// Manages `WebView` embedding within Unreal Engine's `Slate` UI system.
 /// Handles `GameThread` synchronization and GC-safe object references.
 #[allow(dead_code)]
 pub struct UeIntegration {
@@ -447,12 +447,12 @@ mod tests {
 }
 
 // ---------------------------------------------------------------------------
-// UE Blueprint Node Support (Placeholder Implementation)
+// UE `Blueprint` Node Support (Placeholder Implementation)
 // ---------------------------------------------------------------------------
 
-/// UE Blueprint node wrapper.
+/// UE `Blueprint` node wrapper.
 ///
-/// Represents a node in UE's Blueprint visual scripting system.
+/// Represents a node in UE's `Blueprint` visual scripting system.
 /// This is a placeholder implementation — real implementation would
 /// interface with UE's `FKismetCompilerContext` or Python API.
 #[derive(Debug, Clone)]

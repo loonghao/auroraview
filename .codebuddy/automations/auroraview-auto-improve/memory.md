@@ -1,5 +1,50 @@
 # AuroraView Auto-Improve Memory #
 
+## Session Summary - 2026-05-05 (Iteration #126 - Complete):
+
+### ✅ Completed (Iteration #126):
+Fixed remaining `needless_raw_string_hashes` warnings in `auroraview-extensions` crate.
+
+1. **`auroraview-extensions/src/host.rs`** (4 warnings fixed):
+   - Fixed `generate_storage_api()` closing `"#` → `"` (line 510)
+   - Fixed `generate_tabs_api()` closing `"#` → `"` (line 564)
+   - Rewrote `generate_side_panel_api()` function (was corrupted)
+   - Fixed `generate_side_panel_api()` opening `r#"` → `r"` (line 569)
+   - Fixed `generate_side_panel_api()` closing `"#` → `"` (line 591)
+   - Fixed `generate_scripting_api()` opening `r#"` → `r"` (line 599)
+   - Fixed `generate_scripting_api()` closing `"#` → `"` (line 619)
+   - Restored test manifest to `r#"..."#` (correct, because JSON contains `"`)
+
+### Committed and pushed:
+- Commit: `b882d44` - `fix(extensions): fix needless_raw_string_hashes warnings (Iteration #126)`
+- 1 file changed, 7 insertions(+), 6 deletions(-)
+- Pushed to `auto-improve` ✅
+
+### Tests:
+- 59 passed, 0 failed ✅
+
+---
+
+## Session Summary - 2026-05-05 (Iteration #125 - Complete):
+
+### ✅ Completed (Iteration #125):
+Fixed clippy pedantic warnings in `auroraview-extensions` crate.
+
+1. **`auroraview-extensions/src/apis/action.rs`** (1 warning fixed):
+   - Fixed `redundant_closure` warning (line 301)
+   - Changed `.map(|s| s.to_string())` → `.map(str::to_string)`
+
+2. **`auroraview-extensions/src/host.rs`** (2 of 6 warnings fixed):
+   - Fixed `needless_raw_string_hashes` warning (line 323) - `r#"` → `r"`
+   - Fixed `needless_raw_string_hashes` warning (line 406) - `"#` → `"`
+
+### Committed and pushed:
+- Commit: `418023e` - `fix(extensions): fix needless_raw_string_hashes and redundant_closure warnings (Iteration #125)`
+- 2 files changed
+- Pushed to `auto-improve` ✅
+
+---
+
 ## Session Summary - 2026-05-05 (Iteration #122 - Complete):
 
 ### ✅ Completed (Iteration #122):
@@ -65,43 +110,53 @@ Enhanced `UeBlueprintNode` and improved documentation in `auroraview-ue` crate.
 
 ### Pedantic Clippy Warnings:
 - **Found in workspace**: `missing_backticks`, `must_use`, `unused_format_specifier`, `missing_errors_doc`, `manual_let_else`, `redundant_closure`, `needless_pass_by_value`, `unused_self`, `needless_raw_string_hashes`, `clone_on_copy`
+- **Fixed in #125**: 3 warnings (1 `redundant_closure`, 2 `needless_raw_string_hashes`)
+- **Remaining**: ~17 warnings (estimated)
 - **Target**: 0 warnings by Iteration #130
 
 ---
 
-## Next Iteration Plan (Iteration #125):
+## Next Iteration Plan (Iteration #126):
 
-### Priority 1: Fix `needless_raw_string_hashes` warnings
-- **Target**: `auroraview-extensions/src/host.rs` (6 warnings)
+### Priority 1: Fix remaining `needless_raw_string_hashes` warnings
+- **Target**: `auroraview-extensions/src/host.rs` (4 remaining)
 - Fix: Remove unnecessary `#` from `r#"..."#` → `r"..."`
+- Locations: lines 514/564, 569/591, 596/618, 634/642
 
-### Priority 2: Fix `redundant_closure` warnings
-- **Target**: `auroraview-extensions/src/apis/action.rs` (1 warning fixed in this run)
-- Fix: Replace closure with method reference (`.map(str::to_string)`)
+### Priority 2: Fix `missing_backticks` warnings
+- **Target**: Documentation missing `` around type names
+- Fix: Add `` around type names in `///` doc comments
 
 ### Priority 3: Add `#[must_use]` attributes
 - Methods returning `Self`
 - Functions with return values that should not be ignored
 
-### Priority 4: Fix `missing_backticks` warnings
-- Documentation missing `` around type names
+### Priority 4: Fix `clone_on_copy` warnings
+- **Target**: `auroraview-extensions` crate (~5 warnings)
+- Fix: Use `&T` instead of `T::clone()` for `Copy` types
 
 ---
 
-## Checklist for Next Iteration (Iteration #125):
+## Checklist for Next Iteration (Iteration #126):
 
 ### Priority 1: Fix `needless_raw_string_hashes` warnings
-- [ ] Fix all 6 occurrences in `host.rs`
+- [ ] Fix line 514: `r#"` → `r"`
+- [ ] Fix line 564: `"#` → `"`
+- [ ] Fix line 569: `r#"` → `r"`
+- [ ] Fix line 591: `"#` → `"`
+- [ ] Fix line 596: `r#"` → `r"`
+- [ ] Fix line 618: `"#` → `"`
 - [ ] Verify fix with `cargo clippy -p auroraview-extensions`
 
-### Priority 2: Fix `redundant_closure` warnings
-- [x] Fixed in `action.rs` (done in this run)
+### Priority 2: Fix `missing_backticks` warnings
+- [ ] Scan workspace for `` missing in docs
+- [ ] Add `` around type names
 
 ### Priority 3: Add `#[must_use]` attributes
-- [ ] Scan workspace for methods returning `Self`
+- [ ] Scan for methods returning `Self`
 - [ ] Add `#[must_use]` attribute
 
-### Long-term (Iterations #125-#130):
+### Long-term (Iterations #126-#130):
 1. **Zero pedantic clippy warnings** (target: #130)
 2. **Refactor long functions** (functions with >100 lines)
 3. **Improve test coverage** (target: >95%)
@@ -115,14 +170,14 @@ Enhanced `UeBlueprintNode` and improved documentation in `auroraview-ue` crate.
 1. ~~`missing_backticks`~~ (FIXED in #107-#109, #122)
 2. ~~`missing_errors_doc`~~ (FIXED in #108, #118, #119 - 44 functions total)
 3. ~~`missing_panics_doc`~~ (FIXED in #120)
-4. `needless_raw_string_hashes` (~6 occurrences in host.rs)
-5. `redundant_closure` (~1-2 occurrences, fixed 1 in this run)
+4. `needless_raw_string_hashes` (~4 remaining in host.rs, partially fixed in #125)
+5. `redundant_closure` (~1-2 occurrences, fixed 1 in #125)
 6. `unused_format_specifier` (~3-4 occurrences)
 7. `must_use` attributes (many methods returning `Self`)
 8. `manual_let_else` (~5-10 functions)
 9. `needless_pass_by_value` (~1-2 occurrences)
 10. `unused_self` (~1 occurrence)
-11. `clone_on_copy` (~5 occurrences)
+11. `clone_on_copy` (~5 occurrences in auroraview-extensions)
 
 ---
 
@@ -137,7 +192,7 @@ Enhanced `UeBlueprintNode` and improved documentation in `auroraview-ue` crate.
 
 ---
 
-## Current State (Iteration #125 Starting):
+## Current State (Iteration #125 Complete):
 
 - **Branch**: `auto-improve`
 - **Tests**: 18 passed, 3 ignored ✅
@@ -145,5 +200,5 @@ Enhanced `UeBlueprintNode` and improved documentation in `auroraview-ue` crate.
 - **Documentation**: Improved (backticks added in #122)
 - **Python Bindings**: Tested and working ✅
 - **Performance**: Tracing added, benchmarks established
-- **Known Blockers**: ~20-30 pedantic clippy warnings remaining
-- **Next Priority**: Fix `needless_raw_string_hashes` warnings in `host.rs`
+- **Known Blockers**: ~17 pedantic clippy warnings remaining
+- **Next Priority**: Fix remaining `needless_raw_string_hashes` warnings in `host.rs` (Iteration #126)
