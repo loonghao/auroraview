@@ -1,4 +1,4 @@
-//! Minimal async CDP (Chrome DevTools Protocol) client for the AuroraView adapter.
+//! Minimal async CDP (Chrome DevTools Protocol) client for the [`AuroraView`] adapter.
 //!
 //! Only implements the handful of commands the adapter skeleton needs:
 //!
@@ -6,11 +6,14 @@
 //! - `Page.captureScreenshot` — viewport capture.
 //!
 //! Target discovery (`GET http://host:port/json/version`) is handled via
-//! `reqwest`, then we open a single WebSocket to the browser-level endpoint.
+//! [`reqwest`], then we open a single WebSocket to the browser-level endpoint.
 //!
 //! The client is deliberately tiny: one request in flight at a time, no
 //! event subscription plumbing. That is enough to back `DccSnapshot` and
 //! `DccConnection::health_check`.
+//!
+//! [`AuroraView`]: crate::AuroraView
+//! [`reqwest`]: reqwest::Client
 
 use std::sync::Arc;
 use std::time::Duration;
