@@ -134,7 +134,7 @@ pub struct ScreenshotData {
     pub width: u32,
     /// Image height in pixels.
     pub height: u32,
-    /// Image format: "png", "jpeg", or "webp".
+    /// Image format: `"png"`, `"jpeg"`, or `"webp"`.
     pub format: String,
 }
 
