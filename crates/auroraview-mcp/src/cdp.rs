@@ -117,7 +117,7 @@ impl CdpClient {
         })
     }
 
-    /// Send a CDP command and wait for its matching response.
+    /// Send a `CDP` command and wait for its matching response.
     ///
     /// Any events received while waiting are dropped — the skeleton adapter
     /// is request/response only.
