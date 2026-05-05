@@ -224,6 +224,7 @@ impl CdpClient {
                     tracing::debug!(%method, %id, "CDP call succeeded");
                     return Ok(result);
                 }
+                #[allow(clippy::needless_continue)]
                 _ => continue,
             }
         }
