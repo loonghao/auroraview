@@ -314,6 +314,12 @@ impl McpRunner {
     ///
     /// Returns `Err` with a string error message if no `WebView` with the
     /// given `id` exists in the registry.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `id` string cannot be parsed into a [`WebViewId`].
+    /// In current implementation, `WebViewId` parsing is infallible,
+    /// so this should not panic in practice.
     pub fn update_cdp_endpoint(&self, id: &str, endpoint: &str) -> std::result::Result<(), String> {
         let wid = id.parse::<WebViewId>().unwrap(); // Infallible
         if self
@@ -337,7 +343,7 @@ fn build_mcp_service(
     _cancel: CancellationToken,
 ) -> StreamableHttpService<McpServer, LocalSessionManager> {
     let config = StreamableHttpServerConfig::default();
-    StreamableHttpService::new(move || Ok(server.clone()), Default::default(), config)
+    StreamableHttpService::new(move || Ok(server.clone()), Arc::default(), config)
 }
 
 /// Build the AG-UI SSE router.

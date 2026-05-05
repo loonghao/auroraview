@@ -45,6 +45,8 @@ impl WebViewRegistry {
 
     /// Register a new `WebView` with the given config.
     ///
+    /// # Panics
+    ///
     /// Panics if the capacity limit would be exceeded — use [`Self::try_register`] for
     /// error-propagating variant.
     #[must_use]
