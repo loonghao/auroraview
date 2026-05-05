@@ -307,6 +307,12 @@ impl McpServer {
     /// Evaluate a JavaScript expression in the WebView context.
     ///
     /// Returns the JSON-serialized result of the expression.
+    ///
+    /// # Errors
+    ///
+    /// Returns `rmcp::ErrorData` if:
+    /// - CDP connection fails
+    /// - JavaScript evaluation fails (syntax error, runtime error)
     #[tool(description = "Evaluate JavaScript in the WebView and return the result")]
     async fn eval_js(
         &self,
@@ -328,6 +334,12 @@ impl McpServer {
     }
 
     /// Navigate the WebView to a URL.
+    ///
+    /// # Errors
+    ///
+    /// Returns `rmcp::ErrorData` if:
+    /// - CDP connection fails
+    /// - Navigation fails (invalid URL, connection error)
     #[tool(description = "Navigate the WebView to a URL")]
     async fn load_url(
         &self,
@@ -351,6 +363,12 @@ impl McpServer {
     /// Send an event to the WebView.
     ///
     /// Emits `event` with `data` via `window.auroraview.trigger()`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `rmcp::ErrorData` if:
+    /// - CDP connection fails
+    /// - JavaScript evaluation fails
     #[tool(description = "Send an event to the WebView via window.auroraview.trigger()")]
     async fn send_event(
         &self,
