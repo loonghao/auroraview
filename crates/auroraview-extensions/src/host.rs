@@ -451,7 +451,7 @@ fn generate_chrome_api_polyfill(extension: &LoadedExtension) -> String {
 }
 
 fn generate_storage_api() -> String {
-    r#"
+    r"
     // chrome.storage API
     function createStorageArea(areaName) {
         return {

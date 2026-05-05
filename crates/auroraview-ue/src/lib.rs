@@ -508,6 +508,39 @@ impl UeBlueprintNode {
             "connections": self.connections,
         })
     }
+
+    /// Remove an input pin by name.
+    pub fn remove_input(&mut self, name: impl Into<String>) {
+        let name = name.into();
+        self.inputs.retain(|(n, _)| n!= &name);
+    }
+
+    /// Remove an output pin by name.
+    pub fn remove_output(&mut self, name: impl Into<String>) {
+        let name = name.into();
+        self.outputs.retain(|(n, _)| n!= &name);
+    }
+
+    /// Remove a connection to another node.
+    pub fn remove_connection(&mut self, node_id: impl Into<String>) {
+        let node_id = node_id.into();
+        self.connections.retain(|c| c!= &node_id);
+    }
+
+    /// Clear all input pins.
+    pub fn clear_inputs(&mut self) {
+        self.inputs.clear();
+    }
+
+    /// Clear all output pins.
+    pub fn clear_outputs(&mut self) {
+        self.outputs.clear();
+    }
+
+    /// Clear all connections.
+    pub fn clear_connections(&mut self) {
+        self.connections.clear();
+    }
 }
 
 /// Errors that can occur in Blueprint node operations.
