@@ -95,6 +95,7 @@ impl CdpClient {
     ///
     /// Performs `GET /json/version` to discover the browser-level WebSocket
     /// debugger URL, then opens a WebSocket to it.
+    #[tracing::instrument(fields(%http_endpoint))]
     pub async fn connect(http_endpoint: &str) -> Result<Self, CdpError> {
         let url = format!("{}/json/version", http_endpoint.trim_end_matches('/'));
         let info: VersionInfo = reqwest::get(&url).await?.error_for_status()?.json().await?;
@@ -117,6 +118,7 @@ impl CdpClient {
     ///
     /// Any events received while waiting are dropped — the skeleton adapter
     /// is request/response only.
+    #[tracing::instrument(skip(self, params), fields(method = %method))]
     pub async fn call(
         &self,
         method: &str,
@@ -208,6 +210,7 @@ impl CdpClient {
     /// # Errors
     ///
     /// Returns `CdpError` if all retries are exhausted.
+    #[tracing::instrument(skip(self, params), fields(method = %method, max_retries = %max_retries))]
     pub async fn call_with_retry(
         &self,
         method: &str,
@@ -254,6 +257,7 @@ impl CdpClient {
     }
 
     /// `Browser.getVersion` — lightweight liveness probe.
+    #[tracing::instrument(skip(self, timeout), fields(timeout_ms = ?timeout.as_millis()))]
     pub async fn get_version(&self, timeout: Duration) -> Result<BrowserVersion, CdpError> {
         // Use retry logic for this idempotent probe
         let result = self.call_with_retry(
@@ -282,6 +286,7 @@ impl CdpClient {
     ///
     /// `format` is passed straight through (`"png"` / `"jpeg"` / `"webp"`).
     /// Callers are expected to pre-validate it.
+    #[tracing::instrument(skip(self, timeout), fields(%format, timeout_ms = ?timeout.as_millis()))]
     pub async fn capture_screenshot(
         &self,
         format: &str,
@@ -310,6 +315,7 @@ impl CdpClient {
     /// `Runtime.evaluate` — execute JavaScript and return the result.
     ///
     /// Returns the JSON value of the expression result.
+    #[tracing::instrument(skip(self, timeout), fields(script_len = script.len(), timeout_ms = ?timeout.as_millis()))]
     pub async fn evaluate_script(
         &self,
         script: &str,
@@ -330,6 +336,7 @@ impl CdpClient {
     }
 
     /// `Page.navigate` — navigate the WebView to a URL.
+    #[tracing::instrument(skip(self, timeout), fields(%url, timeout_ms = ?timeout.as_millis()))]
     pub async fn navigate_to(&self, url: &str, timeout: Duration) -> Result<(), CdpError> {
         let params = json!({ "url": url });
         self.call("Page.navigate", params, timeout).await?;
@@ -337,6 +344,7 @@ impl CdpClient {
     }
 
     /// `Page.reload` — reload the current page.
+    #[tracing::instrument(skip(self, timeout), fields(timeout_ms = ?timeout.as_millis()))]
     pub async fn reload(&self, timeout: Duration) -> Result<(), CdpError> {
         let params = json!({ "ignoreCache": false });
         self.call("Page.reload", params, timeout).await?;
@@ -346,6 +354,7 @@ impl CdpClient {
     /// `Page.printToPDF` — generate a PDF of the current page.
     ///
     /// Returns the PDF as raw bytes (already decoded from base64).
+    #[tracing::instrument(skip(self, timeout), fields(timeout_ms = ?timeout.as_millis()))]
     pub async fn print_to_pdf(
         &self,
         timeout: Duration,
