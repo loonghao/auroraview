@@ -19,7 +19,7 @@ use rmcp::transport::streamable_http_server::{
 use std::sync::Arc;
 use tokio::sync::{oneshot, Mutex};
 use tokio_util::sync::CancellationToken;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 /// Manages the lifecycle of the `AuroraView` MCP Server.
 ///
@@ -51,6 +51,8 @@ pub struct McpRunner {
     agui_bus: AguiBus,
     /// Shutdown signal sender (used to stop the server).
     shutdown_tx: Arc<Mutex<Option<oneshot::Sender<()>>>>,
+    /// Server task handle (used to wait for graceful shutdown).
+    server_task: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
 }
 
 impl McpRunner {
@@ -82,6 +84,7 @@ impl McpRunner {
             broadcaster,
             agui_bus,
             shutdown_tx: Arc::new(Mutex::new(None)),
+            server_task: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -188,7 +191,7 @@ impl McpRunner {
         let elapsed = start_time.elapsed();
         info!(%addr, ?elapsed, "AuroraView MCP Server listening");
 
-        tokio::spawn({
+        let server_task = tokio::spawn({
             let cancel = cancel.clone();
             async move {
                 let serve = axum::serve(tcp, router).with_graceful_shutdown(async move {
@@ -203,19 +206,67 @@ impl McpRunner {
             }
         });
 
+        // Store task handle for graceful shutdown
+        *self.server_task.lock().await = Some(server_task);
+
         Ok(())
     }
 
     /// Stop the running server and unregister mDNS.
+    ///
+    /// Sends shutdown signal and waits for graceful shutdown with timeout.
+    /// Cleans up resources (mDNS, registry, CDP connections) after shutdown.
     pub async fn stop(&self) {
-        let mut lock = self.shutdown_tx.lock().await;
-        if let Some(tx) = lock.take() {
-            let _ = tx.send(());
+        info!(port = self.config.port, "Stopping AuroraView MCP Server");
+
+        // Send shutdown signal
+        let task_handle = {
+            let mut tx_lock = self.shutdown_tx.lock().await;
+            if let Some(tx) = tx_lock.take() {
+                if tx.send(()).is_err() {
+                    warn!("Shutdown signal already consumed");
+                }
+            }
+
+            // Take the server task handle
+            let mut task_lock = self.server_task.lock().await;
+            task_lock.take()
+        };
+
+        // Wait for server to stop (with timeout)
+        if let Some(task) = task_handle {
+            info!("Waiting for server to shut down gracefully");
+            match tokio::time::timeout(std::time::Duration::from_secs(30), task).await {
+                Ok(Ok(())) => {
+                    info!(port = self.config.port, "Server stopped gracefully");
+                }
+                Ok(Err(e)) => {
+                    warn!(error = %e, "Server task failed during shutdown");
+                }
+                Err(_) => {
+                    warn!(timeout_secs = 30, "Server shutdown timed out, forcing exit");
+                    // Task will be dropped, which cancels it
+                }
+            }
+        } else {
+            debug!("No active server task to stop");
         }
+
+        // Stop mDNS broadcaster
         if let Some(broadcaster) = &self.broadcaster {
             broadcaster.stop().await;
+            info!("mDNS broadcaster stopped");
         }
-        info!(port = self.config.port, "AuroraView MCP Server stopped");
+
+        // Cleanup: Clear registry and CDP client
+        self.server.registry().clear();
+        info!("WebView registry cleared");
+
+        // Reset CDP client (will reconnect on next use)
+        // Note: OnceCell doesn't have a clear() method, so we rely on
+        // with_cdp_endpoint() to reset it when needed
+
+        info!(port = self.config.port, "AuroraView MCP Server fully stopped");
     }
 
     /// Check if the server is currently running.

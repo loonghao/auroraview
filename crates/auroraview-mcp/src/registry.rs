@@ -137,6 +137,11 @@ impl WebViewRegistry {
             false
         }
     }
+
+    /// Remove all `WebView` instances from the registry.
+    pub fn clear(&self) {
+        self.views.clear();
+    }
 }
 
 #[cfg(test)]
@@ -256,5 +261,18 @@ mod tests {
         }
         let views = reg.list();
         assert_eq!(views.len(), 3);
+    }
+
+    #[test]
+    fn clear_removes_all_views() {
+        let reg = WebViewRegistry::new();
+        let config = WebViewConfig::default();
+        let _id1 = reg.register(&config);
+        let _id2 = reg.register(&config);
+        assert_eq!(reg.len(), 2);
+
+        reg.clear();
+        assert_eq!(reg.len(), 0);
+        assert!(reg.is_empty());
     }
 }

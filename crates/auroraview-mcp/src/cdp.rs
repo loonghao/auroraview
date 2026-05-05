@@ -814,10 +814,11 @@ impl CdpClient {
 
 #[cfg(test)]
 mod tests {
+    use crate::CdpError;
+
     #[test]
     fn cdp_error_display() {
         // Test that CdpError implements Display correctly
-        // This is a minimal test to ensure the type is correctly defined
         let err = CdpError::ConnectionClosed("Browser.getVersion".to_string());
         let display = format!("{}", err);
         assert!(!display.is_empty());
