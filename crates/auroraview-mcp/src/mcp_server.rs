@@ -492,6 +492,13 @@ impl McpServer {
     }
 
     /// Set an attribute on a DOM element.
+    ///
+    /// # Errors
+    ///
+    /// Returns `rmcp::ErrorData` if:
+    /// - CDP connection fails
+    /// - DOM element not found
+    /// - Attribute setting fails
     #[tool(description = "Set an attribute on a DOM element matching the CSS selector")]
     async fn set_attribute(
         &self,
@@ -545,6 +552,13 @@ impl McpServer {
     }
 
     /// Remove an attribute from a DOM element.
+    ///
+    /// # Errors
+    ///
+    /// Returns `rmcp::ErrorData` if:
+    /// - CDP connection fails
+    /// - DOM element not found
+    /// - Attribute removal fails
     #[tool(description = "Remove an attribute from a DOM element matching the CSS selector")]
     async fn remove_attribute(
         &self,
@@ -598,6 +612,13 @@ impl McpServer {
     }
 
     /// Call a JavaScript function on an object.
+    ///
+    /// # Errors
+    ///
+    /// Returns `rmcp::ErrorData` if:
+    /// - CDP connection fails
+    /// - JavaScript evaluation fails
+    /// - Function call fails
     #[tool(description = "Call a JavaScript function on the object returned by `object_expr`")]
     async fn call_function(
         &self,
@@ -670,6 +691,12 @@ impl McpServer {
     }
 
     /// Disable or enable browser cache.
+    ///
+    /// # Errors
+    ///
+    /// Returns `rmcp::ErrorData` if:
+    /// - CDP connection fails
+    /// - Cache setting fails
     #[tool(description = "Disable or enable browser cache (true = disable, false = enable)")]
     async fn set_cache_disabled(
         &self,
@@ -692,6 +719,12 @@ impl McpServer {
     }
 
     /// Control download behavior.
+    ///
+    /// # Errors
+    ///
+    /// Returns `rmcp::ErrorData` if:
+    /// - CDP connection fails
+    /// - Download behavior setting fails
     #[tool(description = "Control download behavior: 'deny', 'allow', or 'default'")]
     async fn set_download_behavior(
         &self,
@@ -714,6 +747,12 @@ impl McpServer {
     }
 
     /// Override device metrics (screen size, pixel ratio, mobile emulation).
+    ///
+    /// # Errors
+    ///
+    /// Returns `rmcp::ErrorData` if:
+    /// - CDP connection fails
+    /// - Device metrics override fails
     #[tool(description = "Override device metrics for responsive testing (set all to 0 to clear)")]
     async fn set_device_metrics_override(
         &self,
