@@ -303,6 +303,8 @@ impl McpServerConfig {
     }
 
     /// Set the mDNS service name.
+    #[must_use]
+    #[inline]
     pub fn with_service_name(mut self, name: impl Into<String>) -> Self {
         self.service_name = name.into();
         self

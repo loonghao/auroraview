@@ -210,9 +210,8 @@ impl PyMcpServer {
     /// Return `true` if the server is currently running.
     #[must_use]
     pub fn is_running(&self) -> bool {
-        let lock = match self.state.lock() {
-            Ok(g) => g,
-            Err(_) => return false,
+        let Ok(lock) = self.state.lock() else {
+            return false;
         };
         if let Some(state) = lock.as_ref() {
             state.runtime.block_on(state.runner.is_running())
