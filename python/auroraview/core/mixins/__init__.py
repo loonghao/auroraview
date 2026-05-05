@@ -12,6 +12,11 @@ Mixins:
     WebViewEventMixin: Event system methods (emit, on, register_callback, etc.)
     WebViewApiMixin: API binding methods (bind_call, bind_api, etc.)
     WebViewDOMMixin: DOM manipulation methods (dom, dom_all, etc.)
+    WebViewStateMixin: Shared state container (Python ↔ JavaScript sync)
+    WebViewCommandsMixin: Command registry (Python ↔ JavaScript RPC)
+    WebViewChannelsMixin: Streaming channel manager
+    WebViewFactoryMixin: Factory methods (create, run_embedded, create_embedded)
+    WebViewBridgeMixin: Bridge integration (bidirectional communication)
 """
 
 from auroraview.core.mixins.window import WebViewWindowMixin
@@ -22,6 +27,11 @@ from auroraview.core.mixins.api import WebViewApiMixin
 from auroraview.core.mixins.dom import WebViewDOMMixin
 from auroraview.core.mixins.telemetry import WebViewTelemetryMixin
 from auroraview.core.mixins.lifecycle import WebViewLifecycleMixin
+from auroraview.core.mixins.state import WebViewStateMixin
+from auroraview.core.mixins.commands import WebViewCommandsMixin
+from auroraview.core.mixins.channels import WebViewChannelsMixin
+from auroraview.core.mixins.factory import WebViewFactoryMixin
+from auroraview.core.mixins.bridge import WebViewBridgeMixin
 
 __all__ = [
     "WebViewWindowMixin",
@@ -32,4 +42,9 @@ __all__ = [
     "WebViewDOMMixin",
     "WebViewTelemetryMixin",
     "WebViewLifecycleMixin",
+    "WebViewStateMixin",
+    "WebViewCommandsMixin",
+    "WebViewChannelsMixin",
+    "WebViewFactoryMixin",
+    "WebViewBridgeMixin",
 ]
