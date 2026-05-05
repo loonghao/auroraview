@@ -83,8 +83,8 @@ impl McpRunner {
             oauth_store,
             broadcaster,
             agui_bus,
-            shutdown_tx: Arc::new(Mutex::new(None)),
-            server_task: Arc::new(Mutex::new(None)),
+            shutdown_tx: Arc::default(),
+            server_task: Arc::default(),
         }
     }
 
