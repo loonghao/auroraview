@@ -91,6 +91,54 @@ fn bench_agui_bus_receiver_count(c: &mut Criterion) {
     });
 }
 
+fn bench_agui_event_to_sse_line(c: &mut Criterion) {
+    let mut group = c.benchmark_group("agui_event_to_sse_line");
+    // Test different AguiEvent variants
+    let events: Vec<(&str, AguiEvent)> = vec![
+        (
+            "RunStarted",
+            AguiEvent::RunStarted {
+                run_id: "run-123".to_string(),
+                thread_id: "thread-456".to_string(),
+            },
+        ),
+        (
+            "RunError",
+            AguiEvent::RunError {
+                run_id: "run-123".to_string(),
+                message: "Something went wrong".to_string(),
+                code: Some("ERR_001".to_string()),
+            },
+        ),
+        (
+            "ToolCallStart",
+            AguiEvent::ToolCallStart {
+                run_id: "run-123".to_string(),
+                tool_call_id: "call-789".to_string(),
+                tool_name: "screenshot".to_string(),
+            },
+        ),
+        (
+            "StateDelta",
+            AguiEvent::StateDelta {
+                run_id: "run-123".to_string(),
+                delta: vec![
+                    serde_json::json!({"op": "replace", "path": "/status", "value": "running"}),
+                    serde_json::json!({"op": "add", "path": "/steps/-", "value": {"name": "init"}}),
+                ],
+            },
+        ),
+    ];
+    for (name, event) in events {
+        group.bench_with_input(
+            BenchmarkId::from_parameter(name),
+            &event,
+            |b, e| b.iter(|| black_box(e.to_sse_line())),
+        );
+    }
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_mcp_server_config_default,
@@ -101,6 +149,7 @@ criterion_group!(
     bench_agui_bus_emit_without_subscribers,
     bench_agui_bus_emit_with_subscribers,
     bench_agui_bus_subscribe,
-    bench_agui_bus_receiver_count
+    bench_agui_bus_receiver_count,
+    bench_agui_event_to_sse_line
 );
 criterion_main!(benches);
