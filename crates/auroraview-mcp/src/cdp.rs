@@ -184,8 +184,14 @@ impl CdpClient {
             match value.get("id").and_then(Value::as_u64) {
                 Some(resp_id) if resp_id == id => {
                     if let Some(err) = value.get("error") {
-                        tracing::warn!(%method, error = %err, "CDP returned error");
-                        return Err(CdpError::Remote(method.to_string(), err.to_string()));
+                        // Log the full error JSON for debugging
+                        let error_json = serde_json::to_string(err).unwrap_or_default();
+                        tracing::warn!(
+                            %method,
+                            error = %error_json,
+                            "CDP returned error"
+                        );
+                        return Err(CdpError::Remote(method.to_string(), error_json));
                     }
                     let result = value
                         .get("result")
