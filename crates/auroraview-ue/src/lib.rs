@@ -12,8 +12,8 @@ use std::thread::{self, ThreadId};
 
 // --- Core Types ---
 
-/// UE GameThread ID wrapper.
-/// UE requires Slate UI operations to run on the GameThread.
+/// UE `GameThread` ID wrapper.
+/// UE requires Slate UI operations to run on the `GameThread`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GameThreadId(ThreadId);
 
@@ -30,19 +30,19 @@ impl GameThreadId {
         Self(thread::current().id())
     }
 
-    /// Check if the given thread is the GameThread.
+    /// Check if the given thread is the `GameThread`.
     #[must_use]
     pub fn is_current(&self) -> bool {
         thread::current().id() == self.0
     }
 }
 
-/// GameThread task for deferred execution.
+/// `GameThread` task for deferred execution.
 type GameThreadTask = Box<dyn FnOnce() + Send>;
 
-/// Executor that ensures operations are run on UE's GameThread.
+/// Executor that ensures operations are run on UE's `GameThread`.
 ///
-/// UE requires certain operations (like Slate UI updates) to be on the GameThread.
+/// UE requires certain operations (like Slate UI updates) to be on the `GameThread`.
 /// This executor provides a channel-based dispatch mechanism.
 pub struct UeGameThreadExecutor {
     task_tx: Sender<GameThreadTask>,
@@ -50,7 +50,7 @@ pub struct UeGameThreadExecutor {
 }
 
 impl UeGameThreadExecutor {
-    /// Create a new executor with a channel to the GameThread.
+    /// Create a new executor with a channel to the `GameThread`.
     #[must_use]
     pub fn new() -> (Self, Receiver<GameThreadTask>) {
         let (task_tx, task_rx) = crossbeam_channel::unbounded();
@@ -61,16 +61,16 @@ impl UeGameThreadExecutor {
         (executor, task_rx)
     }
 
-    /// Check if the current thread is the GameThread.
+    /// Check if the current thread is the `GameThread`.
     #[must_use]
     pub fn is_game_thread(&self) -> bool {
         self.game_thread_id.is_current()
     }
 
-    /// Execute a closure on the GameThread.
+    /// Execute a closure on the `GameThread`.
     ///
-    /// If already on GameThread, executes immediately.
-    /// Otherwise, sends the task to the GameThread via channel (fire-and-forget).
+    /// If already on `GameThread`, executes immediately.
+    /// Otherwise, sends the task to the `GameThread` via channel (fire-and-forget).
     /// Use `execute_with_callback` if you need a result.
     pub fn execute<F>(&self, f: F)
     where
@@ -84,9 +84,9 @@ impl UeGameThreadExecutor {
         }
     }
 
-    /// Execute a closure on the GameThread and receive result via callback.
+    /// Execute a closure on the `GameThread` and receive result via callback.
     ///
-    /// The callback will be invoked on the GameThread after the task completes.
+    /// The callback will be invoked on the `GameThread` after the task completes.
     pub fn execute_with_callback<F, C>(&self, task: F, callback: C)
     where
         F: FnOnce() -> Result<(), UeError> + Send + 'static,
@@ -136,7 +136,7 @@ impl SlateWidgetHandle {
     }
 }
 
-/// WebView embedding mode within UE Slate.
+/// `WebView` embedding mode within UE Slate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UeEmbedMode {
     /// Embed as a Slate widget (SWindow/SWidget).
@@ -158,7 +158,7 @@ impl std::fmt::Display for UeEmbedMode {
     }
 }
 
-/// Configuration for UE WebView integration.
+/// Configuration for UE `WebView` integration.
 #[derive(Debug, Clone)]
 pub struct UeWebViewConfig {
     /// Initial size (width, height).
@@ -194,8 +194,8 @@ impl Default for UeWebViewConfig {
 
 /// UE integration manager.
 ///
-/// Manages WebView embedding within Unreal Engine's Slate UI system.
-/// Handles GameThread synchronization and GC-safe object references.
+/// Manages `WebView` embedding within Unreal Engine's Slate UI system.
+/// Handles `GameThread` synchronization and GC-safe object references.
 #[allow(dead_code)]
 pub struct UeIntegration {
     executor: Arc<UeGameThreadExecutor>,
@@ -222,13 +222,13 @@ impl UeIntegration {
         self.slate_parent = Some(handle);
     }
 
-    /// Get the GameThread executor.
+    /// Get the `GameThread` executor.
     #[must_use]
     pub fn executor(&self) -> &UeGameThreadExecutor {
         &self.executor
     }
 
-    /// Process pending GameThread tasks (should be called from GameThread each frame).
+    /// Process pending `GameThread` tasks (should be called from `GameThread` each frame).
     pub fn process_tasks(&self) {
         if let Ok(guard) = self.task_rx.lock() {
             if let Some(rx) = guard.as_ref() {
@@ -239,9 +239,9 @@ impl UeIntegration {
         }
     }
 
-    /// Create a WebView embedded in UE Slate.
+    /// Create a `WebView` embedded in UE Slate.
     ///
-    /// This must be called from the GameThread.
+    /// This must be called from the `GameThread`.
     pub fn create_webview(&self, url: &str) -> Result<SlateWidgetHandle, UeError> {
         if !self.executor.is_game_thread() {
             return Err(UeError::NotOnGameThread);
@@ -261,11 +261,11 @@ impl UeIntegration {
 /// Errors that can occur in UE integration.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UeError {
-    /// Operation must be performed on the GameThread.
+    /// Operation must be performed on the `GameThread`.
     NotOnGameThread,
     /// Invalid Slate widget handle.
     InvalidHandle,
-    /// WebView creation failed.
+    /// `WebView` creation failed.
     WebViewCreationFailed(String),
     /// GC object was collected.
     ObjectCollected,
@@ -494,6 +494,7 @@ impl UeBlueprintNode {
     }
 
     /// Get the node as JSON (for frontend/serialization).
+    #[must_use]
     pub fn to_json(&self) -> serde_json::Value {
         serde_json::json!({
             "id": self.id,
