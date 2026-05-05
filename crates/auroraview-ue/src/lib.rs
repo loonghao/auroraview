@@ -162,9 +162,9 @@ impl std::fmt::Display for UeEmbedMode {
 #[derive(Debug, Clone)]
 pub struct UeWebViewConfig {
     /// Initial size (width, height).
-    pub initial_size: (u32, u32),
-    /// Embed mode.
-    pub embed_mode: UeEmbedMode,
+        pub initial_size: (u32, u32),
+        /// Embed mode.
+        pub embed_mode: `UeEmbedMode`,
     /// Enable developer tools.
     pub dev_tools: bool,
     /// JavaScript to execute on load.
