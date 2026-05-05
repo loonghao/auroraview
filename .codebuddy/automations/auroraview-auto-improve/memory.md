@@ -9,6 +9,27 @@
 
 ---
 
+## Session Summary - 2026-05-05 (Iteration #129 - Complete):
+
+### ✅ Completed (Iteration #129):
+Started refactoring `webview.py` (God file with ~1850 lines).
+
+1. **Moved properties to `Web ViewWindowMixin`**:
+   - `width`, `height`, `x`, `y` properties moved from `webview.py` to `mixins/window.py`
+   - Reduced `webview.py` by ~20 lines
+   - Improved code organization
+
+### Committed and pushed:
+- Commit: `b37627d` - `refactor(webview): move properties to WebViewWindowMixin (Iteration #129)`
+- 2 files changed, 21 insertions(+), 21 deletions(-)
+- Pushed to `auto-improve` ✅
+
+### Next (Iteration #130):
+- Continue refactoring `webview.py` (still ~1830 lines, target: <1000 lines)
+- Extract more method groups into mixins
+
+---
+
 ## Session Summary - 2026-05-05 (Iteration #128 - Complete):
 
 ### ✅ Completed (Iteration #128):

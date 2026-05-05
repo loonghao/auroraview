@@ -21,6 +21,7 @@ from auroraview.core.mixins import (
     WebViewDOMMixin,
     WebViewEventMixin,
     WebViewJSMixin,
+    WebViewLifecycleMixin,
     WebViewTelemetryMixin,
     WebViewWindowMixin,
 )
@@ -49,6 +50,7 @@ logger = logging.getLogger(__name__)
 
 
 class WebView(
+    WebViewLifecycleMixin,
     WebViewWindowMixin,
     WebViewContentMixin,
     WebViewJSMixin,
