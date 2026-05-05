@@ -1,14 +1,21 @@
-//! MCP Server implementation for `AuroraView`.
+//! `McpServer` - MCP server implementation for `AuroraView`.
 //!
-//! Exposes `AuroraView` capabilities as standard MCP tools via HTTP/SSE transport.
-//! Uses `rmcp` crate with `StreamableHttpService` for HTTP-based MCP communication.
+//! This module implements the MCP server that exposes `AuroraView` capabilities
+//! as standard MCP tools via HTTP/SSE transport.
 
-use rmcp::{handler::server::wrapper::Parameters, schemars::JsonSchema, tool, tool_router};
-use serde::Deserialize;
+mod params;
+
+// Re-export parameter structs for convenience
+pub use params::*;
+
+use base64::Engine;
+use rmcp::{tool, tool_router};
 use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::OnceCell;
 use tracing::{debug, error, info, warn};
+
+use rmcp::handler::server::wrapper::Parameters;
 
 use crate::agui::AguiBus;
 use crate::cdp::{CdpClient, CdpError};
@@ -16,134 +23,8 @@ use crate::registry::WebViewRegistry;
 use crate::{CdpAdapterConfig, DEFAULT_CDP_TIMEOUT};
 
 // ---------------------------------------------------------------------------
-// Tool parameter structs
+// `McpServer` struct
 // ---------------------------------------------------------------------------
-
-/// Parameters for the `screenshot` tool.
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ScreenshotParams {
-    /// Image format: "png", "jpeg", or "webp". Defaults to "png".
-    #[serde(default = "default_format")]
-    pub format: String,
-}
-
-fn default_format() -> String {
-    "png".to_owned()
-}
-
-/// Parameters for the `eval_js` tool.
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct EvalJsParams {
-    /// JavaScript expression to evaluate in the `WebView` context.
-    pub script: String,
-}
-
-/// Parameters for the `load_url` tool.
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct LoadUrlParams {
-    /// URL to load in the `WebView`.
-    pub url: String,
-}
-
-/// Parameters for the `send_event` tool.
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct SendEventParams {
-    /// Event name to emit in the `WebView`.
-    pub event: String,
-    /// Event payload (JSON value).
-    pub data: serde_json::Value,
-}
-
-/// Parameters for the `get_hwnd` tool (placeholder).
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct GetHwndParams {}
-
-/// Parameters for the `list_webviews` tool (placeholder).
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListWebviewsParams {}
-
-/// Parameters for the `create_webview` tool (placeholder).
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct CreateWebviewParams {
-    /// `WebView` configuration (JSON).
-    pub config: serde_json::Value,
-}
-
-/// Parameters for the `close_webview` tool (placeholder).
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct CloseWebviewParams {
-    /// `WebView` ID to close.
-    pub id: String,
-}
-
-/// Parameters for the `set_attribute` tool.
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct SetAttributeParams {
-    /// CSS selector to find the target element.
-    pub selector: String,
-    /// Attribute name to set.
-    pub name: String,
-    /// Attribute value to set.
-    pub value: String,
-}
-
-/// Parameters for the `remove_attribute` tool.
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct RemoveAttributeParams {
-    /// CSS selector to find the target element.
-    pub selector: String,
-    /// Attribute name to remove.
-    pub name: String,
-}
-
-/// Parameters for the `call_function` tool.
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct CallFunctionParams {
-    /// JavaScript expression that evaluates to an object.
-    pub object_expr: String,
-    /// Function declaration to call on the object.
-    pub function: String,
-}
-
-/// Parameters for the `clear_cache` tool.
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ClearCacheParams {}
-
-/// Parameters for the `set_cache_disabled` tool.
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct SetCacheDisabledParams {
-    /// If `true`, disable browser cache; if `false`, enable cache.
-    pub disabled: bool,
-}
-
-/// Parameters for the `set_download_behavior` tool.
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct SetDownloadBehaviorParams {
-    /// Download behavior: `"deny"`, `"allow"`, or `"default"`.
-    pub behavior: String,
-    /// Required when `behavior` is `"allow"`.
-    pub download_path: Option<String>,
-}
-
-/// Parameters for the `set_device_metrics_override` tool.
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct SetDeviceMetricsOverrideParams {
-    /// Override width (pixels). Set to `0` to clear override.
-    pub width: i64,
-    /// Override height (pixels). Set to `0` to clear override.
-    pub height: i64,
-    /// Device pixel ratio (e.g., `1.0`, `2.0` for Retina).
-    pub device_scale_factor: f64,
-    /// Whether the emulated device is mobile.
-    pub mobile: bool,
-}
-
-/// Parameters for the `set_ignore_certificate_errors` tool.
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct SetIgnoreCertificateErrorsParams {
-    /// If `true`, ignore all SSL certificate errors (DEV ONLY).
-    pub ignore: bool,
-}
 
 /// MCP Server that bridges rmcp protocol to a running `AuroraView` CDP endpoint.
 ///
@@ -151,16 +32,6 @@ pub struct SetIgnoreCertificateErrorsParams {
 /// `AuroraView` capabilities as standard MCP tools (screenshot, `eval_js`, `load_url`, etc.).
 ///
 /// It reuses a single CDP connection for all tool calls (lazily established on first use).
-///
-/// # Example
-///
-/// ```rust,ignore
-/// let config = CdpAdapterConfig::localhost(9222, "0.5.2");
-/// let server = McpServer::new(config);
-/// let bus = AguiBus::new();
-/// let server = server.with_agui_bus(bus);
-/// ```
-#[derive(Clone)]
 pub struct McpServer {
     /// CDP adapter configuration (HTTP/WS endpoints).
     config: CdpAdapterConfig,
@@ -170,6 +41,17 @@ pub struct McpServer {
     agui_bus: Option<AguiBus>,
     /// Lazily initialized CDP client (shared across tool calls).
     client: Arc<OnceCell<CdpClient>>,
+}
+
+impl Clone for McpServer {
+    fn clone(&self) -> Self {
+        Self {
+            config: self.config.clone(),
+            registry: self.registry.clone(),
+            agui_bus: self.agui_bus.clone(),
+            client: self.client.clone(),
+        }
+    }
 }
 
 impl Default for McpServer {
@@ -274,6 +156,10 @@ impl McpServer {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Tool implementations via `#[tool_router]`
+// ---------------------------------------------------------------------------
+
 #[tool_router(server_handler)]
 impl McpServer {
     /// Capture a screenshot of the current `WebView`.
@@ -301,7 +187,7 @@ impl McpServer {
             "webp" => "image/webp",
             _ => "image/png",
         };
-        let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bytes);
+        let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
         Ok(format!("data:{mime};base64,{b64}"))
     }
 
@@ -383,7 +269,11 @@ impl McpServer {
             warn!(error = %e, "JSON serialize failed");
             rmcp::ErrorData::internal_error(format!("JSON serialize failed: {e}"), None)
         })?;
-        let script = format!("if(window.auroraview && window.auroraview.trigger){{ window.auroraview.trigger('{}', {}); }} else {{ console.error('[AuroraView] Event bridge not ready'); }}", params.event.replace('\'', "\\'"), data_str);
+        let script = format!(
+            "if(window.auroraview && window.auroraview.trigger){{ window.auroraview.trigger('{}', {}); }} else {{ console.error('[AuroraView] Event bridge not ready'); }}",
+            params.event.replace('\'', "\\'"),
+            data_str
+        );
         client
             .evaluate_script(&script, DEFAULT_CDP_TIMEOUT)
             .await
@@ -395,7 +285,7 @@ impl McpServer {
         Ok(format!("event '{}' sent", params.event))
     }
 
-    /// Get the native window handle (HWND on Windows, WID on Linux, `NSView`* on macOS).
+    /// Get the native window handle (HWND on Windows, WID on Linux, `NSView` on macOS).
     ///
     /// **TODO**: Requires `AuroraView` core to expose a CDP extension API:
     /// - Method: `Browser.getWindowHandle`
@@ -408,7 +298,7 @@ impl McpServer {
     /// # Errors
     ///
     /// Always returns `rmcp::ErrorData::internal_error()` (placeholder - not yet implemented).
-    #[tool(description = "(PLACHOLDER) Get native window handle (HWND/WID/NSView)")]
+    #[tool(description = "(PLACEHOLDER) Get native window handle (HWND/WID/NSView)")]
     async fn get_hwnd(
         &self,
         Parameters(_): Parameters<GetHwndParams>,
@@ -777,7 +667,10 @@ impl McpServer {
                 rmcp::ErrorData::internal_error(format!("set_device_metrics_override failed: {e}"), None)
             })?;
         info!(width = params.width, height = params.height, "Device metrics overridden");
-        Ok(format!("Device metrics overridden: {}x{} @ {}x", params.width, params.height, params.device_scale_factor))
+        Ok(format!(
+            "Device metrics overridden: {}x{} @ {}x",
+            params.width, params.height, params.device_scale_factor
+        ))
     }
 
     /// Ignore SSL certificate errors (DEV ONLY).
@@ -797,73 +690,24 @@ impl McpServer {
                 warn!(error = %e, "set_ignore_certificate_errors failed");
                 rmcp::ErrorData::internal_error(format!("set_ignore_certificate_errors failed: {e}"), None)
             })?;
-        let msg = if params.ignore { "SSL certificate errors will be ignored (DEV ONLY)" } else { "SSL certificate errors will be enforced" };
+        let msg = if params.ignore {
+            "SSL certificate errors will be ignored (DEV ONLY)"
+        } else {
+            "SSL certificate errors will be enforced"
+        };
         warn!(%params.ignore, "SSL certificate error handling changed");
         Ok(msg.to_owned())
     }
 }
 
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn screenshot_params_default_format() {
-        let p: ScreenshotParams = serde_json::from_str(r#"{}"#).unwrap();
-        assert_eq!(p.format, "png");
-    }
-
-    #[test]
-    fn screenshot_params_custom_format() {
-        let p: ScreenshotParams = serde_json::from_str(r#"{"format": "jpeg"}"#).unwrap();
-        assert_eq!(p.format, "jpeg");
-    }
-
-    #[test]
-    fn eval_js_params() {
-        let p: EvalJsParams = serde_json::from_str(r#"{"script": "document.title"}"#).unwrap();
-        assert_eq!(p.script, "document.title");
-    }
-
-    #[test]
-    fn load_url_params() {
-        let p: LoadUrlParams = serde_json::from_str(r#"{"url": "https://example.com"}"#).unwrap();
-        assert_eq!(p.url, "https://example.com");
-    }
-
-    #[test]
-    fn send_event_params_default() {
-        let json = r#"{"event": "test_event", "data": {"key": "value"}}"#;
-        let p: SendEventParams = serde_json::from_str(json).unwrap();
-        assert_eq!(p.event, "test_event");
-        assert_eq!(p.data, serde_json::json!({"key": "value"}));
-    }
-
-    #[test]
-    fn get_hwnd_params_empty() {
-        let p: GetHwndParams = serde_json::from_str(r#"{}"#).unwrap();
-        let _ = p; // empty struct
-    }
-
-    #[test]
-    fn list_webviews_params_empty() {
-        let p: ListWebviewsParams = serde_json::from_str(r#"{}"#).unwrap();
-        let _ = p; // empty struct
-    }
-
-    #[test]
-    fn create_webview_params() {
-        let json = r#"{"config": {"url": "https://example.com"}}"#;
-        let p: CreateWebviewParams = serde_json::from_str(json).unwrap();
-        assert_eq!(p.config, serde_json::json!({"url": "https://example.com"}));
-    }
-
-    #[test]
-    fn close_webview_params() {
-        let json = r#"{"id": "view-123"}"#;
-        let p: CloseWebviewParams = serde_json::from_str(json).unwrap();
-        assert_eq!(p.id, "view-123");
-    }
+    use crate::agui::AguiBus;
 
     #[test]
     fn mcp_server_new_creates_instance() {
