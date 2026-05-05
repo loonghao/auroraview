@@ -265,3 +265,60 @@ fn blueprint_error_display() {
     let err3 = auroraview_ue::UeBlueprintError::CompilationFailed("syntax error".into());
     assert!(err3.to_string().contains("syntax error"));
 }
+
+#[test]
+fn blueprint_node_remove_input() {
+    let mut node = auroraview_ue::UeBlueprintNode::new("node_1", "Test Node");
+    node.add_input("Input1", "string");
+    node.add_input("Input2", "float");
+    assert_eq!(node.inputs.len(), 2);
+    
+    node.remove_input("Input1");
+    assert_eq!(node.inputs.len(), 1);
+    assert_eq!(node.inputs[0], ("Input2".to_string(), "float".to_string()));
+}
+
+#[test]
+fn blueprint_node_remove_output() {
+    let mut node = auroraview_ue::UeBlueprintNode::new("node_2", "Test Node");
+    node.add_output("Output1", "string");
+    node.add_output("Output2", "bool");
+    assert_eq!(node.outputs.len(), 2);
+    
+    node.remove_output("Output1");
+    assert_eq!(node.outputs.len(), 1);
+    assert_eq!(node.outputs[0], ("Output2".to_string(), "bool".to_string()));
+}
+
+#[test]
+fn blueprint_node_remove_connection() {
+    let mut node1 = auroraview_ue::UeBlueprintNode::new("node_1", "Source");
+    let mut node2 = auroraview_ue::UeBlueprintNode::new("node_2", "Target");
+    node1.connect_to("node_2");
+    assert_eq!(node1.connections.len(), 1);
+    
+    node1.remove_connection("node_2");
+    assert!(node1.connections.is_empty());
+}
+
+#[test]
+fn blueprint_node_clear() {
+    let mut node = auroraview_ue::UeBlueprintNode::new("node_3", "Clear Test");
+    node.add_input("A", "int");
+    node.add_input("B", "float");
+    node.add_output("C", "string");
+    node.connect_to("node_x");
+    node.connect_to("node_y");
+    
+    assert!(!node.inputs.is_empty());
+    assert!(!node.outputs.is_empty());
+    assert!(!node.connections.is_empty());
+    
+    node.clear_inputs();
+    node.clear_outputs();
+    node.clear_connections();
+    
+    assert!(node.inputs.is_empty());
+    assert!(node.outputs.is_empty());
+    assert!(node.connections.is_empty());
+}

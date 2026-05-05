@@ -511,7 +511,7 @@ fn generate_storage_api() -> String {
 }
 
 fn generate_tabs_api() -> String {
-    r#"
+    r"
     // chrome.tabs API
     const tabs = {
         query: async function(queryInfo) {
