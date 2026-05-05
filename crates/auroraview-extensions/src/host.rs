@@ -320,7 +320,7 @@ fn generate_chrome_api_polyfill(extension: &LoadedExtension) -> String {
     let has_scripting = extension.manifest.has_permission("scripting");
 
     format!(
-        r#"
+        r"
 // AuroraView Chrome Extension API Polyfill
 // Extension: {name} ({id})
 (function() {{
@@ -403,7 +403,7 @@ fn generate_chrome_api_polyfill(extension: &LoadedExtension) -> String {
 
     console.log('[AuroraView] Chrome API polyfill loaded for extension:', EXTENSION_ID);
 }})();
-"#,
+",
         name = extension.manifest.name,
         id = ext_id,
         manifest = serde_json::to_string(&extension.manifest).unwrap_or_default(),

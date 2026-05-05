@@ -298,7 +298,7 @@ impl ApiHandler for ActionApiHandler {
                 let popup = params
                     .get("popup")
                     .and_then(|v| v.as_str())
-                    .map(|s| s.to_string());
+                    .map(str::to_string);
 
                 if let Some(tab_id) = tab_id {
                     self.manager
