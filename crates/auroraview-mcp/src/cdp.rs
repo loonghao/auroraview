@@ -443,6 +443,10 @@ impl CdpClient {
     }
 
     /// `Network.disable` — disable network monitoring.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if the CDP call fails.
     pub async fn network_disable(&self, timeout: Duration) -> Result<(), CdpError> {
         self.call("Network.disable", json!({}), timeout).await?;
         tracing::debug!("Network monitoring disabled");
@@ -452,6 +456,10 @@ impl CdpClient {
     /// `DOM.getDocument` — get the DOM document node.
     ///
     /// Returns the root `Document` node as JSON.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if the CDP call fails or the response is malformed.
     pub async fn get_document(&self, timeout: Duration) -> Result<Value, CdpError> {
         // Use retry logic for this idempotent method
         let result = self.call_with_retry(
@@ -470,6 +478,10 @@ impl CdpClient {
     ///
     /// `node_id` is the DOM node ID (from `DOM.getDocument` or `DOM.querySelector`).
     /// Returns the computed styles as JSON.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if the CDP call fails or the response is malformed.
     pub async fn get_styles_for_node(
         &self,
         node_id: i64,
@@ -494,6 +506,10 @@ impl CdpClient {
     /// `node_id` is the parent node ID (usually from `DOM.getDocument`).
     /// `selector` is a CSS selector string (e.g., `"#my-id"`, `".my-class"`).
     /// Returns the found node ID, or `None` if not found.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if the CDP call fails or the response is malformed.
     pub async fn query_selector(
         &self,
         node_id: i64,
@@ -526,6 +542,10 @@ impl CdpClient {
     /// `node_id` is the parent node ID (usually from `DOM.getDocument`).
     /// `selector` is a CSS selector string.
     /// Returns a vector of node IDs.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if the CDP call fails or the response is malformed.
     pub async fn query_selector_all(
         &self,
         node_id: i64,
@@ -558,6 +578,12 @@ impl CdpClient {
     ///
     /// `node_id` is the DOM node ID (from `DOM.getDocument` or `DOM.querySelector`).
     /// Returns the outer HTML as a string.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if:
+    /// - CDP call fails ([`CdpError::WebSocket`], [`CdpError::Timeout`], etc.)
+    /// - Response is malformed ([`CdpError::MalformedResponse`])
     pub async fn get_outer_html(
         &self,
         node_id: i64,
@@ -589,6 +615,10 @@ impl CdpClient {
     ///
     /// `node_id` is the DOM node ID.
     /// Returns a map of attribute name -> value.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if the CDP call fails or the response is malformed.
     pub async fn get_attributes(
         &self,
         node_id: i64,
@@ -629,6 +659,10 @@ impl CdpClient {
     ///
     /// `node_id` is the DOM node ID (must be a text node).
     /// `value` is the new text value.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if the CDP call fails.
     pub async fn set_node_value(
         &self,
         node_id: i64,
@@ -648,6 +682,10 @@ impl CdpClient {
     ///
     /// `object_id` is the unique object ID (from `Runtime.evaluate` result with `objectId`).
     /// Returns a list of property descriptors.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if the CDP call fails or the response is malformed.
     pub async fn get_properties(
         &self,
         object_id: &str,
@@ -679,6 +717,13 @@ impl CdpClient {
     ///
     /// `request_id` is the network request ID (from `Network.requestWillBeSent` event).
     /// Returns the response body as bytes (handles base64-encoded bodies).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if:
+    /// - CDP call fails ([`CdpError::WebSocket`], [`CdpError::Timeout`], etc.)
+    /// - Response is malformed ([`CdpError::MalformedResponse`])
+    /// - Base64 decoding fails ([`CdpError::Base64`])
     pub async fn get_response_body(
         &self,
         request_id: &str,
@@ -723,6 +768,10 @@ impl CdpClient {
     /// `node_id` is the DOM node ID.
     /// `name` is the attribute name.
     /// `value` is the attribute value.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if the CDP call fails.
     pub async fn set_attribute_value(
         &self,
         node_id: i64,
@@ -744,6 +793,10 @@ impl CdpClient {
     ///
     /// `node_id` is the DOM node ID.
     /// `name` is the attribute name to remove.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if the CDP call fails.
     pub async fn remove_attribute(
         &self,
         node_id: i64,
@@ -765,6 +818,10 @@ impl CdpClient {
     /// `function_declaration` is the JS function to call (e.g., `"function() { return this.length; }"`).
     /// `arguments` is optional array of call arguments.
     /// Returns the JSON value result.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if the CDP call fails or the response is malformed.
     pub async fn call_function_on(
         &self,
         object_id: &str,
@@ -792,6 +849,10 @@ impl CdpClient {
     }
 
     /// `Network.clearBrowserCache` — clear the browser cache.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if the CDP call fails.
     pub async fn clear_browser_cache(&self, timeout: Duration) -> Result<(), CdpError> {
         self.call("Network.clearBrowserCache", json!({}), timeout).await?;
         tracing::debug!("Network.clearBrowserCache succeeded");
@@ -802,6 +863,10 @@ impl CdpClient {
     ///
     /// When `disabled` is `true`, the browser will not use the cache.
     /// When `false`, normal cache behavior is restored.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if the CDP call fails.
     pub async fn set_cache_disabled(
         &self,
         disabled: bool,
@@ -821,6 +886,10 @@ impl CdpClient {
     /// - `"default"`: use browser default
     ///
     /// `download_path` is required when `behavior` is `"allow"`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if the CDP call fails.
     pub async fn set_download_behavior(
         &self,
         behavior: &str,
@@ -840,6 +909,10 @@ impl CdpClient {
     ///
     /// Simulates different screen sizes, pixel ratios, etc.
     /// Set all parameters to `0` or `None` to clear the override.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if the CDP call fails.
     pub async fn set_device_metrics_override(
         &self,
         width: i64,
@@ -863,6 +936,10 @@ impl CdpClient {
     ///
     /// **WARNING**: This should only be used in development/testing.
     /// When `ignore` is `true`, all certificate errors are ignored.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CdpError`] if the CDP call fails.
     pub async fn set_ignore_certificate_errors(
         &self,
         ignore: bool,
