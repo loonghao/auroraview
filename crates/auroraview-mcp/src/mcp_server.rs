@@ -403,6 +403,10 @@ impl McpServer {
     ///
     /// Currently a placeholder; will be implemented when AuroraView core
     /// adds CDP extension support (target: Q3 2026).
+    ///
+    /// # Errors
+    ///
+    /// Always returns `rmcp::ErrorData::internal_error()` (placeholder - not yet implemented).
     #[tool(description = "(PLACHOLDER) Get native window handle (HWND/WID/NSView)")]
     async fn get_hwnd(
         &self,
@@ -423,6 +427,10 @@ impl McpServer {
     ///
     /// Currently a placeholder; will be implemented when AuroraView core
     /// adds CDP extension support (target: Q3 2026).
+    ///
+    /// # Errors
+    ///
+    /// Always returns `rmcp::ErrorData::internal_error()` (placeholder - not yet implemented).
     #[tool(description = "(PLACEHOLDER) List all active WebView instances")]
     async fn list_webviews(
         &self,
@@ -443,6 +451,10 @@ impl McpServer {
     ///
     /// Currently a placeholder; will be implemented when AuroraView core
     /// adds CDP extension support (target: Q3 2026).
+    ///
+    /// # Errors
+    ///
+    /// Always returns `rmcp::ErrorData::internal_error()` (placeholder - not yet implemented).
     #[tool(description = "(PLACEHOLDER) Create a new WebView instance")]
     async fn create_webview(
         &self,
@@ -463,6 +475,10 @@ impl McpServer {
     ///
     /// Currently a placeholder; will be implemented when AuroraView core
     /// adds CDP extension support (target: Q3 2026).
+    ///
+    /// # Errors
+    ///
+    /// Always returns `rmcp::ErrorData::internal_error()` (placeholder - not yet implemented).
     #[tool(description = "(PLACEHOLDER) Close a WebView instance by ID")]
     async fn close_webview(
         &self,
