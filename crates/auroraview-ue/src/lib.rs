@@ -242,6 +242,10 @@ impl UeIntegration {
     /// Create a `WebView` embedded in UE Slate.
     ///
     /// This must be called from the `GameThread`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `UeError::NotOnGameThread` if not called from the `GameThread`.
     pub fn create_webview(&self, url: &str) -> Result<SlateWidgetHandle, UeError> {
         if !self.executor.is_game_thread() {
             return Err(UeError::NotOnGameThread);
