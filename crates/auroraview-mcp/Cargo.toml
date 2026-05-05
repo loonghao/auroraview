@@ -70,7 +70,7 @@ jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
 bcrypt = "0.15"
 sha2 = "0.10"
 chrono = "0.4"
-base64-url = "2.0"
+base64-url = "3.0"
 
 # Workspace dep unification (same as every other crate in this workspace).
 auroraview-workspace-hack = { version = "0.1", path = "../auroraview-workspace-hack" }
