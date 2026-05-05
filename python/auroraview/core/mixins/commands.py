@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright (c) 2025 Long Hao
 # Licensed under the MIT License
 """WebView Commands Mixin - command registry and decorator."""
