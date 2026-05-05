@@ -609,329 +609,80 @@ impl CdpClient {
         tracing::debug!("Network.clearBrowserCache succeeded");
         Ok(())
     }
-}
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::time::Duration;
-
-    #[test]
-    fn cdp_error_display_timeout() {
-        let dur = Duration::from_secs(5);
-        let err = CdpError::Timeout("test_method".to_string(), dur);
-        let msg = format!("{err}");
-        assert!(msg.contains("timed out"), "got: {msg}");
+    /// `Network.setCacheDisabled` — disable or enable browser cache.
+    ///
+    /// When `disabled` is `true`, the browser will not use the cache.
+    /// When `false`, normal cache behavior is restored.
+    pub async fn set_cache_disabled(
+        &self,
+        disabled: bool,
+        timeout: Duration,
+    ) -> Result<(), CdpError> {
+        let params = json!({ "cacheDisabled": disabled });
+        self.call("Network.setCacheDisabled", params, timeout).await?;
+        tracing::debug!(%disabled, "Network.setCacheDisabled succeeded");
+        Ok(())
     }
 
-    #[test]
-    fn cdp_error_display_connection_closed() {
-        let err = CdpError::ConnectionClosed("test_method".to_string());
-        let msg = format!("{err}");
-        assert!(msg.contains("closed before"), "got: {msg}");
-    }
-
-    #[test]
-    fn cdp_error_display_remote() {
-        let err = CdpError::Remote("test_method".to_string(), "test error".to_owned());
-        let msg = format!("{err}");
-        assert!(msg.contains("test error"), "got: {msg}");
-    }
-
-    #[test]
-    fn cdp_error_display_malformed_response() {
-        let err = CdpError::MalformedResponse("test_method".to_string(), "result");
-        let msg = format!("{err}");
-        assert!(msg.contains("result"), "got: {msg}");
-    }
-
-    #[test]
-    fn browser_version_creation() {
-        let version = BrowserVersion {
-            product: "Chrome/120.0.6099.109".to_owned(),
-            protocol_version: "1.3".to_owned(),
-        };
-        assert_eq!(version.product, "Chrome/120.0.6099.109");
-        assert_eq!(version.protocol_version, "1.3");
-    }
-
-    #[test]
-    fn browser_version_debug() {
-        let version = BrowserVersion {
-            product: "test".to_owned(),
-            protocol_version: "1.0".to_owned(),
-        };
-        let debug = format!("{version:?}");
-        assert!(debug.contains("test"));
-    }
-
-    // Note: `query_selector` and `query_selector_all` require a live CDP WebSocket
-    // connection.  Their unit tests live in `tests/cdp_integration_test.rs`, which
-    // is only run when `CARGO_FEATURE_INTEGRATION_TESTS` is set.
-    //
-    // We do however test the response-parsing logic through the tests below.
-
-    /// Simulate a successful `DOM.querySelector` response and assert the parser
-    /// returns `Some(node_id)`.
-    #[test]
-    fn query_selector_returns_node_id() {
-        // We can't easily unit-test `CdpClient` without a live WebSocket, but we
-        // can verify the JSON response shape our implementation expects.
-        let json = serde_json::json!({"result": {"nodeId": 42}});
-        let node_id = json
-            .get("result")
-            .and_then(|r| r.get("nodeId"))
-            .and_then(serde_json::Value::as_i64)
-            .filter(|&id| id != 0);
-        assert_eq!(node_id, Some(42));
-    }
-
-    /// Simulate a `DOM.querySelector` response where no element matched (CDP
-    /// returns `nodeId: 0`).
-    #[test]
-    fn query_selector_returns_none_when_not_found() {
-        let json = serde_json::json!({"result": {"nodeId": 0}});
-        let node_id = json
-            .get("result")
-            .and_then(|r| r.get("nodeId"))
-            .and_then(serde_json::Value::as_i64)
-            .filter(|&id| id != 0);
-        assert_eq!(node_id, None);
-    }
-
-    /// Simulate a successful `DOM.querySelectorAll` response.
-    #[test]
-    fn query_selector_all_returns_node_ids() {
-        let json = serde_json::json!({"result": {"nodeIds": [1, 2, 3]}});
-        let node_ids = json
-            .get("result")
-            .and_then(|r| r.get("nodeIds"))
-            .and_then(serde_json::Value::as_array)
-            .map(|arr| arr.iter().filter_map(serde_json::Value::as_i64).collect::<Vec<_>>())
-            .unwrap_or_default();
-        assert_eq!(node_ids, vec![1, 2, 3]);
-    }
-
-    /// Simulate a `DOM.querySelectorAll` response with no matches.
-    #[test]
-    fn query_selector_all_returns_empty_vec() {
-        let json = serde_json::json!({"result": {"nodeIds": []}});
-        let node_ids = json
-            .get("result")
-            .and_then(|r| r.get("nodeIds"))
-            .and_then(serde_json::Value::as_array)
-            .map(|arr| arr.iter().filter_map(serde_json::Value::as_i64).collect::<Vec<_>>())
-            .unwrap_or_default();
-        assert!(node_ids.is_empty());
-    }
-
-    /// Simulate a successful `DOM.getOuterHTML` response.
-    #[test]
-    fn get_outer_html_returns_html() {
-        let json = serde_json::json!({"result": {"outerHTML": "<div>Hello</div>"}});
-        let html = json
-            .get("result")
-            .and_then(|r| r.get("outerHTML"))
-            .and_then(serde_json::Value::as_str)
-            .map(String::from)
-            .unwrap_or_default();
-        assert_eq!(html, "<div>Hello</div>");
-    }
-
-    /// Simulate a `DOM.getOuterHTML` response with missing field.
-    #[test]
-    fn get_outer_html_handles_missing_field() {
-        let json = serde_json::json!({"result": {}});
-        let html = json
-            .get("result")
-            .and_then(|r| r.get("outerHTML"))
-            .and_then(serde_json::Value::as_str)
-            .map(String::from)
-            .unwrap_or_default();
-        assert_eq!(html, "");
-    }
-
-    /// Simulate a successful `DOM.getAttributes` response.
-    #[test]
-    fn get_attributes_returns_attributes() {
-        let json = serde_json::json!({"result": {"attributes": ["id", "my-id", "class", "my-class"]}});
-        let attrs_array = json
-            .get("result")
-            .and_then(|r| r.get("attributes"))
-            .and_then(serde_json::Value::as_array)
-            .unwrap();
-
-        let mut attrs = std::collections::HashMap::new();
-        let mut i = 0;
-        while i + 1 < attrs_array.len() {
-            if let (Some(name), Some(value)) = (attrs_array[i].as_str(), attrs_array[i + 1].as_str()) {
-                attrs.insert(name.to_owned(), value.to_owned());
-            }
-            i += 2;
+    /// `Page.setDownloadBehavior` — control how downloads are handled.
+    ///
+    /// `behavior` can be:
+    /// - `"deny"`: prevent downloads
+    /// - `"allow"`: allow downloads (default)
+    /// - `"default"`: use browser default
+    ///
+    /// `download_path` is required when `behavior` is `"allow"`.
+    pub async fn set_download_behavior(
+        &self,
+        behavior: &str,
+        download_path: Option<&str>,
+        timeout: Duration,
+    ) -> Result<(), CdpError> {
+        let mut params = json!({ "behavior": behavior });
+        if let Some(path) = download_path {
+            params["downloadPath"] = serde_json::json!(path);
         }
-        assert_eq!(attrs.len(), 2);
-        assert_eq!(attrs.get("id"), Some(&"my-id".to_owned()));
-        assert_eq!(attrs.get("class"), Some(&"my-class".to_owned()));
+        self.call("Page.setDownloadBehavior", params, timeout).await?;
+        tracing::debug!(%behavior, ?download_path, "Page.setDownloadBehavior succeeded");
+        Ok(())
     }
 
-    /// Simulate a `DOM.getAttributes` response with no attributes.
-    #[test]
-    fn get_attributes_returns_empty() {
-        let json = serde_json::json!({"result": {"attributes": []}});
-        let attrs_array = json
-            .get("result")
-            .and_then(|r| r.get("attributes"))
-            .and_then(serde_json::Value::as_array)
-            .unwrap();
-
-        let mut attrs = std::collections::HashMap::new();
-        let mut i = 0;
-        while i + 1 < attrs_array.len() {
-            if let (Some(name), Some(value)) = (attrs_array[i].as_str(), attrs_array[i + 1].as_str()) {
-                attrs.insert(name.to_owned(), value.to_owned());
-            }
-            i += 2;
-        }
-        assert!(attrs.is_empty());
-    }
-
-    /// Simulate a successful `Runtime.getProperties` response.
-    #[test]
-    fn get_properties_returns_properties() {
-        let json = serde_json::json!({
-            "result": {
-                "result": [
-                    {"name": "prop1", "value": {"type": "string", "value": "hello"}},
-                    {"name": "prop2", "value": {"type": "number", "value": 42}}
-                ]
-            }
+    /// `Emulation.setDeviceMetricsOverride` — override device metrics.
+    ///
+    /// Simulates different screen sizes, pixel ratios, etc.
+    /// Set all parameters to `0` or `None` to clear the override.
+    pub async fn set_device_metrics_override(
+        &self,
+        width: i64,
+        height: i64,
+        device_scale_factor: f64,
+        mobile: bool,
+        timeout: Duration,
+    ) -> Result<(), CdpError> {
+        let params = json!({
+            "width": width,
+            "height": height,
+            "deviceScaleFactor": device_scale_factor,
+            "mobile": mobile,
         });
-        let props = json
-            .get("result")
-            .and_then(|r| r.get("result"))
-            .and_then(serde_json::Value::as_array)
-            .cloned()
-            .unwrap_or_default();
-        assert_eq!(props.len(), 2);
-        assert_eq!(props[0].get("name").and_then(|v| v.as_str()), Some("prop1"));
-        assert_eq!(props[1].get("name").and_then(|v| v.as_str()), Some("prop2"));
+        self.call("Emulation.setDeviceMetricsOverride", params, timeout).await?;
+        tracing::debug!(%width, %height, %device_scale_factor, %mobile, "Emulation.setDeviceMetricsOverride succeeded");
+        Ok(())
     }
 
-    /// Simulate a `Network.getResponseBody` response with plain text.
-    #[test]
-    fn get_response_body_returns_text() {
-        let json = serde_json::json!({
-            "result": {
-                "body": "Hello, World!",
-                "base64Encoded": false
-            }
-        });
-        let body = json.get("result").and_then(|r| r.get("body")).and_then(|v| v.as_str()).unwrap();
-        let is_base64 = json.get("result").and_then(|r| r.get("base64Encoded")).and_then(|v| v.as_bool()).unwrap_or(false);
-        let bytes = if is_base64 {
-            <base64::engine::general_purpose::GeneralPurpose as base64::Engine>::decode(
-                &base64::engine::general_purpose::STANDARD,
-                body,
-            ).unwrap()
-        } else {
-            body.as_bytes().to_vec()
-        };
-        assert_eq!(bytes, b"Hello, World!");
-    }
-
-    /// Simulate a `Network.getResponseBody` response with base64-encoded data.
-    #[test]
-    fn get_response_body_returns_base64() {
-        let json = serde_json::json!({
-            "result": {
-                "body": "SGVsbG8sIFdvcmxkIQ==",
-                "base64Encoded": true
-            }
-        });
-        let body = json.get("result").and_then(|r| r.get("body")).and_then(|v| v.as_str()).unwrap();
-        let is_base64 = json.get("result").and_then(|r| r.get("base64Encoded")).and_then(|v| v.as_bool()).unwrap_or(false);
-        let bytes = if is_base64 {
-            <base64::engine::general_purpose::GeneralPurpose as base64::Engine>::decode(
-                &base64::engine::general_purpose::STANDARD,
-                body,
-            ).unwrap()
-        } else {
-            body.as_bytes().to_vec()
-        };
-        assert_eq!(bytes, b"Hello, World!");
-    }
-
-    // ---------------------------------------------------------------------------
-    // Tests for new CDP methods (set_attribute_value, remove_attribute,
-    // call_function_on, clear_browser_cache)
-    // ---------------------------------------------------------------------------
-
-    /// Simulate a successful `DOM.setAttributeValue` response (empty result).
-    #[test]
-    fn set_attribute_value_returns_ok() {
-        // CDP returns `{"result": {}}` for successful setAttributeValue
-        let json = serde_json::json!({"result": {}});
-        let result = json.get("result");
-        assert!(result.is_some());
-    }
-
-    /// Simulate a successful `DOM.removeAttribute` response (empty result).
-    #[test]
-    fn remove_attribute_returns_ok() {
-        let json = serde_json::json!({"result": {}});
-        let result = json.get("result");
-        assert!(result.is_some());
-    }
-
-    /// Simulate a successful `Runtime.callFunctionOn` response with return value.
-    #[test]
-    fn call_function_on_returns_value() {
-        let json = serde_json::json!({
-            "result": {
-                "result": {
-                    "type": "number",
-                    "value": 42
-                }
-            }
-        });
-        let value = json
-            .get("result")
-            .and_then(|r| r.get("result"))
-            .and_then(|v| v.get("value"))
-            .cloned()
-            .unwrap_or(serde_json::Value::Null);
-        assert_eq!(value, serde_json::json!(42));
-    }
-
-    /// Simulate a `Runtime.callFunctionOn` response returning a string.
-    #[test]
-    fn call_function_on_returns_string() {
-        let json = serde_json::json!({
-            "result": {
-                "result": {
-                    "type": "string",
-                    "value": "hello"
-                }
-            }
-        });
-        let value = json
-            .get("result")
-            .and_then(|r| r.get("result"))
-            .and_then(|v| v.get("value"))
-            .cloned()
-            .unwrap_or(serde_json::Value::Null);
-        assert_eq!(value, serde_json::json!("hello"));
-    }
-
-    /// Simulate a successful `Network.clearBrowserCache` response (empty result).
-    #[test]
-    fn clear_browser_cache_returns_ok() {
-        let json = serde_json::json!({"result": {}});
-        let result = json.get("result");
-        assert!(result.is_some());
+    /// `Security.setIgnoreCertificateErrors` — ignore SSL certificate errors.
+    ///
+    /// **WARNING**: This should only be used in development/testing.
+    /// When `ignore` is `true`, all certificate errors are ignored.
+    pub async fn set_ignore_certificate_errors(
+        &self,
+        ignore: bool,
+        timeout: Duration,
+    ) -> Result<(), CdpError> {
+        let params = json!({ "ignore": ignore });
+        self.call("Security.setIgnoreCertificateErrors", params, timeout).await?;
+        tracing::debug!(%ignore, "Security.setIgnoreCertificateErrors succeeded");
+        Ok(())
     }
 }

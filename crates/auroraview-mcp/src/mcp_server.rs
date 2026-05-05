@@ -109,6 +109,42 @@ pub struct CallFunctionParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ClearCacheParams {}
 
+/// Parameters for the `set_cache_disabled` tool.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SetCacheDisabledParams {
+    /// If `true`, disable browser cache; if `false`, enable cache.
+    pub disabled: bool,
+}
+
+/// Parameters for the `set_download_behavior` tool.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SetDownloadBehaviorParams {
+    /// Download behavior: `"deny"`, `"allow"`, or `"default"`.
+    pub behavior: String,
+    /// Required when `behavior` is `"allow"`.
+    pub download_path: Option<String>,
+}
+
+/// Parameters for the `set_device_metrics_override` tool.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SetDeviceMetricsOverrideParams {
+    /// Override width (pixels). Set to `0` to clear override.
+    pub width: i64,
+    /// Override height (pixels). Set to `0` to clear override.
+    pub height: i64,
+    /// Device pixel ratio (e.g., `1.0`, `2.0` for Retina).
+    pub device_scale_factor: f64,
+    /// Whether the emulated device is mobile.
+    pub mobile: bool,
+}
+
+/// Parameters for the `set_ignore_certificate_errors` tool.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SetIgnoreCertificateErrorsParams {
+    /// If `true`, ignore all SSL certificate errors (DEV ONLY).
+    pub ignore: bool,
+}
+
 // ---------------------------------------------------------------------------
 // McpServer — rmcp ServerHandler implementation
 // ---------------------------------------------------------------------------
@@ -589,6 +625,99 @@ impl McpServer {
         info!("Browser cache cleared");
         Ok("Browser cache cleared".to_owned())
     }
+
+    /// Disable or enable browser cache.
+    #[tool(description = "Disable or enable browser cache (true = disable, false = enable)")]
+    async fn set_cache_disabled(
+        &self,
+        Parameters(params): Parameters<SetCacheDisabledParams>,
+    ) -> Result<String, rmcp::ErrorData> {
+        let client = self.get_client().await.map_err(|e| {
+            error!(error = %e, "CDP connect failed");
+            rmcp::ErrorData::internal_error(format!("CDP connect failed: {e}"), None)
+        })?;
+        client
+            .set_cache_disabled(params.disabled, DEFAULT_CDP_TIMEOUT)
+            .await
+            .map_err(|e| {
+                warn!(error = %e, "set_cache_disabled failed");
+                rmcp::ErrorData::internal_error(format!("set_cache_disabled failed: {e}"), None)
+            })?;
+        let msg = if params.disabled { "Browser cache disabled" } else { "Browser cache enabled" };
+        info!(%params.disabled, "Cache disabled/enabled");
+        Ok(msg.to_owned())
+    }
+
+    /// Control download behavior.
+    #[tool(description = "Control download behavior: 'deny', 'allow', or 'default'")]
+    async fn set_download_behavior(
+        &self,
+        Parameters(params): Parameters<SetDownloadBehaviorParams>,
+    ) -> Result<String, rmcp::ErrorData> {
+        let client = self.get_client().await.map_err(|e| {
+            error!(error = %e, "CDP connect failed");
+            rmcp::ErrorData::internal_error(format!("CDP connect failed: {e}"), None)
+        })?;
+        let download_path = params.download_path.as_deref();
+        client
+            .set_download_behavior(&params.behavior, download_path, DEFAULT_CDP_TIMEOUT)
+            .await
+            .map_err(|e| {
+                warn!(error = %e, behavior = %params.behavior, "set_download_behavior failed");
+                rmcp::ErrorData::internal_error(format!("set_download_behavior failed: {e}"), None)
+            })?;
+        info!(behavior = %params.behavior, ?params.download_path, "Download behavior set");
+        Ok(format!("Download behavior set to '{}'", params.behavior))
+    }
+
+    /// Override device metrics (screen size, pixel ratio, mobile emulation).
+    #[tool(description = "Override device metrics for responsive testing (set all to 0 to clear)")]
+    async fn set_device_metrics_override(
+        &self,
+        Parameters(params): Parameters<SetDeviceMetricsOverrideParams>,
+    ) -> Result<String, rmcp::ErrorData> {
+        let client = self.get_client().await.map_err(|e| {
+            error!(error = %e, "CDP connect failed");
+            rmcp::ErrorData::internal_error(format!("CDP connect failed: {e}"), None)
+        })?;
+        client
+            .set_device_metrics_override(
+                params.width,
+                params.height,
+                params.device_scale_factor,
+                params.mobile,
+                DEFAULT_CDP_TIMEOUT,
+            )
+            .await
+            .map_err(|e| {
+                warn!(error = %e, "set_device_metrics_override failed");
+                rmcp::ErrorData::internal_error(format!("set_device_metrics_override failed: {e}"), None)
+            })?;
+        info!(width = params.width, height = params.height, "Device metrics overridden");
+        Ok(format!("Device metrics overridden: {}x{} @ {}x", params.width, params.height, params.device_scale_factor))
+    }
+
+    /// Ignore SSL certificate errors (DEV ONLY).
+    #[tool(description = "(DEV ONLY) Ignore SSL certificate errors - USE WITH CAUTION")]
+    async fn set_ignore_certificate_errors(
+        &self,
+        Parameters(params): Parameters<SetIgnoreCertificateErrorsParams>,
+    ) -> Result<String, rmcp::ErrorData> {
+        let client = self.get_client().await.map_err(|e| {
+            error!(error = %e, "CDP connect failed");
+            rmcp::ErrorData::internal_error(format!("CDP connect failed: {e}"), None)
+        })?;
+        client
+            .set_ignore_certificate_errors(params.ignore, DEFAULT_CDP_TIMEOUT)
+            .await
+            .map_err(|e| {
+                warn!(error = %e, "set_ignore_certificate_errors failed");
+                rmcp::ErrorData::internal_error(format!("set_ignore_certificate_errors failed: {e}"), None)
+            })?;
+        let msg = if params.ignore { "SSL certificate errors will be ignored (DEV ONLY)" } else { "SSL certificate errors will be enforced" };
+        warn!(%params.ignore, "SSL certificate error handling changed");
+        Ok(msg.to_owned())
+    }
 }
 
 #[cfg(test)]
@@ -779,6 +908,47 @@ mod tests {
     fn clear_cache_params_empty() {
         let p: ClearCacheParams = serde_json::from_str(r#"{}"#).unwrap();
         let _ = p; // empty struct
+    }
+
+    #[test]
+    fn set_cache_disabled_params() {
+        let p: SetCacheDisabledParams = serde_json::from_str(r#"{"disabled": true}"#).unwrap();
+        assert!(p.disabled);
+        let p: SetCacheDisabledParams = serde_json::from_str(r#"{"disabled": false}"#).unwrap();
+        assert!(!p.disabled);
+    }
+
+    #[test]
+    fn set_download_behavior_params() {
+        let p: SetDownloadBehaviorParams =
+            serde_json::from_str(r#"{"behavior": "allow"}"#).unwrap();
+        assert_eq!(p.behavior, "allow");
+        assert!(p.download_path.is_none());
+
+        let p: SetDownloadBehaviorParams =
+            serde_json::from_str(r#"{"behavior": "allow", "download_path": "/tmp"}"#).unwrap();
+        assert_eq!(p.behavior, "allow");
+        assert_eq!(p.download_path, Some("/tmp".to_owned()));
+    }
+
+    #[test]
+    fn set_device_metrics_override_params() {
+        let p: SetDeviceMetricsOverrideParams =
+            serde_json::from_str(r#"{"width": 1920, "height": 1080, "device_scale_factor": 1.0, "mobile": false}"#).unwrap();
+        assert_eq!(p.width, 1920);
+        assert_eq!(p.height, 1080);
+        assert_eq!(p.device_scale_factor, 1.0);
+        assert!(!p.mobile);
+    }
+
+    #[test]
+    fn set_ignore_certificate_errors_params() {
+        let p: SetIgnoreCertificateErrorsParams =
+            serde_json::from_str(r#"{"ignore": true}"#).unwrap();
+        assert!(p.ignore);
+        let p: SetIgnoreCertificateErrorsParams =
+            serde_json::from_str(r#"{"ignore": false}"#).unwrap();
+        assert!(!p.ignore);
     }
 
     #[test]
