@@ -9,10 +9,10 @@ mod params;
 pub use params::*;
 
 use base64::Engine;
+use dcc_mcp_protocols::adapters::DccSnapshot;
 use rmcp::{tool, tool_router};
 use serde_json::Value;
 use std::sync::Arc;
-use tokio::sync::OnceCell;
 use tracing::{debug, error, info, warn};
 
 use rmcp::handler::server::wrapper::Parameters;
@@ -20,7 +20,7 @@ use rmcp::handler::server::wrapper::Parameters;
 use crate::agui::AguiBus;
 use crate::cdp::{CdpClient, CdpError};
 use crate::registry::WebViewRegistry;
-use crate::{CdpAdapterConfig, DEFAULT_CDP_TIMEOUT};
+use crate::{CdpAdapterConfig, CdpAuroraViewAdapter, DEFAULT_CDP_TIMEOUT};
 
 // ---------------------------------------------------------------------------
 // `McpServer` struct
@@ -33,23 +33,20 @@ use crate::{CdpAdapterConfig, DEFAULT_CDP_TIMEOUT};
 ///
 /// It reuses a single CDP connection for all tool calls (lazily established on first use).
 pub struct McpServer {
-    /// CDP adapter configuration (HTTP/WS endpoints).
-    config: CdpAdapterConfig,
+    /// `dcc-mcp-core` adapter backed by AuroraView CDP.
+    adapter: Arc<CdpAuroraViewAdapter>,
     /// Registry of active `WebView` instances.
     registry: WebViewRegistry,
     /// AG-UI event bus (None if not enabled).
     agui_bus: Option<AguiBus>,
-    /// Lazily initialized CDP client (shared across tool calls).
-    client: Arc<OnceCell<CdpClient>>,
 }
 
 impl Clone for McpServer {
     fn clone(&self) -> Self {
         Self {
-            config: self.config.clone(),
+            adapter: self.adapter.clone(),
             registry: self.registry.clone(),
             agui_bus: self.agui_bus.clone(),
-            client: self.client.clone(),
         }
     }
 }
@@ -57,12 +54,7 @@ impl Clone for McpServer {
 impl Default for McpServer {
     fn default() -> Self {
         let config = CdpAdapterConfig::localhost(9222, "0.5.2");
-        Self {
-            config,
-            registry: WebViewRegistry::new(),
-            agui_bus: None,
-            client: Arc::new(OnceCell::new()),
-        }
+        Self::new(config)
     }
 }
 
@@ -74,10 +66,11 @@ impl McpServer {
     #[must_use]
     pub fn new(config: CdpAdapterConfig) -> Self {
         Self {
-            config,
+            adapter: Arc::new(
+                CdpAuroraViewAdapter::new(config).expect("create AuroraView CDP adapter runtime"),
+            ),
             registry: WebViewRegistry::new(),
             agui_bus: None,
-            client: Arc::new(OnceCell::new()),
         }
     }
 
@@ -98,9 +91,11 @@ impl McpServer {
     /// The next `get_client()` call will establish a new connection.
     #[must_use]
     pub fn with_cdp_endpoint(mut self, endpoint: String) -> Self {
-        self.config.http_endpoint = endpoint;
-        // Reset the cached client so next call reconnects
-        self.client = Arc::new(OnceCell::new());
+        let mut config = self.adapter.config().clone();
+        config.http_endpoint = endpoint;
+        self.adapter = Arc::new(
+            CdpAuroraViewAdapter::new(config).expect("create AuroraView CDP adapter runtime"),
+        );
         self
     }
 
@@ -117,39 +112,35 @@ impl McpServer {
     /// - The CDP endpoint returns invalid responses (possible version mismatch)
     async fn get_client(&self) -> Result<CdpClient, CdpError> {
         let start = std::time::Instant::now();
-        let endpoint = &self.config.http_endpoint;
-        let client_ref = self
-            .client
-            .get_or_try_init(|| async { CdpClient::connect(endpoint).await })
-            .await
-            .map_err(|e| {
-                error!(
-                    error = %e,
-                    %endpoint,
-                    "CDP client initialization failed"
-                );
-                warn!(
-                    %endpoint,
-                    "Troubleshooting: \
-                     1) Is AuroraView running with CDP enabled? \
-                     2) Is the port correct? \
-                     3) Check firewall allows connections to {}",
-                    endpoint
-                );
-                e
-            })?;
+        let endpoint = &self.adapter.config().http_endpoint;
+        let client = self.adapter.get_or_connect_client().await.map_err(|e| {
+            error!(
+                error = %e,
+                %endpoint,
+                "CDP client initialization failed"
+            );
+            warn!(
+                %endpoint,
+                "Troubleshooting: \
+                 1) Is AuroraView running with CDP enabled? \
+                 2) Is the port correct? \
+                 3) Check firewall allows connections to {}",
+                endpoint
+            );
+            e
+        })?;
         debug!(
             elapsed = ?start.elapsed(),
             %endpoint,
             "get_client() completed"
         );
-        Ok(client_ref.clone())
+        Ok(client)
     }
 
     /// Return a reference to the `WebView` registry.
     ///
-    /// The registry tracks all registered `WebView` instances. Currently a placeholder
-    /// (will be used when `create_webview` tool is implemented).
+    /// The registry tracks registered `WebView` instances for Python bindings
+    /// and runtime endpoint updates.
     #[must_use]
     pub fn registry(&self) -> &WebViewRegistry {
         &self.registry
@@ -170,24 +161,24 @@ impl McpServer {
         &self,
         Parameters(params): Parameters<ScreenshotParams>,
     ) -> Result<String, rmcp::ErrorData> {
-        let client = self.get_client().await.map_err(|e| {
+        self.get_client().await.map_err(|e| {
             error!(error = %e, "CDP connect failed");
             rmcp::ErrorData::internal_error(format!("CDP connect failed: {e}"), None)
         })?;
-        let bytes = client
-            .capture_screenshot(&params.format, DEFAULT_CDP_TIMEOUT)
-            .await
+        let capture = self
+            .adapter
+            .capture_viewport(None, None, None, &params.format)
             .map_err(|e| {
-                warn!(error = %e, "screenshot failed");
-                rmcp::ErrorData::internal_error(format!("screenshot failed: {e}"), None)
+                warn!(error = %e.message, "screenshot failed");
+                rmcp::ErrorData::internal_error(format!("screenshot failed: {}", e.message), None)
             })?;
-        debug!(format = %params.format, size = bytes.len(), "screenshot captured");
-        let mime = match params.format.as_str() {
+        debug!(format = %capture.format, size = capture.data.len(), "screenshot captured");
+        let mime = match capture.format.as_str() {
             "jpeg" => "image/jpeg",
             "webp" => "image/webp",
             _ => "image/png",
         };
-        let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+        let b64 = base64::engine::general_purpose::STANDARD.encode(&capture.data);
         Ok(format!("data:{mime};base64,{b64}"))
     }
 
@@ -283,103 +274,6 @@ impl McpServer {
             })?;
         debug!(event = %params.event, "event sent");
         Ok(format!("event '{}' sent", params.event))
-    }
-
-    /// Get the native window handle (HWND on Windows, WID on Linux, `NSView` on macOS).
-    ///
-    /// **TODO**: Requires `AuroraView` core to expose a CDP extension API:
-    /// - Method: `Browser.getWindowHandle`
-    /// - Params: `{ "viewId": <string> }`
-    /// - Returns: `{ "handle": <string> }` (hexadecimal representation)
-    ///
-    /// Currently a placeholder; will be implemented when `AuroraView` core
-    /// adds CDP extension support (target: Q3 2026).
-    ///
-    /// # Errors
-    ///
-    /// Always returns `rmcp::ErrorData::internal_error()` (placeholder - not yet implemented).
-    #[tool(description = "(PLACEHOLDER) Get native window handle (HWND/WID/NSView)")]
-    async fn get_hwnd(
-        &self,
-        Parameters(_): Parameters<GetHwndParams>,
-    ) -> Result<String, rmcp::ErrorData> {
-        Err(rmcp::ErrorData::internal_error(
-            "get_hwnd not yet implemented: requires AuroraView core CDP extension API",
-            None,
-        ))
-    }
-
-    /// List all active `WebView` instances.
-    ///
-    /// **TODO**: Requires `AuroraView` core to expose a CDP extension API:
-    /// - Method: `Browser.getWebViews`
-    /// - Params: `{}`
-    /// - Returns: `[ { "id": <string>, "url": <string>, "title": <string> } ]`
-    ///
-    /// Currently a placeholder; will be implemented when `AuroraView` core
-    /// adds CDP extension support (target: Q3 2026).
-    ///
-    /// # Errors
-    ///
-    /// Always returns `rmcp::ErrorData::internal_error()` (placeholder - not yet implemented).
-    #[tool(description = "(PLACEHOLDER) List all active WebView instances")]
-    async fn list_webviews(
-        &self,
-        Parameters(_): Parameters<ListWebviewsParams>,
-    ) -> Result<String, rmcp::ErrorData> {
-        Err(rmcp::ErrorData::internal_error(
-            "list_webviews not yet implemented: requires AuroraView core API",
-            None,
-        ))
-    }
-
-    /// Create a new `WebView` instance.
-    ///
-    /// **TODO**: Requires `AuroraView` core to expose a CDP extension API:
-    /// - Method: `Browser.newWebView`
-    /// - Params: `{ "url": <string>, "width": <int>, "height": <int>, "title": <string> }`
-    /// - Returns: `{ "id": <string>, "handle": <string> }`
-    ///
-    /// Currently a placeholder; will be implemented when `AuroraView` core
-    /// adds CDP extension support (target: Q3 2026).
-    ///
-    /// # Errors
-    ///
-    /// Always returns `rmcp::ErrorData::internal_error()` (placeholder - not yet implemented).
-    #[tool(description = "(PLACEHOLDER) Create a new WebView instance")]
-    async fn create_webview(
-        &self,
-        Parameters(_params): Parameters<CreateWebviewParams>,
-    ) -> Result<String, rmcp::ErrorData> {
-        Err(rmcp::ErrorData::internal_error(
-            "create_webview not yet implemented: requires AuroraView core CDP extension API",
-            None,
-        ))
-    }
-
-    /// Close a `WebView` instance by ID.
-    ///
-    /// **TODO**: Requires `AuroraView` core to expose a CDP extension API:
-    /// - Method: `Browser.closeWebView`
-    /// - Params: `{ "id": <string> }`
-    /// - Returns: `{}`
-    ///
-    /// Currently a placeholder; will be implemented when `AuroraView` core
-    /// adds CDP extension support (target: Q3 2026).
-    ///
-    /// # Errors
-    ///
-    /// Always returns `rmcp::ErrorData::internal_error()` (placeholder - not yet implemented).
-    #[tool(description = "(PLACEHOLDER) Close a WebView instance by ID")]
-    async fn close_webview(
-        &self,
-        Parameters(params): Parameters<CloseWebviewParams>,
-    ) -> Result<String, rmcp::ErrorData> {
-        let _ = params; // Suppress unused variable warning
-        Err(rmcp::ErrorData::internal_error(
-            "close_webview not yet implemented: requires AuroraView core CDP extension API",
-            None,
-        ))
     }
 
     /// Set an attribute on a DOM element.
@@ -761,76 +655,6 @@ mod tests {
         let server = McpServer::new(config);
         let registry = server.registry();
         assert_eq!(registry.len(), 0);
-    }
-
-    // ---------------------------------------------------------------------------
-    // Placeholder tool behavior tests
-    // ---------------------------------------------------------------------------
-
-    /// Helper to create a test server (won't actually connect to CDP).
-    fn test_server() -> McpServer {
-        let config = CdpAdapterConfig::localhost(9222, "0.5.2");
-        McpServer::new(config)
-    }
-
-    #[tokio::test]
-    async fn get_hwnd_returns_not_implemented() {
-        let server = test_server();
-        let params = Parameters(GetHwndParams {});
-        let result = server.get_hwnd(params).await;
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        let msg = format!("{err}");
-        assert!(
-            msg.contains("not yet implemented"),
-            "Expected 'not yet implemented' in error: {msg}"
-        );
-    }
-
-    #[tokio::test]
-    async fn list_webviews_returns_not_implemented() {
-        let server = test_server();
-        let params = Parameters(ListWebviewsParams {});
-        let result = server.list_webviews(params).await;
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        let msg = format!("{err}");
-        assert!(
-            msg.contains("not yet implemented"),
-            "Expected 'not yet implemented' in error: {msg}"
-        );
-    }
-
-    #[tokio::test]
-    async fn create_webview_returns_not_implemented() {
-        let server = test_server();
-        let params = Parameters(CreateWebviewParams {
-            config: serde_json::json!({}),
-        });
-        let result = server.create_webview(params).await;
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        let msg = format!("{err}");
-        assert!(
-            msg.contains("not yet implemented"),
-            "Expected 'not yet implemented' in error: {msg}"
-        );
-    }
-
-    #[tokio::test]
-    async fn close_webview_returns_not_implemented() {
-        let server = test_server();
-        let params = Parameters(CloseWebviewParams {
-            id: "test-id".to_owned(),
-        });
-        let result = server.close_webview(params).await;
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        let msg = format!("{err}");
-        assert!(
-            msg.contains("not yet implemented"),
-            "Expected 'not yet implemented' in error: {msg}"
-        );
     }
 
     // ---------------------------------------------------------------------------

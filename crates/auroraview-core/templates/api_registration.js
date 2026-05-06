@@ -30,6 +30,7 @@
 {% endif %}
 {% endfor %}
         console.log('[AuroraView] API methods registered via template');
+        window.auroraview.trigger('api_ready', { source: 'template' });
         window.dispatchEvent(new CustomEvent('auroraview-api-ready'));
         return true;
     }

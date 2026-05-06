@@ -18,9 +18,9 @@ name = "auroraview_mcp"
 # Locked to 1.5.x to avoid breaking API changes in 1.6.0.
 rmcp = { version = "~1.5.0", features = ["server", "macros", "transport-streamable-http-server"] }
 
-# dcc-mcp-core protocols (DccAdapter trait + types). Pinned to v0.13.2; not
-# yet published to crates.io, so depend via git.
-dcc-mcp-protocols = { git = "https://github.com/loonghao/dcc-mcp-core.git", tag = "v0.13.2" }
+# dcc-mcp-core protocols (DccAdapter trait + types). Not yet published to
+# crates.io, so depend via git.
+dcc-mcp-protocols = { git = "https://github.com/loonghao/dcc-mcp-core.git", tag = "v0.15.0" }
 
 # Async runtime + WebSocket for CDP transport.
 tokio = { version = "1.48", features = ["rt-multi-thread", "net", "sync", "time", "macros"] }
