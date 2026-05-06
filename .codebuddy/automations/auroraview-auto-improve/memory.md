@@ -1,37 +1,50 @@
 # AuroraView Auto-Improve Memory #
 
-## Session Summary - 2026-05-06 (Iterations #144):
+## Session Summary - 2026-05-06 (Iteration #145):
 
-### ✅ Completed (Iteration #144):
-1. **Fixed compilation errors in `webview` module**:
-   - Fixed duplicate `Context` definition in `extensions.rs` (removed duplicate import)
-   - Fixed type mismatch in `ipc.rs`: `PluginRequest::from_invoke()` argument type (changed `msg.get("params").cloned()` to `msg.get("params").cloned().unwrap_or(serde_json::Value::Null)`)
-   - Fixed `with_context` method not found: added `use anyhow::{Context, Result};` in `mod.rs`
-   - Fixed `anyhow::Context` import conflict: used `as AnyhowContext` rename in `extensions.rs`
+### ✅ Completed (Iteration #145):
+1. **Fixed compilation errors in `auroraview-mcp` crate**:
+   - Added missing imports to `cdp/connect.rs`: `use std::sync::Arc;`, `use tokio::sync::Mutex;`, `use tracing::error;`, `use super::{CdpClient, CdpClientInner, CdpError};`
+   - Added missing `serde_json::Value` import to `cdp/page.rs`, `cdp/dom.rs`, `cdp/runtime.rs`, `cdp/network.rs`
+   - Fixed method call ambiguity in `cdp/runtime.rs`: changed `.cloned()` to `.map(|v| v.clone())` (twice)
+   - Removed unused import in `cdp/page.rs`: `warn`
 
-2. **Fixed all compilation warnings (zero warnings)**:
-   - Removed unused imports: `std::collections::HashMap`, `PluginRouter`, `EventLoopProxy`, `PythonBackend`
-   - Added `#[allow(unused_imports)]` for `pub use` re-exports in `mod.rs`
-   - Renamed unused variables: `msg` → `_msg`, `index_path` → `_index_path`
+2. **Verified `auroraview-mcp` crate compilation and tests**:
+   - `cargo check -p auroraview-mcp` passed ✅
+   - 80 unit tests passed ✅
 
-3. **Verified `webview` module refactoring**:
-   - `webview.rs` (1722 lines) successfully refactored into `webview/` directory
-   - `mod.rs`: 965 lines ✅ (under 1000 limit)
-   - `helpers.rs`: 89 lines ✅
-   - `extensions.rs`: 168 lines ✅
-   - `ipc.rs`: 425 lines ✅
+3. **Committed and pushed changes**:
+   - Commit: `dd03986` - `fix(mcp): resolve compilation errors in cdp module`
+   - Pushed to `auto-improve` branch ✅
 
-4. **Tests**: All 222 tests passed ✅
-
-5. **Commit**: pending (auto-improve branch)
+4. **MCP Server implementation status**:
+   - ✅ Implemented tools: `screenshot`, `eval_js`, `load_url`, `send_event`
+   - ✅ mDNS broadcast: implemented (`mdns.rs`)
+   - ✅ AG-UI SSE endpoint: implemented (`runner.rs` - `GET /agui/events`)
+   - ❌ Placeholder tools (not yet implemented): `get_hwnd`, `list_webviews`, `create_webview`, `close_webview`
+   - ❌ Missing tool: `load_html`
 
 ---
 
-## Next Iteration Plan (Iteration #145):
+## Next Iteration Plan (Iteration #146):
 
-### Priority 1: Continue with other large files (>1000 lines)
-Files still needing refactoring:
-1. `crates/auroraview-pack/src/manifest.rs` - 1690 lines
+### Priority 1: Implement missing MCP tools
+1. **Implement `load_html` tool**:
+   - Add `load_html` method to `cdp/page.rs` (use CDP `Page.setDocumentContent` or data URL)
+   - Add `LoadHtmlParams` to `mcp_server/params.rs`
+   - Add `load_html` tool handler to `mcp_server/mod.rs`
+
+2. **Implement or update placeholder tools**:
+   - `get_hwnd` - requires AuroraView core CDP extension API (Q3 2026 target)
+   - `list_webviews` - requires AuroraView core CDP extension API
+   - `create_webview` - requires AuroraView core CDP extension API
+   - `close_webview` - requires AuroraView core CDP extension API
+   - Note: These are blocked by AuroraView core changes, keep as placeholders
+
+### Priority 2: Continue with large file refactoring
+Files still needing refactoring (from memory.md #144):
+1. `crates/auroraview-pack/src/manifest.rs` - 1690 lines ❌
+   - **Note**: `crates/auroraview-pack/src/manifest/` directory exists (untracked), might be already refactored
 2. `src/webview/backend/native.rs` - 1623 lines
 3. `src/webview/webview_inner.rs` - 1589 lines
 4. `crates/auroraview-plugins/src/browser_bridge.rs` - 1502 lines
@@ -40,21 +53,21 @@ Files still needing refactoring:
 7. `crates/auroraview-cli/src/packed/backend.rs` - 1141 lines
 8. `src/webview/config.rs` - 1113 lines
 
-### Priority 2: Code Quality
+### Priority 3: Code Quality
 - [ ] Run `cargo clippy --workspace` and fix any new warnings
-- [ ] Run full test suite
+- [ ] Run full test suite (`cargo test --workspace`)
 - [ ] Check for any remaining large files
 
 ---
 
 ## Checklist for Next Iteration:
 ### Mandatory Requirement (MUST DO):
-- [x] **Fix `webview` module compilation errors** ✅
-- [x] **Fix all warnings (zero warnings)** ✅
-- [ ] **Continue with next large file**: `crates/auroraview-pack/src/manifest.rs` (1690 lines)
+- [ ] **Implement `load_html` tool** (if not blocked by core changes)
+- [ ] **Check if `crates/auroraview-pack/src/manifest.rs` has been refactored** (check `manifest/` directory)
+- [ ] **Continue with next large file refactoring**
 
 ### Security:
-- [ ] Investigate Dependabot alerts (43 vulnerabilities)
+- [ ] Investigate Dependabot alerts (43 vulnerabilities reported by GitHub)
 - [ ] Identify vulnerability sources (Rust/JavaScript/GitHub Actions)
 - [ ] Update vulnerable dependencies or document why not fixing
 
@@ -64,14 +77,21 @@ Files still needing refactoring:
 - [ ] Run full test suite
 
 ### Push:
-- [ ] Commit refactoring with descriptive message
+- [ ] Commit changes with descriptive message
 - [ ] Push to `auto-improve`
 
 ---
 
 ## Important Reminders:
 - **MANDATORY REQUIREMENT**: Single file must not exceed 1000 lines
-- **Current status**: `webview/` module ✅ (all files under 1000 lines)
-- **NEXT**: `crates/auroraview-pack/src/manifest.rs` ❌ (1690 lines)
-- Project rules: "单文件不超过 1000 行：任何源码文件（`.rs`、`.py`）超过 1000 行时，必须按逻辑拆分为多个子模块"
-- **This task does NOT stop until ALL large files are refactored**
+- **Current status**: `auroraview-mcp` crate ✅ (compiles and tests pass)
+- **NEXT**: Implement `load_html` tool OR continue large file refactoring
+- **This task does NOT stop until ALL large files are refactored AND all MCP tools are implemented**
+
+---
+
+## GitHub Security Alerts (2026-05-06):
+- 43 vulnerabilities found on `loonghao/auroraview` default branch
+- 18 high, 24 moderate, 1 low
+- URL: https://github.com/loonghao/auroraview/security/dependabot
+- **TODO**: Investigate and fix in future iterations
