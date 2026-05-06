@@ -38,6 +38,7 @@ logger = logging.getLogger(__name__)
 
 # Global AI agent instance
 _ai_agent: AuroraAgent | None = None
+_ai_agent_error: str | None = None
 _agent_lock = threading.Lock()
 
 
@@ -55,7 +56,7 @@ def _get_api_key_status() -> dict[str, bool]:
         "google": bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")),
         "deepseek": bool(os.environ.get("DEEPSEEK_API_KEY")),
         "groq": bool(os.environ.get("GROQ_API_KEY")),
-        "ollama": True,  # Ollama is local, always "available"
+        "ollama": bool(os.environ.get("OLLAMA_BASE_URL")),
     }
 
 
@@ -78,10 +79,9 @@ def register_ai_apis(
     Returns:
         Dict of API function references for cleanup
     """
-    global _ai_agent
+    global _ai_agent, _ai_agent_error
 
-    # Create AI agent with the WebView
-    # Default to GPT-4o if API key is available, otherwise use local Ollama
+    # Create AI agent with the WebView when a usable provider is configured.
     api_keys = _get_api_key_status()
     logger.info("API key status checked.")
 
@@ -93,41 +93,12 @@ def register_ai_apis(
         default_model = "gemini-2.0-flash-exp"
     elif api_keys["deepseek"]:
         default_model = "deepseek-chat"
+    elif api_keys["ollama"]:
+        default_model = "llama3.2"
     else:
-        default_model = "llama3.2"  # Fallback to local Ollama
+        default_model = None
 
-    logger.info("Selected default model: %s", default_model)
-
-    # System prompt for Gallery AI assistant
-    system_prompt = """You are an AI assistant integrated into AuroraView Gallery.
-You help users explore and run code examples, understand AuroraView features,
-and provide guidance on WebView development.
-
-Available capabilities:
-- Run Python examples from the gallery
-- Explain code and concepts
-- Help with AuroraView API usage
-- Answer questions about WebView development
-
-Be concise and helpful. When referencing code examples, mention them by name."""
-
-    # Prepare config with API key for the selected provider
-    config = AgentConfig(
-        model=default_model,
-        system_prompt=system_prompt,
-    )
-
-    # Set provider-specific API key
-    if api_keys["deepseek"] and default_model.startswith("deepseek-"):
-        config.api_key = os.environ.get("DEEPSEEK_API_KEY")
-
-    with _agent_lock:
-        _ai_agent = AuroraAgent(
-            config=config,
-            webview=webview,
-            emit_callback=emit_callback,
-            auto_discover_apis=True,
-        )
+    logger.info("Selected default model: %s", default_model or "none")
 
     # Set up event emission for development mode if no callback provided
     effective_emit_callback = emit_callback
@@ -160,12 +131,52 @@ Be concise and helpful. When referencing code examples, mention them by name."""
 
         effective_emit_callback = dev_emit_callback
 
-    # Set the emit callback on the agent
-    _ai_agent.set_emit_callback(effective_emit_callback)
+    if default_model is None:
+        _ai_agent_error = (
+            "AI agent unavailable: configure OPENAI_API_KEY, ANTHROPIC_API_KEY, "
+            "GEMINI_API_KEY, DEEPSEEK_API_KEY, or OLLAMA_BASE_URL."
+        )
+        logger.warning(_ai_agent_error)
+    else:
+        # System prompt for Gallery AI assistant
+        system_prompt = """You are an AI assistant integrated into AuroraView Gallery.
+You help users explore and run code examples, understand AuroraView features,
+and provide guidance on WebView development.
 
-    # Discover tools from bound APIs
-    tool_count = _ai_agent.discover_tools()
-    logger.info("AI Agent initialized with %d tools discovered", tool_count)
+Available capabilities:
+- Run Python examples from the gallery
+- Explain code and concepts
+- Help with AuroraView API usage
+- Answer questions about WebView development
+
+Be concise and helpful. When referencing code examples, mention them by name."""
+
+        config = AgentConfig(
+            model=default_model,
+            system_prompt=system_prompt,
+        )
+
+        if api_keys["deepseek"] and default_model.startswith("deepseek-"):
+            config.api_key = os.environ.get("DEEPSEEK_API_KEY")
+
+        try:
+            with _agent_lock:
+                _ai_agent = AuroraAgent(
+                    config=config,
+                    webview=webview,
+                    emit_callback=effective_emit_callback,
+                    auto_discover_apis=True,
+                )
+                _ai_agent_error = None
+
+            _ai_agent.set_emit_callback(effective_emit_callback)
+            tool_count = _ai_agent.discover_tools()
+            logger.info("AI Agent initialized with %d tools discovered", tool_count)
+        except Exception as e:
+            with _agent_lock:
+                _ai_agent = None
+                _ai_agent_error = str(e)
+            logger.warning("AI Agent disabled: %s", e)
 
     # ==================== API Handlers ====================
 
@@ -181,7 +192,7 @@ Be concise and helpful. When referencing code examples, mention them by name."""
             Dict with status and response or error
         """
         if not _ai_agent:
-            return {"status": "error", "message": "AI agent not initialized"}
+            return {"status": "error", "message": _ai_agent_error or "AI agent not initialized"}
 
         try:
             response = _ai_agent.chat_sync(message, session_id=session_id)
@@ -209,7 +220,7 @@ Be concise and helpful. When referencing code examples, mention them by name."""
             Dict with status (streaming is handled via events)
         """
         if not _ai_agent:
-            return {"status": "error", "message": "AI agent not initialized"}
+            return {"status": "error", "message": _ai_agent_error or "AI agent not initialized"}
 
         async def stream_chat():
             try:
@@ -240,7 +251,12 @@ Be concise and helpful. When referencing code examples, mention them by name."""
             Dict with model, temperature, provider, etc.
         """
         if not _ai_agent:
-            return {}
+            return {
+                "status": "error",
+                "message": _ai_agent_error or "AI agent not initialized",
+                "model": default_model or "unavailable",
+                "provider": "none",
+            }
 
         return {
             "model": _ai_agent.config.model,
@@ -268,7 +284,7 @@ Be concise and helpful. When referencing code examples, mention them by name."""
             Updated configuration
         """
         if not _ai_agent:
-            return {"status": "error", "message": "AI agent not initialized"}
+            return {"status": "error", "message": _ai_agent_error or "AI agent not initialized"}
 
         if model is not None:
             # Set provider-specific API key BEFORE switching models
@@ -368,7 +384,7 @@ Be concise and helpful. When referencing code examples, mention them by name."""
             Session info with messages
         """
         if not _ai_agent:
-            return {"status": "error", "message": "AI agent not initialized"}
+            return {"status": "error", "message": _ai_agent_error or "AI agent not initialized"}
 
         sid = _ai_agent.get_session(session_id)
         messages = _ai_agent._sessions.get(sid, [])
@@ -388,7 +404,7 @@ Be concise and helpful. When referencing code examples, mention them by name."""
             Status dict
         """
         if not _ai_agent:
-            return {"status": "error", "message": "AI agent not initialized"}
+            return {"status": "error", "message": _ai_agent_error or "AI agent not initialized"}
 
         _ai_agent.clear_session(session_id)
         return {"status": "ok"}
@@ -401,7 +417,7 @@ Be concise and helpful. When referencing code examples, mention them by name."""
             Number of tools discovered
         """
         if not _ai_agent:
-            return {"status": "error", "message": "AI agent not initialized"}
+            return {"status": "error", "message": _ai_agent_error or "AI agent not initialized"}
 
         count = _ai_agent.discover_tools()
         return {"status": "ok", "count": count}

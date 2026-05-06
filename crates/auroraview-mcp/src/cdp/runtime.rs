@@ -36,7 +36,7 @@ impl CdpClient {
         let value = result
             .get("result")
             .and_then(|v| v.get("value"))
-            .map(|v| v.clone())
+            .cloned()
             .unwrap_or(serde_json::Value::Null);
         Ok(value)
     }
@@ -72,7 +72,7 @@ impl CdpClient {
         let props = result
             .get("result")
             .and_then(Value::as_array)
-            .map(|v| v.clone())
+            .cloned()
             .unwrap_or_default();
         debug!(
             ?object_id,

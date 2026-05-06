@@ -92,6 +92,7 @@ mod downloader;
 mod error;
 pub mod icon;
 mod license;
+#[path = "manifest.rs"]
 mod manifest;
 mod metrics;
 mod overlay;
