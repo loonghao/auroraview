@@ -74,7 +74,7 @@ rustls-webpki = { version = "0.103", default-features = false, features = ["ring
 scopeguard = { version = "1" }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
 serde_core = { version = "1", default-features = false, features = ["alloc", "rc", "result", "std"] }
-sha2 = { version = "0.10" }
+sha2 = { version = "0.11" }
 simd-adler32 = { version = "0.3" }
 slab = { version = "0.4" }
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
@@ -117,7 +117,7 @@ rust-embed-impl = { version = "8", default-features = false, features = ["debug-
 rust-embed-utils = { version = "8", default-features = false, features = ["debug-embed", "include-exclude"] }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
 serde_core = { version = "1", default-features = false, features = ["alloc", "rc", "result", "std"] }
-sha2 = { version = "0.10" }
+sha2 = { version = "0.11" }
 subtle = { version = "2", default-features = false, features = ["i128"] }
 syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
 toml_parser = { version = "1" }
