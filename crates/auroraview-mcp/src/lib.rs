@@ -1,51 +1,36 @@
-#![allow(clippy::missing_errors_doc)]
+//! `AuroraView` MCP Server - exposes `AuroraView` as a standard MCP server.
+//!
+//! # Features
+//!
+//! - `screenshot` - Capture `WebView` screenshot
+//! - `eval_js` - Evaluate JavaScript in `WebView` context
+//! - `load_url` - Navigate `WebView` to URL
+//! - `send_event` - Send event to `WebView`
+//! - `get_hwnd` - Get `WebView` window handle
+//! - `list_webviews` - List all `WebView` instances
+//! - `create_webview` - Create new `WebView`
+//! - `close_webview` - Close `WebView`
+//!
+//! # Transport
+//!
+//! - HTTP/SSE via `StreamableHttpService` (rmcp)
+//! - mDNS broadcast for auto-discovery
+//! - AG-UI SSE events at `/agui/events`
 
-//! `AuroraView` adapter for `dcc-mcp-core`.
-//!
-//! This crate exposes a running `AuroraView` instance as a
-//! [`DccAdapter`], so that
-//! `dcc-mcp-server` (from `dcc-mcp-core v0.13+`) can discover it via
-//! `FileRegistry` and call into it over the Chrome `DevTools` Protocol.
-//!
-//! # Status
-//!
-//! **Skeleton / Phase 2 of Epic #364.** The crate currently implements:
-//!
-//! - [`CdpAuroraViewAdapter::info`] — static [`DccInfo`] for `dcc_type = "auroraview"`.
-//! - [`CdpAuroraViewAdapter::capabilities`] — advertises
-//!   `snapshot = true`, `has_embedded_python = false`,
-//!   [`BridgeKind::WebSocket`], and a WebSocket `bridge_endpoint`.
-//! - [`DccConnection`] — `connect` / `disconnect` / `health_check` against
-//!   the CDP browser-level WebSocket.
-//! - [`DccSnapshot`] — `capture_viewport` via `Page.captureScreenshot`.
-//!
-//! Deliberately **not yet wired**:
-//!
-//! - `DccScriptEngine` — blocked on upstream
-//!   [`dcc-mcp-core#222`](https://github.com/loonghao/dcc-mcp-core/issues/222)
-//!   adding `ScriptLanguage::JavaScript`. Once that lands, `Runtime.evaluate`
-//!   becomes a one-screen implementation.
-//! - `DccSceneInfo` / scene-manager / hierarchy / transform — `AuroraView` is
-//!   a web view, not a 3D DCC, so these stay `None` unless a skill explicitly
-//!   opts in.
-//!
-//! # Wiring
-//!
-//! The `auroraview-cli run` path (Phase 3 of #364) is responsible for opening
-//! a CDP debug port and constructing a [`CdpAuroraViewAdapter`] pointing at
-//! it, then handing that adapter to `dcc-mcp-server`'s registry.
+#![warn(missing_docs)]
 
 pub mod agui;
 pub mod cdp;
 pub mod error;
+pub mod mcp_server;
 pub mod mdns;
 pub mod oauth;
 pub mod python_bindings;
 pub mod registry;
 pub mod runner;
-pub mod server;
 pub mod types;
 
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -58,7 +43,7 @@ use tokio::runtime::{Handle, Runtime};
 use crate::cdp::{CdpClient, CdpError};
 
 /// Default timeout for any single CDP call the adapter makes.
-const DEFAULT_CDP_TIMEOUT: Duration = Duration::from_secs(10);
+pub const DEFAULT_CDP_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Configuration for wiring the adapter to a running `AuroraView` CDP port.
 #[derive(Debug, Clone)]
@@ -114,14 +99,13 @@ impl std::fmt::Debug for CdpAuroraViewAdapter {
         f.debug_struct("CdpAuroraViewAdapter")
             .field("config", &self.config)
             .field("info", &self.info)
-            .field(
-                "connected",
-                &self.client.lock().map(|g| g.is_some()).unwrap_or(false),
-            )
+            .field("runtime", &self.runtime)
+            .field("connected", &self.client.lock().is_ok_and(|g| g.is_some()))
             .finish()
     }
 }
 
+#[derive(Debug)]
 enum AdapterRuntime {
     /// We are inside a running tokio runtime — reuse it.
     Borrowed(Handle),
@@ -160,6 +144,12 @@ impl CdpAuroraViewAdapter {
     /// Create a new adapter. Does not yet establish a CDP connection —
     /// callers must invoke [`DccConnection::connect`] (or let the MCP
     /// framework do so) before calling snapshot/script-engine APIs.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the tokio runtime cannot be created
+    /// (e.g. when called from an asynchronous context that conflicts
+    /// with `AdapterRuntime::current_or_owned()`).
     pub fn new(config: CdpAdapterConfig) -> std::io::Result<Self> {
         let info = DccInfo {
             dcc_type: "auroraview".to_owned(),
@@ -186,7 +176,7 @@ impl CdpAuroraViewAdapter {
         })
     }
 
-    fn map_cdp_err(kind: DccErrorCode, err: CdpError) -> DccError {
+    fn map_cdp_err(kind: DccErrorCode, err: &CdpError) -> DccError {
         DccError {
             code: kind,
             message: err.to_string(),
@@ -224,7 +214,7 @@ impl DccConnection for CdpAuroraViewAdapter {
         let client = self
             .runtime
             .block_on(fut)
-            .map_err(|e| Self::map_cdp_err(DccErrorCode::ConnectionFailed, e))?;
+            .map_err(|e| Self::map_cdp_err(DccErrorCode::ConnectionFailed, &e))?;
         *self.client.lock().map_err(|_| DccError {
             code: DccErrorCode::Internal,
             message: "adapter mutex poisoned".to_owned(),
@@ -242,7 +232,7 @@ impl DccConnection for CdpAuroraViewAdapter {
     }
 
     fn is_connected(&self) -> bool {
-        self.client.lock().map(|g| g.is_some()).unwrap_or(false)
+        self.client.lock().is_ok_and(|g| g.is_some())
     }
 
     fn health_check(&self) -> DccResult<u64> {
@@ -250,7 +240,8 @@ impl DccConnection for CdpAuroraViewAdapter {
             let start = std::time::Instant::now();
             self.runtime
                 .block_on(client.get_version(DEFAULT_CDP_TIMEOUT))
-                .map_err(|e| Self::map_cdp_err(DccErrorCode::NotResponding, e))?;
+                .map_err(|e| Self::map_cdp_err(DccErrorCode::NotResponding, &e))?;
+            #[allow(clippy::cast_possible_truncation)]
             Ok(start.elapsed().as_millis() as u64)
         })
     }
@@ -279,7 +270,7 @@ impl DccSnapshot for CdpAuroraViewAdapter {
             let bytes = self
                 .runtime
                 .block_on(client.capture_screenshot(format, DEFAULT_CDP_TIMEOUT))
-                .map_err(|e| Self::map_cdp_err(DccErrorCode::Internal, e))?;
+                .map_err(|e| Self::map_cdp_err(DccErrorCode::Internal, &e))?;
             // Resolution re-negotiation (Page.setDeviceMetricsOverride) is a
             // later-phase concern; for now we just report what CDP returned
             // and leave width/height as 0 ("unknown").
@@ -318,7 +309,7 @@ impl DccAdapter for CdpAuroraViewAdapter {
             has_embedded_python: false,
             bridge_kind: Some(BridgeKind::WebSocket),
             bridge_endpoint: Some(self.config.ws_endpoint.clone()),
-            extensions: Default::default(),
+            extensions: HashMap::default(),
         }
     }
 

@@ -174,10 +174,9 @@ fn probe_url_reachable(url: &str) -> bool {
 fn parse_http_url(url: &str) -> Option<(String, u16, String)> {
     let (scheme, rest) = if let Some(s) = url.strip_prefix("https://") {
         ("https", s)
-    } else if let Some(s) = url.strip_prefix("http://") {
-        ("http", s)
     } else {
-        return None;
+        let s = url.strip_prefix("http://")?;
+        ("http", s)
     };
 
     let (authority, path) = match rest.find('/') {

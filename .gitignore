@@ -109,6 +109,10 @@ clippy_out.txt
 scripts/cdp_*.py
 scripts/run_cdp_test.ps1
 
+# Helper scripts (not part of the project)
+crates/auroraview-plugins/*.py
+scan_large_files.py
+
 # Gallery debug files
 gallery/debug_log.txt
 gallery/full_log.txt

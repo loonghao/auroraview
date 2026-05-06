@@ -402,7 +402,7 @@ def deprecated(reason: str = "") -> Callable[[Callable], Callable]:
         """Actual decorator that wraps the function."""
 
         # Update docstring
-        deprecated_msg = f"DEPRECATED"
+        deprecated_msg = "DEPRECATED"
         if reason:
             deprecated_msg += f": {reason}"
         deprecated_msg += "."

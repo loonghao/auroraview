@@ -31,9 +31,13 @@ use tokio::runtime::Runtime;
 ///
 /// Mirrors [`McpServerConfig`] with Python-friendly defaults.
 pub struct PyMcpConfig {
+    /// Bind host (e.g. "127.0.0.1").
     pub host: String,
+    /// TCP port to listen on.
     pub port: u16,
+    /// mDNS service name for auto-discovery.
     pub service_name: String,
+    /// Enable mDNS broadcast.
     pub enable_mdns: bool,
     /// Enable OAuth 2.0 authentication.
     pub enable_oauth: bool,
@@ -42,6 +46,16 @@ pub struct PyMcpConfig {
 }
 
 impl PyMcpConfig {
+    /// Create a new Python-facing MCP configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `host` — bind host (e.g. "127.0.0.1")
+    /// * `port` — TCP port to listen on
+    /// * `service_name` — mDNS service name
+    /// * `enable_mdns` — enable mDNS broadcast
+    /// * `enable_oauth` — enable OAuth 2.0
+    /// * `max_webviews` — max concurrent `WebViews` (`None` = unlimited)
     #[must_use]
     pub fn new(
         host: String,
@@ -153,6 +167,14 @@ impl PyMcpServer {
     ///
     /// Returns an error string if the server is already running or the port
     /// is in use.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if:
+    /// - The state mutex is poisoned
+    /// - The server is already running
+    /// - The tokio runtime cannot be created
+    /// - The MCP server fails to start (port in use, invalid config)
     pub fn start(&self) -> Result<(), String> {
         let mut lock = self.state.lock().map_err(|e| e.to_string())?;
         if lock.is_some() {
@@ -172,6 +194,11 @@ impl PyMcpServer {
     }
 
     /// Stop the running server (no-op if not running).
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the state mutex is poisoned.
+    /// If the server is not running, this is a no-op and returns `Ok`.
     pub fn stop(&self) -> Result<(), String> {
         let mut lock = self.state.lock().map_err(|e| e.to_string())?;
         if let Some(state) = lock.take() {
@@ -183,9 +210,8 @@ impl PyMcpServer {
     /// Return `true` if the server is currently running.
     #[must_use]
     pub fn is_running(&self) -> bool {
-        let lock = match self.state.lock() {
-            Ok(g) => g,
-            Err(_) => return false,
+        let Ok(lock) = self.state.lock() else {
+            return false;
         };
         if let Some(state) = lock.as_ref() {
             state.runtime.block_on(state.runner.is_running())
@@ -195,6 +221,10 @@ impl PyMcpServer {
     }
 
     /// Emit an AG-UI `RunStarted` event.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the MCP server is not running.
     pub fn emit_run_started(&self, run_id: &str, thread_id: &str) -> Result<(), String> {
         self.emit_event(AguiEvent::RunStarted {
             run_id: run_id.to_string(),
@@ -203,6 +233,10 @@ impl PyMcpServer {
     }
 
     /// Emit an AG-UI `RunFinished` event.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the MCP server is not running.
     pub fn emit_run_finished(&self, run_id: &str, thread_id: &str) -> Result<(), String> {
         self.emit_event(AguiEvent::RunFinished {
             run_id: run_id.to_string(),
@@ -211,6 +245,10 @@ impl PyMcpServer {
     }
 
     /// Emit an AG-UI `ToolCallStart` event.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the MCP server is not running.
     pub fn emit_tool_call_start(
         &self,
         run_id: &str,
@@ -225,6 +263,10 @@ impl PyMcpServer {
     }
 
     /// Emit an AG-UI `ToolCallEnd` event.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the MCP server is not running.
     pub fn emit_tool_call_end(&self, run_id: &str, tool_call_id: &str) -> Result<(), String> {
         self.emit_event(AguiEvent::ToolCallEnd {
             run_id: run_id.to_string(),
@@ -233,6 +275,10 @@ impl PyMcpServer {
     }
 
     /// Emit an arbitrary AG-UI `Custom` event.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the MCP server is not running.
     pub fn emit_custom(
         &self,
         run_id: &str,
@@ -272,10 +318,16 @@ impl PyMcpServer {
     }
 
     /// Low-level: emit any `AguiEvent` through the bus.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if:
+    /// - The state mutex is poisoned
+    /// - The MCP server is not running
     pub fn emit_event(&self, event: AguiEvent) -> Result<(), String> {
         let lock = self.state.lock().map_err(|e| e.to_string())?;
         if let Some(state) = lock.as_ref() {
-            state.runner.emit_agui(event);
+            state.runner.emit_agui(Arc::new(event));
             Ok(())
         } else {
             Err("MCP server is not running".to_string())
@@ -330,6 +382,12 @@ impl Drop for PyMcpServer {
 mod pyo3_impl {
     use super::*;
     use pyo3::prelude::*;
+
+    #[pymodule]
+    fn auroraview_mcp(_m: &Bound<'_, PyModule>) -> PyResult<()> {
+        register(_m)?;
+        Ok(())
+    }
 
     /// Python class: `McpConfig`
     ///

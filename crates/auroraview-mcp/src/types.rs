@@ -1,3 +1,8 @@
+//! Type definitions for `AuroraView` MCP Server.
+//!
+//! This module provides type definitions used by the MCP Server,
+//! including `WebViewId`, `WebViewInfo`, `McpServerConfig`, etc.
+
 use base64::Engine;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -7,7 +12,11 @@ use uuid::Uuid;
 pub struct WebViewId(pub String);
 
 impl WebViewId {
+    /// Create a new random `WebViewId`.
+    ///
+    /// Uses UUID v4 (random) to generate a unique identifier.
     #[must_use]
+    #[inline]
     pub fn new() -> Self {
         Self(Uuid::new_v4().to_string())
     }
@@ -27,6 +36,7 @@ impl Default for WebViewId {
 }
 
 impl std::fmt::Display for WebViewId {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
@@ -35,11 +45,17 @@ impl std::fmt::Display for WebViewId {
 /// Information about a `WebView` instance.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebViewInfo {
+    /// Unique identifier for this `WebView` instance.
     pub id: WebViewId,
+    /// Window title of the `WebView`.
     pub title: String,
+    /// Current URL loaded in the `WebView`.
     pub url: String,
+    /// Whether the `WebView` is visible.
     pub visible: bool,
+    /// Width of the `WebView` in pixels.
     pub width: u32,
+    /// Height of the `WebView` in pixels.
     pub height: u32,
     /// Raw HWND on Windows (0 if not available).
     pub hwnd: u64,
@@ -50,6 +66,7 @@ pub struct WebViewInfo {
 }
 
 impl std::fmt::Display for WebViewInfo {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -62,12 +79,19 @@ impl std::fmt::Display for WebViewInfo {
 /// Configuration for creating a new `WebView`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebViewConfig {
+    /// Window title (shown in title bar).
     pub title: Option<String>,
+    /// URL to load in the `WebView`.
     pub url: Option<String>,
+    /// HTML content to load (alternative to `url`).
     pub html: Option<String>,
+    /// Initial width in pixels.
     pub width: Option<u32>,
+    /// Initial height in pixels.
     pub height: Option<u32>,
+    /// Whether the `WebView` is visible.
     pub visible: Option<bool>,
+    /// Whether to open browser `DevTools`.
     pub debug: Option<bool>,
 }
 
@@ -104,14 +128,18 @@ impl Default for WebViewConfig {
 /// Screenshot result containing image data.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScreenshotData {
-    /// Base64-encoded PNG image data.
+    /// Base64-encoded PNG/JPEG/WebP image data.
     pub data: String,
+    /// Image width in pixels.
     pub width: u32,
+    /// Image height in pixels.
     pub height: u32,
+    /// Image format: `"png"`, `"jpeg"`, or `"webp"`.
     pub format: String,
 }
 
 impl std::fmt::Display for ScreenshotData {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -122,7 +150,12 @@ impl std::fmt::Display for ScreenshotData {
 }
 
 impl ScreenshotData {
+    /// Create an empty placeholder `ScreenshotData`.
+    ///
+    /// Useful for testing or when the screenshot data is not available.
+    /// The `data` field will be an empty string.
     #[must_use]
+    #[inline]
     pub fn new_placeholder(width: u32, height: u32) -> Self {
         Self {
             data: String::new(),
@@ -134,6 +167,7 @@ impl ScreenshotData {
 
     /// Create `ScreenshotData` from raw image bytes (PNG/JPEG/WebP).
     #[must_use]
+    #[inline]
     pub fn from_bytes(bytes: &[u8], width: u32, height: u32, format: &str) -> Self {
         let data = base64::engine::general_purpose::STANDARD.encode(bytes);
         Self {
@@ -148,7 +182,9 @@ impl ScreenshotData {
 /// Result of JavaScript evaluation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsResult {
+    /// JSON value returned by the evaluated script.
     pub value: serde_json::Value,
+    /// Error message if the evaluation failed, or `None` on success.
     pub error: Option<String>,
 }
 
@@ -163,11 +199,15 @@ impl std::fmt::Display for JsResult {
 }
 
 impl JsResult {
+    /// Create a successful `JsResult` with the given JSON value.
     #[must_use]
+    #[inline]
     pub fn ok(value: serde_json::Value) -> Self {
         Self { value, error: None }
     }
 
+    /// Create a failed `JsResult` with the given error message.
+    #[inline]
     pub fn err(msg: impl Into<String>) -> Self {
         Self {
             value: serde_json::Value::Null,
@@ -179,9 +219,13 @@ impl JsResult {
 /// MCP server configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpServerConfig {
+    /// Bind host (e.g. "127.0.0.1" or "0.0.0.0").
     pub host: String,
+    /// TCP port to listen on (default: 7890).
     pub port: u16,
+    /// mDNS service name for auto-discovery.
     pub service_name: String,
+    /// Enable mDNS broadcast for auto-discovery.
     pub enable_mdns: bool,
     /// Enable OAuth 2.0 authentication for MCP endpoints.
     /// When enabled, clients must authenticate via OAuth 2.0
@@ -210,6 +254,7 @@ impl std::fmt::Display for McpServerConfig {
 }
 
 impl Default for McpServerConfig {
+    #[inline]
     fn default() -> Self {
         Self {
             host: "127.0.0.1".to_string(),
@@ -225,12 +270,15 @@ impl Default for McpServerConfig {
 impl McpServerConfig {
     /// Set the port number.
     #[must_use]
+    #[inline]
     pub fn with_port(mut self, port: u16) -> Self {
         self.port = port;
         self
     }
 
     /// Set the bind host.
+    #[must_use]
+    #[inline]
     pub fn with_host(mut self, host: impl Into<String>) -> Self {
         self.host = host.into();
         self
@@ -238,6 +286,7 @@ impl McpServerConfig {
 
     /// Enable or disable mDNS broadcast.
     #[must_use]
+    #[inline]
     pub fn with_mdns(mut self, enabled: bool) -> Self {
         self.enable_mdns = enabled;
         self
@@ -248,12 +297,15 @@ impl McpServerConfig {
     /// When enabled, clients must authenticate via OAuth 2.0
     /// to access MCP endpoints.
     #[must_use]
+    #[inline]
     pub fn with_oauth(mut self, enabled: bool) -> Self {
         self.enable_oauth = enabled;
         self
     }
 
     /// Set the mDNS service name.
+    #[must_use]
+    #[inline]
     pub fn with_service_name(mut self, name: impl Into<String>) -> Self {
         self.service_name = name.into();
         self
@@ -274,6 +326,13 @@ impl McpServerConfig {
     /// - `port` must be in the valid range 1–65535 (0 is reserved)
     /// - `host` must not be empty
     /// - `service_name` must not be empty
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` with a descriptive string if:
+    /// - `port == 0` (reserved, must be 1–65535)
+    /// - `host` is empty or whitespace-only
+    /// - `service_name` is empty or whitespace-only
     pub fn validate(&self) -> Result<(), String> {
         if self.port == 0 {
             return Err("port must be in range 1–65535 (got 0)".to_string());

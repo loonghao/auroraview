@@ -39,3 +39,43 @@ pub fn normalize_url(url_str: &str) -> Result<String, UrlError> {
     let url = Url::parse(&with_scheme).map_err(|e| UrlError::InvalidUrl(e.to_string()))?;
     Ok(url.to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_normalize_url_with_https() {
+        let result = normalize_url("https://example.com");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "https://example.com/");
+    }
+
+    #[test]
+    fn test_normalize_url_with_http() {
+        let result = normalize_url("http://example.com");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "http://example.com/");
+    }
+
+    #[test]
+    fn test_normalize_url_without_scheme() {
+        let result = normalize_url("example.com");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "https://example.com/");
+    }
+
+    #[test]
+    fn test_normalize_url_with_path() {
+        let result = normalize_url("example.com/path/to/page");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "https://example.com/path/to/page");
+    }
+
+    #[test]
+    fn test_normalize_url_invalid() {
+        // Invalid URL: adding "https://" prefix still results in invalid URL
+        let result = normalize_url("not a valid url at all");
+        assert!(result.is_err());
+    }
+}

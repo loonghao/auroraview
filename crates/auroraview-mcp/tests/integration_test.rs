@@ -1,468 +1,721 @@
+//! Integration tests for AuroraView MCP Server.
 //!
-//! Integration tests for `auroraview-mcp`.
-//!
-//! These tests verify cross-module behavior that unit tests cannot cover:
-//! - Configuration builders produce correct values.
-//! - `AuroraViewMcpServer` and `McpRunner` wire together correctly.
-//! - The AG-UI event bus propagates events to multiple subscribers.
-//! - `WebViewRegistry` behaves correctly under simulated concurrent access.
+//! These tests verify the HTTP transport and MCP protocol integration.
 
-use auroraview_mcp::agui::{AguiBus, AguiEvent};
-use auroraview_mcp::registry::WebViewRegistry;
+use std::sync::Arc;
+
 use auroraview_mcp::runner::McpRunner;
-use auroraview_mcp::server::AuroraViewMcpServer;
-use auroraview_mcp::types::{McpServerConfig, WebViewConfig};
-use base64::Engine;
+use auroraview_mcp::types::McpServerConfig;
+use base64_url::encode;
+use futures::StreamExt;
+use serial_test::serial;
+use sha2::{Digest, Sha256};
+use urlencoding;
 
-// ---------------------------------------------------------------------------
-// Configuration builders
-// ---------------------------------------------------------------------------
-
-#[test]
-fn mcp_server_config_with_all() {
-    let cfg = McpServerConfig::with_all(7890, "127.0.0.1", "auroraview-mcp", true, false, Some(5));
-
-    assert_eq!(cfg.port, 7890);
-    assert_eq!(cfg.max_webviews, Some(5));
-    assert!(!cfg.enable_oauth);
-    let json = serde_json::to_string(&cfg).unwrap();
-    assert!(json.contains("port"));
-}
-
-#[test]
-fn mcp_server_config_default_and_builders() {
-    let cfg = McpServerConfig::default()
-        .with_port(9999)
-        .with_mdns(true)
-        .with_max_webviews(10);
-
-    assert_eq!(cfg.port, 9999);
-    assert_eq!(cfg.max_webviews, Some(10));
-}
-
-// ---------------------------------------------------------------------------
-// Server creation
-// ---------------------------------------------------------------------------
-
-#[test]
-fn server_creation_default() {
-    let _server = AuroraViewMcpServer::new(McpServerConfig::default());
-}
-
-#[test]
-fn server_creation_with_all() {
-    let cfg = McpServerConfig::with_all(0, "127.0.0.1", "test", false, false, None);
-    let _server = AuroraViewMcpServer::new(cfg);
-}
-
-#[test]
-fn server_with_agui_bus() {
-    let bus = AguiBus::new();
-    let cfg = McpServerConfig::with_all(0, "127.0.0.1", "test", false, false, None);
-    let _server = AuroraViewMcpServer::new(cfg).with_agui_bus(bus.clone());
-}
-
-// ---------------------------------------------------------------------------
-// Registry: concurrent access simulation
-// ---------------------------------------------------------------------------
-
-#[test]
-fn registry_concurrent_register_remove() {
-    let registry = WebViewRegistry::with_capacity(10);
-    let ids: Vec<_> = (0..5)
-        .map(|i| {
-            let cfg = WebViewConfig {
-                title: Some(format!("View {i}")),
-                ..Default::default()
-            };
-            registry.register(&cfg)
-        })
-        .collect();
-
-    assert_eq!(registry.len(), 5);
-
-    for id in ids.iter().rev() {
-        let removed = registry.remove(id);
-        assert!(removed.is_some());
+/// Parse SSE response format: split by "\n\n", find "data: {...}" lines.
+fn parse_sse_response(sse_text: &str) -> serde_json::Value {
+    // SSE format: messages separated by "\n\n"
+    for line in sse_text.lines() {
+        let line = line.trim();
+        if line.starts_with("data: ") {
+            let json_str = line.strip_prefix("data: ").unwrap().trim();
+            if !json_str.is_empty() && (json_str.starts_with('{') || json_str.starts_with('[')) {
+                return serde_json::from_str(json_str).expect("Should parse SSE data as JSON");
+            }
+        }
     }
-    assert!(registry.is_empty());
+    panic!("No valid JSON found in SSE response: {sse_text}");
 }
 
+/// Test that `McpRunner` can be created with default config.
 #[test]
-fn registry_update_cdp_endpoint() {
-    let registry = WebViewRegistry::new();
-    let cfg = WebViewConfig::default();
-    let id = registry.register(&cfg);
+fn runner_creates_with_defaults() {
+    let config = McpServerConfig::default();
+    let runner = McpRunner::new(config);
+    assert_eq!(runner.config().port, 7890);
+    assert!(runner.config().enable_mdns); // default is true
+}
 
-    assert!(registry.update_cdp_endpoint(&id, "http://127.0.0.1:9222".into()));
-    let info = registry.get(&id).unwrap();
-    assert_eq!(info.cdp_endpoint, Some("http://127.0.0.1:9222".into()));
+/// Test that `McpRunner` can be created with custom port.
+#[test]
+fn runner_creates_with_custom_port() {
+    let config = McpServerConfig::default().with_port(9000);
+    let runner = McpRunner::new(config);
+    assert_eq!(runner.config().port, 9000);
+}
+
+/// Test that `McpRunner::start()` and `stop()` work without panicking.
+///
+/// **Note**: This test only verifies that the server can start and stop
+/// without errors. It does not test actual HTTP requests.
+#[tokio::test]
+async fn runner_start_and_stop() {
+    let config = McpServerConfig::default().with_port(12345); // Use a specific port
+    let runner = McpRunner::new(config);
+
+    // Start the server (should not panic)
+    let result = runner.start().await;
+    assert!(
+        result.is_ok(),
+        "Server should start without error: {:?}",
+        result
+    );
+
+    // Give the server a moment to initialize
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+    // Check if server is running
+    let is_running = runner.is_running().await;
+    assert!(is_running, "Server should be running after start()");
+
+    // Stop the server (should not panic)
+    runner.stop().await;
+
+    // Give the server a moment to shut down
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+    // Check if server is stopped
+    let is_running = runner.is_running().await;
+    assert!(!is_running, "Server should not be running after stop()");
+}
+
+/// Test that starting a server on the same port fails.
+#[tokio::test]
+async fn runner_start_twice_fails() {
+    let config = McpServerConfig::default().with_port(12346);
+    let runner = McpRunner::new(config);
+
+    // First start should succeed
+    let result1 = runner.start().await;
+    assert!(result1.is_ok(), "First start should succeed");
+
+    // Second start should fail (already running)
+    let result2 = runner.start().await;
+    assert!(result2.is_err(), "Second start should fail");
+
+    // Clean up
+    runner.stop().await;
 }
 
 // ---------------------------------------------------------------------------
-// AG-UI event bus: fan-out to multiple subscribers
+// MCP Protocol Integration Tests
 // ---------------------------------------------------------------------------
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn agui_bus_multiple_subscribers() {
-    let bus = AguiBus::new();
+/// Helper to create a JSON-RPC request body.
+fn jsonrpc_request(id: u64, method: &str, params: Option<serde_json::Value>) -> serde_json::Value {
+    let mut body = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": id,
+        "method": method,
+    });
+    if let Some(p) = params {
+        body["params"] = p;
+    }
+    body
+}
 
-    let mut rx1 = bus.subscribe();
-    let mut rx2 = bus.subscribe();
+/// Helper to start a test server on a unique port and return the port.
+async fn start_test_server() -> (McpRunner, u16) {
+    // Use a different port for each test to avoid AddrInUse errors.
+    // We use timestamp-based port selection to minimize collisions.
+    let port = 15000
+        + (std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .subsec_millis() as u16
+            % 1000);
+    let config = McpServerConfig::default().with_port(port).with_mdns(false); // Disable mDNS for tests
+    let runner = McpRunner::new(config);
+    runner.start().await.expect("Server should start");
+    // Give the server time to bind
+    tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+    (runner, port)
+}
 
-    let event = AguiEvent::StepStarted {
-        run_id: "run-1".to_string(),
-        step_name: "test-step".to_string(),
-        step_id: "step-1".to_string(),
-    };
-    bus.emit(event.clone());
+/// Helper to start a test server with OAuth enabled.
+async fn start_test_server_with_oauth() -> (McpRunner, u16) {
+    let port = 16000
+        + (std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .subsec_millis() as u16
+            % 1000);
+    let config = McpServerConfig::default()
+        .with_port(port)
+        .with_mdns(false)
+        .with_oauth(true); // Enable OAuth for tests
+    let runner = McpRunner::new(config);
+    runner.start().await.expect("Server should start");
+    tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+    (runner, port)
+}
 
-    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-
-    let received1 = rx1.try_recv().unwrap();
-    let received2 = rx2.try_recv().unwrap();
-
-    assert_eq!(received1, event);
-    assert_eq!(received2, event);
+/// Helper to start a test server with mDNS enabled.
+// TODO: wire into mDNS integration tests (next iteration).
+#[allow(dead_code)]
+async fn start_test_server_with_mdns() -> (McpRunner, u16) {
+    let port = 17000
+        + (std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .subsec_millis() as u16
+            % 1000);
+    let config = McpServerConfig::default()
+        .with_port(port)
+        .with_mdns(true) // Enable mDNS for tests
+        .with_service_name("test-auroraview-mcp");
+    let runner = McpRunner::new(config);
+    runner.start().await.expect("Server should start");
+    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await; // mDNS needs time to propagate
+    (runner, port)
 }
 
 #[tokio::test]
-async fn agui_bus_drop_receiver_stops_events() {
-    let bus = AguiBus::new();
+#[serial]
+async fn mcp_initialize_returns_ok() {
+    let (runner, port) = start_test_server().await;
 
-    let mut rx = bus.subscribe();
+    let client = reqwest::Client::new();
+    let url = format!("http://127.0.0.1:{port}/mcp");
 
-    let event = AguiEvent::RunFinished {
-        run_id: "run-1".to_string(),
-        thread_id: "t-1".to_string(),
-    };
-    bus.emit(event);
-
-    tokio::time::sleep(tokio::time::Duration::from_millis(20)).await;
-    assert!(rx.try_recv().is_ok());
-
-    // Drop the receiver — further emits won't be received.
-    drop(rx);
-
-    let event2 = AguiEvent::RunStarted {
-        run_id: "run-2".to_string(),
-        thread_id: "t-2".to_string(),
-    };
-    bus.emit(event2);
-
-    // No panic — just no one receives it.
-    tokio::time::sleep(tokio::time::Duration::from_millis(20)).await;
-}
-
-// ---------------------------------------------------------------------------
-// McpRunner: builder pattern
-// ---------------------------------------------------------------------------
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn runner_builder_and_start_stop() {
-    let config = McpServerConfig::with_all(0, "127.0.0.1", "test", false, false, None);
-    let _runner = McpRunner::new(config);
-}
-
-// ---------------------------------------------------------------------------
-// McpServerConfig: validation
-// ---------------------------------------------------------------------------
-
-#[test]
-fn mcp_server_config_validate_valid() {
-    let cfg = McpServerConfig::with_all(7890, "127.0.0.1", "auroraview-mcp", true, false, None);
-    assert!(cfg.validate().is_ok());
-    assert!(cfg.is_valid());
-}
-
-#[test]
-fn mcp_server_config_validate_invalid_port() {
-    let cfg = McpServerConfig::default().with_port(0);
-    assert!(cfg.validate().is_err());
-    assert!(!cfg.is_valid());
-}
-
-#[test]
-fn mcp_server_config_validate_empty_host() {
-    let cfg = McpServerConfig::with_all(7890, "", "auroraview-mcp", true, false, None);
-    assert!(cfg.validate().is_err());
-}
-
-// ---------------------------------------------------------------------------
-// AguiBus: receiver counting
-// ---------------------------------------------------------------------------
-
-#[test]
-fn agui_bus_receiver_count_tracks() {
-    let bus = AguiBus::new();
-    assert_eq!(bus.receiver_count(), 0);
-
-    let _rx1 = bus.subscribe();
-    assert_eq!(bus.receiver_count(), 1);
-
-    let _rx2 = bus.subscribe();
-    assert_eq!(bus.receiver_count(), 2);
-
-    // Dropping a receiver reduces count.
-    // (Can't easily test here without async runtime)
-}
-
-#[test]
-fn agui_bus_emit_without_receivers_no_panic() {
-    let bus = AguiBus::new();
-    let event = AguiEvent::RunFinished {
-        run_id: "r1".to_string(),
-        thread_id: "t1".to_string(),
-    };
-    // Should not panic even with zero receivers.
-    bus.emit(event);
-}
-
-// ---------------------------------------------------------------------------
-// WebViewRegistry: edge cases
-// ---------------------------------------------------------------------------
-
-#[test]
-fn registry_get_nonexistent_returns_none() {
-    let registry = WebViewRegistry::new();
-    let fake_id = auroraview_mcp::types::WebViewId::new();
-    assert!(registry.get(&fake_id).is_none());
-}
-
-#[test]
-fn registry_remove_nonexistent_returns_none() {
-    let registry = WebViewRegistry::new();
-    let fake_id = auroraview_mcp::types::WebViewId::new();
-    assert!(registry.remove(&fake_id).is_none());
-}
-
-#[test]
-fn registry_update_url_nonexistent_returns_false() {
-    let registry = WebViewRegistry::new();
-    let fake_id = auroraview_mcp::types::WebViewId::new();
-    assert!(!registry.update_url(&fake_id, "https://example.com"));
-}
-
-#[test]
-fn registry_list_empty() {
-    let registry = WebViewRegistry::new();
-    let list = registry.list();
-    assert!(list.is_empty());
-}
-
-// ---------------------------------------------------------------------------
-// McpRunner: builder patterns
-// ---------------------------------------------------------------------------
-
-#[test]
-fn runner_with_capacity_builder() {
-    let runner = McpRunner::with_capacity(12345, 10);
-    // Just verify it doesn't panic.
-    let _ = runner;
-}
-
-#[test]
-fn runner_with_mdns_port_builder() {
-    let runner = McpRunner::with_mdns_port(54321);
-    // Just verify it doesn't panic.
-    let _ = runner;
-}
-
-// ---------------------------------------------------------------------------
-// CdpAdapterConfig (re-exports from lib.rs)
-// ---------------------------------------------------------------------------
-
-#[test]
-fn cdp_adapter_config_localhost() {
-    let cfg = auroraview_mcp::CdpAdapterConfig::localhost(9222, "0.5.2");
-    assert_eq!(cfg.http_endpoint, "http://127.0.0.1:9222");
-    assert_eq!(cfg.ws_endpoint, "ws://127.0.0.1:9222");
-    assert_eq!(cfg.version, "0.5.2");
-}
-
-#[test]
-fn cdp_adapter_config_fields() {
-    let cfg = auroraview_mcp::CdpAdapterConfig::localhost(9222, "0.5.2");
-    assert_eq!(cfg.pid, std::process::id());
-    assert!(!cfg.platform.is_empty());
-    assert_eq!(cfg.window_title, None);
-}
-
-// ---------------------------------------------------------------------------
-// Type tests: ScreenshotData
-// ---------------------------------------------------------------------------
-
-#[test]
-fn screenshot_data_from_bytes() {
-    let bytes = vec![1, 2, 3, 4, 5];
-    let data = auroraview_mcp::types::ScreenshotData::from_bytes(&bytes, 800, 600, "png");
-    assert_eq!(
-        data.data,
-        base64::engine::general_purpose::STANDARD.encode(&bytes)
+    let body = jsonrpc_request(
+        1,
+        "initialize",
+        Some(serde_json::json!({
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": {"name": "test-client", "version": "0.1.0"}
+        })),
     );
-    assert_eq!(data.width, 800);
-    assert_eq!(data.height, 600);
-    assert_eq!(data.format, "png");
-}
 
-#[test]
-fn screenshot_data_new_placeholder() {
-    let data = auroraview_mcp::types::ScreenshotData::new_placeholder(1024, 768);
-    // Placeholder has empty data (no actual image)
-    assert!(data.data.is_empty());
-    assert_eq!(data.width, 1024);
-    assert_eq!(data.height, 768);
-    assert_eq!(data.format, "png");
-}
+    let resp = client
+        .post(&url)
+        .header("Accept", "application/json, text/event-stream")
+        .json(&body)
+        .send()
+        .await
+        .expect("Should send request");
 
-// ---------------------------------------------------------------------------
-// Type tests: JsResult
-// ---------------------------------------------------------------------------
+    let status = resp.status();
+    let headers = resp.headers().clone();
+    let text = resp.text().await.expect("Should read response");
 
-#[test]
-fn js_result_ok() {
-    let value = serde_json::json!({"result": 42});
-    let result = auroraview_mcp::types::JsResult::ok(value.clone());
-    assert_eq!(result.value, value);
-    assert!(result.error.is_none());
-}
+    println!("Response status: {status}");
+    println!("Response headers: {headers:#?}");
+    println!("Response body: {text}");
 
-#[test]
-fn js_result_err() {
-    let result = auroraview_mcp::types::JsResult::err("test error".to_string());
-    assert_eq!(result.value, serde_json::Value::Null);
-    assert_eq!(result.error, Some("test error".to_string()));
-}
-
-// ---------------------------------------------------------------------------
-// Type tests: WebViewId
-// ---------------------------------------------------------------------------
-
-#[test]
-fn webview_id_new_and_display() {
-    let id = auroraview_mcp::types::WebViewId::new();
-    let id_str = id.to_string();
-    assert!(!id_str.is_empty());
-    // Should be a valid UUID format
-    assert_eq!(id_str.len(), 36); // UUID v4 length
-}
-
-#[test]
-fn webview_id_parse_valid() {
-    let id = auroraview_mcp::types::WebViewId::new();
-    let id_str = id.to_string();
-    let parsed = id_str.parse::<auroraview_mcp::types::WebViewId>();
-    assert!(parsed.is_ok());
-    assert_eq!(parsed.unwrap().to_string(), id_str);
-}
-
-#[test]
-fn webview_id_parse_invalid() {
-    // WebViewId::from_str never fails (Infallible)
-    // Any string is a valid WebViewId
-    let result = "not-a-uuid".parse::<auroraview_mcp::types::WebViewId>();
-    assert!(result.is_ok());
-    let id = result.unwrap();
-    assert_eq!(id.to_string(), "not-a-uuid");
-}
-
-// ---------------------------------------------------------------------------
-// Type tests: SuccessOutput
-// ---------------------------------------------------------------------------
-
-#[test]
-fn success_output_serialization() {
-    let output = auroraview_mcp::server::types::SuccessOutput {
-        ok: true,
-        message: "test message".to_string(),
-    };
-    let json = serde_json::to_string(&output).unwrap();
-    assert!(json.contains("ok"));
-    assert!(json.contains("test message"));
-}
-
-// ---------------------------------------------------------------------------
-// Edge cases: URL validation in load_url
-// ---------------------------------------------------------------------------
-
-#[test]
-fn load_url_params_validation() {
-    let params = auroraview_mcp::server::types::LoadUrlParams {
-        id: None,
-        url: "https://example.com".to_string(),
-    };
-    // Valid URL schemes
     assert!(
-        params.url.starts_with("http://")
-            || params.url.starts_with("https://")
-            || params.url.starts_with("file://")
+        status.is_success(),
+        "Initialize should return 2xx, got {status}: {text}"
     );
+
+    // Parse SSE format response using helper function
+    let json = parse_sse_response(&text);
+
+    assert_eq!(json["jsonrpc"], "2.0");
+    assert_eq!(json["id"], 1);
+    assert!(
+        json["result"]["capabilities"].is_object(),
+        "Should have capabilities, got: {text}"
+    );
+
+    runner.stop().await;
 }
 
-#[test]
-fn load_url_params_invalid_scheme() {
-    let invalid_urls = vec![
-        "ftp://example.com",
-        "javascript:alert(1)",
-        "data:text/html,<h1>test</h1>",
-    ];
-    for url in invalid_urls {
-        let scheme_ok =
-            url.starts_with("http://") || url.starts_with("https://") || url.starts_with("file://");
-        assert!(!scheme_ok, "URL should be invalid: {url}");
+#[tokio::test]
+#[serial]
+async fn mcp_list_tools_returns_tools() {
+    let (runner, port) = start_test_server().await;
+
+    let client = reqwest::Client::new();
+    let url = format!("http://127.0.0.1:{port}/mcp");
+
+    // First, initialize the session (required by MCP protocol)
+    let init_body = jsonrpc_request(
+        1,
+        "initialize",
+        Some(serde_json::json!({
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": {"name": "test-client", "version": "0.1.0"}
+        })),
+    );
+    let init_resp = client
+        .post(&url)
+        .header("Accept", "application/json, text/event-stream")
+        .json(&init_body)
+        .send()
+        .await
+        .expect("Should send initialize request");
+
+    // Extract session ID from initialize response
+    let session_id = init_resp
+        .headers()
+        .get("mcp-session-id")
+        .expect("Should have mcp-session-id header")
+        .to_str()
+        .unwrap()
+        .to_string();
+
+    // Now list tools (with session ID)
+    let list_body = jsonrpc_request(2, "tools/list", None);
+    let resp = client
+        .post(&url)
+        .header("Accept", "application/json, text/event-stream")
+        .header("Mcp-Session-Id", &session_id)
+        .json(&list_body)
+        .send()
+        .await
+        .expect("Should send request");
+
+    let status = resp.status();
+    let text = resp.text().await.expect("Should read response");
+
+    assert!(
+        status.is_success(),
+        "tools/list should return 2xx, got {status}: {text}"
+    );
+
+    // Parse SSE format response
+    let json = parse_sse_response(&text);
+
+    assert_eq!(json["jsonrpc"], "2.0");
+    assert_eq!(json["id"], 2);
+    assert!(
+        json["result"]["tools"].is_array(),
+        "Should have tools array, got: {text}"
+    );
+
+    let tools = json["result"]["tools"].as_array().unwrap();
+    let tool_names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
+
+    // Verify expected tools are present
+    assert!(
+        tool_names.contains(&"screenshot"),
+        "Should have screenshot tool"
+    );
+    assert!(tool_names.contains(&"eval_js"), "Should have eval_js tool");
+    assert!(
+        tool_names.contains(&"load_url"),
+        "Should have load_url tool"
+    );
+    assert!(
+        tool_names.contains(&"send_event"),
+        "Should have send_event tool"
+    );
+
+    runner.stop().await;
+}
+
+#[tokio::test]
+#[serial]
+async fn mcp_call_tool_without_cdp_returns_error() {
+    let (runner, port) = start_test_server().await;
+
+    let client = reqwest::Client::new();
+    let url = format!("http://127.0.0.1:{port}/mcp");
+
+    // Initialize and save response to extract session ID
+    let init_body = jsonrpc_request(
+        1,
+        "initialize",
+        Some(serde_json::json!({
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": {"name": "test-client", "version": "0.1.0"}
+        })),
+    );
+    let init_resp = client
+        .post(&url)
+        .header("Accept", "application/json, text/event-stream")
+        .json(&init_body)
+        .send()
+        .await
+        .expect("Should send initialize request");
+
+    // Extract session ID from initialize response
+    let session_id = init_resp
+        .headers()
+        .get("mcp-session-id")
+        .expect("Should have mcp-session-id header")
+        .to_str()
+        .unwrap()
+        .to_string();
+
+    // Call a tool (will fail because no CDP endpoint is available)
+    let call_body = jsonrpc_request(
+        2,
+        "tools/call",
+        Some(serde_json::json!({
+            "name": "screenshot",
+            "arguments": {"format": "png"}
+        })),
+    );
+    let resp = client
+        .post(&url)
+        .header("Accept", "application/json, text/event-stream")
+        .header("Mcp-Session-Id", &session_id)
+        .json(&call_body)
+        .send()
+        .await
+        .expect("Should send request");
+
+    let status = resp.status();
+    let text = resp.text().await.expect("Should read response");
+
+    assert!(
+        status.is_success(),
+        "tools/call should return 2xx, got {status}: {text}"
+    );
+
+    // Parse SSE format response
+    let json = parse_sse_response(&text);
+
+    assert_eq!(json["jsonrpc"], "2.0");
+    assert_eq!(json["id"], 2);
+    // The tool call should return a JSON-RPC error (CDP not available)
+    assert!(
+        json.get("error").is_some(),
+        "Tool call should return error when CDP is not available, got: {text}"
+    );
+    assert_eq!(
+        json["error"]["code"], -32603,
+        "Should return internal error code"
+    );
+
+    runner.stop().await;
+}
+
+// ---------------------------------------------------------------------------
+// AG-UI SSE Endpoint Tests
+// ---------------------------------------------------------------------------
+
+use auroraview_mcp::agui::AguiEvent;
+
+/// Helper to parse SSE event from a line.
+fn parse_sse_event(line: &str) -> Option<serde_json::Value> {
+    let line = line.trim();
+    if line.starts_with("data: ") {
+        let json_str = line.strip_prefix("data: ").unwrap().trim();
+        serde_json::from_str(json_str).ok()
+    } else {
+        None
     }
 }
 
-// ---------------------------------------------------------------------------
-// Edge cases: EvalJsParams
-// ---------------------------------------------------------------------------
+#[tokio::test]
+#[serial]
+async fn agui_events_returns_sse_stream() {
+    let (runner, port) = start_test_server().await;
+    let bus = runner.agui_bus().clone();
 
-#[test]
-fn eval_js_params_empty_script() {
-    let params = auroraview_mcp::server::types::EvalJsParams {
-        id: None,
-        script: "  ".to_string(), // whitespace only
-    };
-    assert!(params.script.trim().is_empty());
+    // Emit an event in the background
+    let emit_handle = tokio::spawn(async move {
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        bus.emit(Arc::new(AguiEvent::RunStarted {
+            run_id: "run-1".to_string(),
+            thread_id: "t-1".to_string(),
+        }));
+    });
+
+    // Subscribe to SSE stream
+    let client = reqwest::Client::new();
+    let url = format!("http://127.0.0.1:{port}/agui/events");
+    let resp = client.get(&url).send().await.expect("Should send request");
+    assert!(resp.status().is_success(), "SSE endpoint should return 2xx");
+
+    // Read the first SSE event (with timeout)
+    let mut stream = resp.bytes_stream();
+    let mut received_event = None;
+    let start = tokio::time::Instant::now();
+    while start.elapsed() < tokio::time::Duration::from_secs(5) {
+        if let Some(chunk) = stream.next().await {
+            let chunk = chunk.expect("Should read chunk");
+            let text = String::from_utf8_lossy(&chunk);
+            for line in text.lines() {
+                if let Some(event) = parse_sse_event(line) {
+                    received_event = Some(event);
+                    break;
+                }
+            }
+            if received_event.is_some() {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+
+    emit_handle.await.expect("Emit task should complete");
+    assert!(
+        received_event.is_some(),
+        "Should receive at least one SSE event"
+    );
+    let event = received_event.unwrap();
+    assert_eq!(event["type"], "RUN_STARTED");
+    assert_eq!(event["run_id"], "run-1");
+
+    runner.stop().await;
 }
 
-#[test]
-fn eval_js_params_valid_script() {
-    let params = auroraview_mcp::server::types::EvalJsParams {
-        id: None,
-        script: "console.log('hello');".to_string(),
-    };
-    assert!(!params.script.trim().is_empty());
+#[tokio::test]
+#[serial]
+async fn agui_events_filters_by_run_id() {
+    let (runner, port) = start_test_server().await;
+    let bus = runner.agui_bus().clone();
+
+    // Emit events for two different runs
+    let emit_handle = tokio::spawn(async move {
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        bus.emit(Arc::new(AguiEvent::RunStarted {
+            run_id: "run-a".to_string(),
+            thread_id: "t-a".to_string(),
+        }));
+        bus.emit(Arc::new(AguiEvent::RunStarted {
+            run_id: "run-b".to_string(),
+            thread_id: "t-b".to_string(),
+        }));
+    });
+
+    // Subscribe to events for "run-a" only
+    let client = reqwest::Client::new();
+    let url = format!("http://127.0.0.1:{port}/agui/events?run_id=run-a");
+    let resp = client.get(&url).send().await.expect("Should send request");
+    assert!(resp.status().is_success(), "SSE endpoint should return 2xx");
+
+    // Read the first SSE event (should be run-a)
+    let mut stream = resp.bytes_stream();
+    let mut received_run_ids = Vec::new();
+    let start = tokio::time::Instant::now();
+    while start.elapsed() < tokio::time::Duration::from_secs(5) {
+        if let Some(chunk) = stream.next().await {
+            let chunk = chunk.expect("Should read chunk");
+            let text = String::from_utf8_lossy(&chunk);
+            for line in text.lines() {
+                if let Some(event) = parse_sse_event(line) {
+                    received_run_ids.push(event["run_id"].as_str().unwrap().to_string());
+                }
+            }
+            if received_run_ids.len() >= 1 {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+
+    emit_handle.await.expect("Emit task should complete");
+    assert_eq!(
+        received_run_ids.len(),
+        1,
+        "Should receive exactly one event for run-a"
+    );
+    assert_eq!(received_run_ids[0], "run-a");
+
+    runner.stop().await;
 }
 
 // ---------------------------------------------------------------------------
-// WebViewConfig: default values
+// OAuth Endpoint Tests
 // ---------------------------------------------------------------------------
 
-#[test]
-fn webview_config_default() {
-    let cfg = auroraview_mcp::types::WebViewConfig::default();
-    assert_eq!(cfg.title, Some("AuroraView".to_string()));
-    assert_eq!(cfg.url, None);
-    assert_eq!(cfg.html, None);
-    assert_eq!(cfg.width, Some(800));
-    assert_eq!(cfg.height, Some(600));
-    assert_eq!(cfg.visible, Some(true));
-    assert_eq!(cfg.debug, Some(false));
+#[tokio::test]
+#[serial]
+async fn oauth_metadata_endpoint_returns_correct_metadata() {
+    let (runner, port) = start_test_server_with_oauth().await;
+
+    let client = reqwest::Client::new();
+    let url = format!("http://127.0.0.1:{port}/.well-known/oauth-authorization-server");
+    let resp = client.get(&url).send().await.expect("Should send request");
+
+    assert!(
+        resp.status().is_success(),
+        "Metadata endpoint should return 2xx"
+    );
+
+    let json: serde_json::Value = resp.json().await.expect("Should parse JSON");
+    assert_eq!(json["issuer"], "auroraview-mcp");
+    assert!(json["authorization_endpoint"].is_string());
+    assert!(json["token_endpoint"].is_string());
+    assert!(json["registration_endpoint"].is_string());
+    assert!(json["code_challenge_methods_supported"].is_array());
+    assert!(json["scopes_supported"].is_array());
+
+    runner.stop().await;
 }
 
-#[test]
-fn webview_config_with_values() {
-    let cfg = auroraview_mcp::types::WebViewConfig {
-        title: Some("Test View".to_string()),
-        url: Some("https://example.com".to_string()),
-        html: None,
-        width: Some(1024),
-        height: Some(768),
-        visible: Some(false),
-        debug: Some(true),
-    };
-    assert_eq!(cfg.title, Some("Test View".to_string()));
-    assert_eq!(cfg.width, Some(1024));
-    assert_eq!(cfg.height, Some(768));
+#[tokio::test]
+#[serial]
+async fn oauth_register_endpoint_creates_client() {
+    let (runner, port) = start_test_server_with_oauth().await;
+
+    let client = reqwest::Client::new();
+    let url = format!("http://127.0.0.1:{port}/oauth/register");
+    let resp = client
+        .post(&url)
+        .json(&serde_json::json!({
+            "client_name": "test-client",
+            "redirect_uris": ["http://localhost:3000/callback"],
+            "scope": "mcp:tools"
+        }))
+        .send()
+        .await
+        .expect("Should send request");
+
+    assert!(
+        resp.status().is_success(),
+        "Register endpoint should return 2xx"
+    );
+
+    let json: serde_json::Value = resp.json().await.expect("Should parse JSON");
+    assert!(json["client_id"].is_string());
+    assert!(json["client_secret"].is_string());
+    assert_eq!(json["client_name"], "test-client");
+    assert!(json["redirect_uris"].is_array());
+    assert_eq!(json["scope"], "mcp:tools");
+
+    runner.stop().await;
+}
+
+#[tokio::test]
+#[serial]
+async fn oauth_authorize_endpoint_returns_redirect() {
+    let (runner, port) = start_test_server_with_oauth().await;
+    // Disable redirect follow to inspect the 303 response
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .expect("Should build client");
+
+    // First register a client
+    let register_url = format!("http://127.0.0.1:{port}/oauth/register");
+    let register_resp = client
+        .post(&register_url)
+        .json(&serde_json::json!({
+            "client_name": "test-client",
+            "redirect_uris": ["http://localhost:3000/callback"],
+            "scope": "mcp:tools"
+        }))
+        .send()
+        .await
+        .expect("Should register client");
+    let register_json: serde_json::Value = register_resp.json().await.unwrap();
+    let client_id = register_json["client_id"].as_str().unwrap();
+    let code_verifier = "test-code-verifier-which-is-long-enough-to-be-valid";
+    let code_challenge = encode(&Sha256::digest(code_verifier.as_bytes()));
+
+    // Now authorize
+    let auth_url = format!(
+        "http://127.0.0.1:{port}/oauth/authorize?client_id={}&redirect_uri={}&response_type=code&scope={}&code_challenge={}&code_challenge_method=S256",
+        client_id,
+        urlencoding::encode("http://localhost:3000/callback"),
+        urlencoding::encode("mcp:tools"),
+        code_challenge
+    );
+    println!("Auth URL: {auth_url}");
+    let resp = client
+        .get(&auth_url)
+        .send()
+        .await
+        .expect("Should send request");
+
+    let status = resp.status(); // Save status before resp is moved
+    let headers = resp.headers().clone();
+    println!("Auth response status: {status}");
+    println!("Auth response headers: {:?}", headers);
+    let body = resp.text().await.expect("Should read body");
+    println!("Auth response body: {body}");
+
+    assert_eq!(
+        status,
+        reqwest::StatusCode::SEE_OTHER,
+        "Authorize should return redirect: {body}"
+    );
+
+    let location = headers.get("location").unwrap().to_str().unwrap();
+    assert!(
+        location.contains("code="),
+        "Redirect should contain authorization code"
+    );
+
+    runner.stop().await;
+}
+
+#[tokio::test]
+#[serial]
+async fn oauth_token_endpoint_exchanges_code_for_token() {
+    let (runner, port) = start_test_server_with_oauth().await;
+    // Disable redirect follow to inspect the 303 response
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .expect("Should build client");
+
+    // Register client
+    let register_url = format!("http://127.0.0.1:{port}/oauth/register");
+    let register_resp = client
+        .post(&register_url)
+        .json(&serde_json::json!({
+            "client_name": "test-client",
+            "redirect_uris": ["http://localhost:3000/callback"],
+            "scope": "mcp:tools"
+        }))
+        .send()
+        .await
+        .expect("Should register client");
+    let register_json: serde_json::Value = register_resp.json().await.unwrap();
+    let client_id = register_json["client_id"].as_str().unwrap();
+    let code_verifier = "test-code-verifier-which-is-long-enough-to-be-valid";
+    let code_challenge = encode(&Sha256::digest(code_verifier.as_bytes()));
+
+    // Get authorization code
+    let auth_url = format!(
+        "http://127.0.0.1:{port}/oauth/authorize?client_id={}&redirect_uri={}&response_type=code&scope={}&code_challenge={}&code_challenge_method=S256",
+        client_id,
+        urlencoding::encode("http://localhost:3000/callback"),
+        urlencoding::encode("mcp:tools"),
+        code_challenge
+    );
+    let auth_resp = client.get(&auth_url).send().await.unwrap();
+    let location = auth_resp
+        .headers()
+        .get("location")
+        .unwrap()
+        .to_str()
+        .unwrap();
+    let code = location
+        .split("code=")
+        .nth(1)
+        .unwrap()
+        .split('&')
+        .next()
+        .unwrap();
+
+    // Exchange code for token
+    let token_url = format!("http://127.0.0.1:{port}/oauth/token");
+    let resp = client
+        .post(&token_url)
+        .json(&serde_json::json!({
+            "grant_type": "authorization_code",
+            "client_id": client_id,
+            "code": code,
+            "redirect_uri": "http://localhost:3000/callback",
+            "code_verifier": code_verifier
+        }))
+        .send()
+        .await
+        .expect("Should send request");
+
+    assert!(
+        resp.status().is_success(),
+        "Token endpoint should return 2xx"
+    );
+
+    let json: serde_json::Value = resp.json().await.expect("Should parse JSON");
+    assert!(json["access_token"].is_string());
+    assert_eq!(json["token_type"], "Bearer");
+    assert!(json["expires_in"].is_number());
+    assert_eq!(json["scope"], "mcp:tools");
+
+    runner.stop().await;
 }

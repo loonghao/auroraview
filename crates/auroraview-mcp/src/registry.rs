@@ -1,3 +1,8 @@
+//! Thread-safe registry of all active `WebView` instances.
+//!
+//! This module provides `WebViewRegistry` for tracking all `WebView` instances
+//! created via the MCP server.
+
 use crate::{
     error::{McpError, Result},
     types::{WebViewConfig, WebViewId, WebViewInfo},
@@ -20,6 +25,7 @@ impl Default for WebViewRegistry {
 }
 
 impl WebViewRegistry {
+    /// Create a new empty registry with no capacity limit.
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -39,6 +45,8 @@ impl WebViewRegistry {
 
     /// Register a new `WebView` with the given config.
     ///
+    /// # Panics
+    ///
     /// Panics if the capacity limit would be exceeded — use [`Self::try_register`] for
     /// error-propagating variant.
     #[must_use]
@@ -49,6 +57,11 @@ impl WebViewRegistry {
 
     /// Try to register a new `WebView`. Returns `Err(McpError::CapacityExceeded)` if
     /// the optional capacity limit has been reached.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`McpError::CapacityExceeded`] if the registry has a `max_webviews`
+    /// limit set and the current number of registered `WebView`s has reached that limit.
     pub fn try_register(&self, config: &WebViewConfig) -> Result<WebViewId> {
         if let Some(max) = self.max_webviews {
             if self.views.len() >= max {
@@ -115,6 +128,7 @@ impl WebViewRegistry {
     }
 
     #[must_use]
+    /// Return `true` if the registry has no `WebView` instances.
     pub fn is_empty(&self) -> bool {
         self.views.is_empty()
     }
@@ -129,6 +143,11 @@ impl WebViewRegistry {
         } else {
             false
         }
+    }
+
+    /// Remove all `WebView` instances from the registry.
+    pub fn clear(&self) {
+        self.views.clear();
     }
 }
 
@@ -249,5 +268,18 @@ mod tests {
         }
         let views = reg.list();
         assert_eq!(views.len(), 3);
+    }
+
+    #[test]
+    fn clear_removes_all_views() {
+        let reg = WebViewRegistry::new();
+        let config = WebViewConfig::default();
+        let _id1 = reg.register(&config);
+        let _id2 = reg.register(&config);
+        assert_eq!(reg.len(), 2);
+
+        reg.clear();
+        assert_eq!(reg.len(), 0);
+        assert!(reg.is_empty());
     }
 }

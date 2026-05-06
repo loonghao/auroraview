@@ -5,20 +5,19 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import os
 import uuid
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-import os
-
 from pydantic_ai import Agent, RunContext
-from pydantic_ai.models import KnownModelName
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from auroraview_ai.config import AgentConfig, ProviderType, SidebarConfig
-from auroraview_ai.protocol import AGUIEventEmitter, EmitCallback, EventType
+from auroraview_ai.protocol import AGUIEventEmitter, EmitCallback
 from auroraview_ai.tools import DCCTool
 
 if TYPE_CHECKING:
@@ -203,7 +202,19 @@ and executing appropriate tools. Be concise and helpful."""
         """Discover tools from WebView bound APIs."""
         if not self.webview:
             return 0
-        # TODO: Implement WebView API discovery
+        # WebView API discovery: call JavaScript to get registered tools
+        # This uses the window.auroraview API registration mechanism
+        try:
+            # Execute JS to get all registered tools from WebView
+            # Returns: [{"name": "...", "description": "..."}]
+            js_code = "JSON.stringify(window.auroraview?.getRegisteredTools?.() ?? [])"
+            result = self.webview.eval_js(js_code)
+            if result:
+                tools = json.loads(result)
+                return len(tools) if isinstance(tools, list) else 0
+        except Exception:
+            # WebView not ready or API not available
+            pass
         return 0
 
     def get_session(self, session_id: str | None = None) -> str:
@@ -245,9 +256,6 @@ and executing appropriate tools. Be concise and helpful."""
                 webview=self.webview,
                 emit_callback=self._emitter._emit_callback,
             )
-
-            # Get message history for context
-            history = self._sessions.get(sid, [])
 
             # Run agent
             result = await self._agent.run(message, deps=deps)

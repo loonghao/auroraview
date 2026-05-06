@@ -1,0 +1,32 @@
+# Cargo Audit Configuration
+# Can be placed at ~/.cargo/audit.toml or project root (cargo-audit.toml)
+
+[advisories]
+ignore = [
+    "RUSTSEC-2026-0118",
+    "RUSTSEC-2026-0119",
+    "RUSTSEC-2026-0002",
+]
+informational_warnings = ["unmaintained"]
+severity_threshold = "low"
+
+[database]
+path = "~/.cargo/advisory-db"
+url = "https://github.com/RustSec/advisory-db.git"
+fetch = true
+stale = false
+
+[output]
+# Only deny actual vulnerabilities, not "unmaintained" warnings
+deny = []
+format = "terminal"
+quiet = false
+show_tree = true
+
+[target]
+arch = ["x86_64"]
+os = ["linux", "windows"]
+
+[yanked]
+enabled = true
+update_index = true

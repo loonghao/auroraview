@@ -12,8 +12,8 @@ use std::thread::{self, ThreadId};
 
 // --- Core Types ---
 
-/// UE GameThread ID wrapper.
-/// UE requires Slate UI operations to run on the GameThread.
+/// `GameThread` ID wrapper.
+/// UE requires `Slate` UI operations to run on the `GameThread`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GameThreadId(ThreadId);
 
@@ -30,19 +30,19 @@ impl GameThreadId {
         Self(thread::current().id())
     }
 
-    /// Check if the given thread is the GameThread.
+    /// Check if the given thread is the `GameThread`.
     #[must_use]
     pub fn is_current(&self) -> bool {
         thread::current().id() == self.0
     }
 }
 
-/// GameThread task for deferred execution.
+/// `GameThread` task for deferred execution.
 type GameThreadTask = Box<dyn FnOnce() + Send>;
 
-/// Executor that ensures operations are run on UE's GameThread.
+/// Executor that ensures operations are run on UE's `GameThread`.
 ///
-/// UE requires certain operations (like Slate UI updates) to be on the GameThread.
+/// UE requires certain operations (like `Slate` UI updates) to be on the `GameThread`.
 /// This executor provides a channel-based dispatch mechanism.
 pub struct UeGameThreadExecutor {
     task_tx: Sender<GameThreadTask>,
@@ -50,7 +50,7 @@ pub struct UeGameThreadExecutor {
 }
 
 impl UeGameThreadExecutor {
-    /// Create a new executor with a channel to the GameThread.
+    /// Create a new executor with a channel to the `GameThread`.
     #[must_use]
     pub fn new() -> (Self, Receiver<GameThreadTask>) {
         let (task_tx, task_rx) = crossbeam_channel::unbounded();
@@ -61,16 +61,16 @@ impl UeGameThreadExecutor {
         (executor, task_rx)
     }
 
-    /// Check if the current thread is the GameThread.
+    /// Check if the current thread is the `GameThread`.
     #[must_use]
     pub fn is_game_thread(&self) -> bool {
         self.game_thread_id.is_current()
     }
 
-    /// Execute a closure on the GameThread.
+    /// Execute a closure on the `GameThread`.
     ///
-    /// If already on GameThread, executes immediately.
-    /// Otherwise, sends the task to the GameThread via channel (fire-and-forget).
+    /// If already on `GameThread`, executes immediately.
+    /// Otherwise, sends the task to the `GameThread` via channel (fire-and-forget).
     /// Use `execute_with_callback` if you need a result.
     pub fn execute<F>(&self, f: F)
     where
@@ -84,9 +84,9 @@ impl UeGameThreadExecutor {
         }
     }
 
-    /// Execute a closure on the GameThread and receive result via callback.
+    /// Execute a closure on the `GameThread` and receive result via callback.
     ///
-    /// The callback will be invoked on the GameThread after the task completes.
+    /// The callback will be invoked on the `GameThread` after the task completes.
     pub fn execute_with_callback<F, C>(&self, task: F, callback: C)
     where
         F: FnOnce() -> Result<(), UeError> + Send + 'static,
@@ -105,9 +105,9 @@ impl UeGameThreadExecutor {
     }
 }
 
-/// Slate UI widget handle (FFI placeholder).
+/// `Slate` UI widget handle (`FFI` placeholder).
 ///
-/// In real implementation, this would be a pointer to a Slate widget.
+/// In real implementation, this would be a pointer to a `Slate` widget.
 /// For now, we use an opaque handle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SlateWidgetHandle(pub u64);
@@ -136,14 +136,14 @@ impl SlateWidgetHandle {
     }
 }
 
-/// WebView embedding mode within UE Slate.
+/// `WebView` embedding mode within UE `Slate`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UeEmbedMode {
-    /// Embed as a Slate widget (SWindow/SWidget).
+    /// Embed as a `Slate` widget (`SWindow`/`SWidget`).
     SlateWidget,
-    /// Embed as a child window (Win32 HWND parenting).
+    /// Embed as a child window (Win32 `HWND` parenting).
     NativeChildWindow,
-    /// Floating tool window (for non-Slate DCCs).
+    /// Floating tool window (for non-`Slate` DCCs).
     FloatingWindow,
 }
 
@@ -158,7 +158,7 @@ impl std::fmt::Display for UeEmbedMode {
     }
 }
 
-/// Configuration for UE WebView integration.
+/// Configuration for UE `WebView` integration.
 #[derive(Debug, Clone)]
 pub struct UeWebViewConfig {
     /// Initial size (width, height).
@@ -194,8 +194,8 @@ impl Default for UeWebViewConfig {
 
 /// UE integration manager.
 ///
-/// Manages WebView embedding within Unreal Engine's Slate UI system.
-/// Handles GameThread synchronization and GC-safe object references.
+/// Manages `WebView` embedding within Unreal Engine's `Slate` UI system.
+/// Handles `GameThread` synchronization and GC-safe object references.
 #[allow(dead_code)]
 pub struct UeIntegration {
     executor: Arc<UeGameThreadExecutor>,
@@ -222,13 +222,13 @@ impl UeIntegration {
         self.slate_parent = Some(handle);
     }
 
-    /// Get the GameThread executor.
+    /// Get the `GameThread` executor.
     #[must_use]
     pub fn executor(&self) -> &UeGameThreadExecutor {
         &self.executor
     }
 
-    /// Process pending GameThread tasks (should be called from GameThread each frame).
+    /// Process pending `GameThread` tasks (should be called from `GameThread` each frame).
     pub fn process_tasks(&self) {
         if let Ok(guard) = self.task_rx.lock() {
             if let Some(rx) = guard.as_ref() {
@@ -239,9 +239,13 @@ impl UeIntegration {
         }
     }
 
-    /// Create a WebView embedded in UE Slate.
+    /// Create a `WebView` embedded in UE Slate.
     ///
-    /// This must be called from the GameThread.
+    /// This must be called from the `GameThread`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `UeError::NotOnGameThread` if not called from the `GameThread`.
     pub fn create_webview(&self, url: &str) -> Result<SlateWidgetHandle, UeError> {
         if !self.executor.is_game_thread() {
             return Err(UeError::NotOnGameThread);
@@ -261,11 +265,11 @@ impl UeIntegration {
 /// Errors that can occur in UE integration.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UeError {
-    /// Operation must be performed on the GameThread.
+    /// Operation must be performed on the `GameThread`.
     NotOnGameThread,
     /// Invalid Slate widget handle.
     InvalidHandle,
-    /// WebView creation failed.
+    /// `WebView` creation failed.
     WebViewCreationFailed(String),
     /// GC object was collected.
     ObjectCollected,
@@ -441,3 +445,123 @@ mod tests {
         assert!(display.contains("SlateWidget"));
     }
 }
+
+// ---------------------------------------------------------------------------
+// UE `Blueprint` Node Support (Placeholder Implementation)
+// ---------------------------------------------------------------------------
+
+/// UE `Blueprint` node wrapper.
+///
+/// Represents a node in UE's `Blueprint` visual scripting system.
+/// This is a placeholder implementation — real implementation would
+/// interface with UE's `FKismetCompilerContext` or Python API.
+#[derive(Debug, Clone)]
+pub struct UeBlueprintNode {
+    /// Node identifier (matches UE's internal node ID).
+    pub id: String,
+    /// Human-readable node title.
+    pub title: String,
+    /// Input pins (name → type).
+    pub inputs: Vec<(String, String)>,
+    /// Output pins (name → type).
+    pub outputs: Vec<(String, String)>,
+    /// Connections to other nodes.
+    pub connections: Vec<String>,
+}
+
+impl UeBlueprintNode {
+    /// Create a new Blueprint node.
+    #[must_use]
+    pub fn new(id: impl Into<String>, title: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            title: title.into(),
+            inputs: Vec::new(),
+            outputs: Vec::new(),
+            connections: Vec::new(),
+        }
+    }
+
+    /// Add an input pin.
+    pub fn add_input(&mut self, name: impl Into<String>, type_name: impl Into<String>) {
+        self.inputs.push((name.into(), type_name.into()));
+    }
+
+    /// Add an output pin.
+    pub fn add_output(&mut self, name: impl Into<String>, type_name: impl Into<String>) {
+        self.outputs.push((name.into(), type_name.into()));
+    }
+
+    /// Connect this node to another node.
+    pub fn connect_to(&mut self, node_id: impl Into<String>) {
+        self.connections.push(node_id.into());
+    }
+
+    /// Get the node as JSON (for frontend/serialization).
+    #[must_use]
+    pub fn to_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "id": self.id,
+            "title": self.title,
+            "inputs": self.inputs,
+            "outputs": self.outputs,
+            "connections": self.connections,
+        })
+    }
+
+    /// Remove an input pin by name.
+    pub fn remove_input(&mut self, name: impl Into<String>) {
+        let name = name.into();
+        self.inputs.retain(|(n, _)| n != &name);
+    }
+
+    /// Remove an output pin by name.
+    pub fn remove_output(&mut self, name: impl Into<String>) {
+        let name = name.into();
+        self.outputs.retain(|(n, _)| n != &name);
+    }
+
+    /// Remove a connection to another node.
+    pub fn remove_connection(&mut self, node_id: impl Into<String>) {
+        let node_id = node_id.into();
+        self.connections.retain(|c| c != &node_id);
+    }
+
+    /// Clear all input pins.
+    pub fn clear_inputs(&mut self) {
+        self.inputs.clear();
+    }
+
+    /// Clear all output pins.
+    pub fn clear_outputs(&mut self) {
+        self.outputs.clear();
+    }
+
+    /// Clear all connections.
+    pub fn clear_connections(&mut self) {
+        self.connections.clear();
+    }
+}
+
+/// Errors that can occur in Blueprint node operations.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum UeBlueprintError {
+    /// Node with given ID not found.
+    NodeNotFound(String),
+    /// Invalid pin type.
+    InvalidPinType(String),
+    /// Compilation failed.
+    CompilationFailed(String),
+}
+
+impl std::fmt::Display for UeBlueprintError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NodeNotFound(id) => write!(f, "Blueprint node not found: {id}"),
+            Self::InvalidPinType(t) => write!(f, "invalid pin type: {t}"),
+            Self::CompilationFailed(msg) => write!(f, "compilation failed: {msg}"),
+        }
+    }
+}
+
+impl std::error::Error for UeBlueprintError {}

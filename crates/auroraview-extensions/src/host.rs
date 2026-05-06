@@ -320,7 +320,7 @@ fn generate_chrome_api_polyfill(extension: &LoadedExtension) -> String {
     let has_scripting = extension.manifest.has_permission("scripting");
 
     format!(
-        r#"
+        r"
 // AuroraView Chrome Extension API Polyfill
 // Extension: {name} ({id})
 (function() {{
@@ -403,7 +403,7 @@ fn generate_chrome_api_polyfill(extension: &LoadedExtension) -> String {
 
     console.log('[AuroraView] Chrome API polyfill loaded for extension:', EXTENSION_ID);
 }})();
-"#,
+",
         name = extension.manifest.name,
         id = ext_id,
         manifest = serde_json::to_string(&extension.manifest).unwrap_or_default(),
@@ -451,7 +451,7 @@ fn generate_chrome_api_polyfill(extension: &LoadedExtension) -> String {
 }
 
 fn generate_storage_api() -> String {
-    r#"
+    r"
     // chrome.storage API
     function createStorageArea(areaName) {
         return {
@@ -507,11 +507,11 @@ fn generate_storage_api() -> String {
             }
         }
     };
-"#.to_string()
+".to_string()
 }
 
 fn generate_tabs_api() -> String {
-    r#"
+    r"
     // chrome.tabs API
     const tabs = {
         query: async function(queryInfo) {
@@ -559,14 +559,15 @@ fn generate_tabs_api() -> String {
                 const idx = this._listeners.indexOf(callback);
                 if (idx >= 0) this._listeners.splice(idx, 1);
             }
+               }
         }
     };
-"#
+    "
     .to_string()
 }
 
 fn generate_side_panel_api() -> String {
-    r#"
+    r"
     // chrome.sidePanel API
     const sidePanel = {
         open: async function(options) {
@@ -588,12 +589,12 @@ fn generate_side_panel_api() -> String {
             return await callNative('sidePanel', 'getPanelBehavior', {});
         }
     };
-"#
+    "
     .to_string()
 }
 
 fn generate_scripting_api() -> String {
-    r#"
+    r"
     // chrome.scripting API
     const scripting = {
         executeScript: async function(injection) {
@@ -615,7 +616,7 @@ fn generate_scripting_api() -> String {
             return await callNative('scripting', 'getRegisteredContentScripts', filter || {});
         }
     };
-"#
+    "
     .to_string()
 }
 

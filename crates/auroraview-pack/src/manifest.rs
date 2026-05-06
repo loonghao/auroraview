@@ -1571,7 +1571,7 @@ pub struct VxConfig {
     #[serde(default = "default_vx_cache_dir")]
     pub cache_dir: PathBuf,
 
-    /// Tools to ensure are available (e.g., ["uv", "node@20", "go@1.22"])
+    /// Tools to ensure are available (e.g., `["uv", "node@20", "go@1.22"]`)
     #[serde(default)]
     pub ensure: Vec<String>,
 

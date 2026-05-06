@@ -1,0 +1,13 @@
+# Configuration for `cargo audit`
+# Ignore `unmaintained` warnings (not security vulnerabilities)
+# These come from indirect dependencies (wry/gtk, rustpython-parser/unic-*)
+[advisories]
+ignore = [
+    "RUSTSEC-2024-0413",  # atk - unmaintained
+    "RUSTSEC-2024-0416",  # atk-sys - unmaintained
+    "RUSTSEC-2025-0075",  # unic-char-range - unmaintained
+    "RUSTSEC-2025-0080",  # unic-common - unmaintained
+    "RUSTSEC-2025-0090",  # unic-emoji-char - unmaintained
+    "RUSTSEC-2025-0100",  # unic-ucd-ident - unmaintained
+    "RUSTSEC-2025-0098",  # unic-ucd-version - unmaintained
+]

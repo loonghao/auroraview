@@ -1,3 +1,5 @@
+#![allow(rustdoc::broken_intra_doc_links)]
+
 //! AuroraView Browser - Multi-tab browser component with Edge-style UI
 //!
 //! This crate provides a complete multi-tab browser implementation for AuroraView,

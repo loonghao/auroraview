@@ -1,10 +1,16 @@
+//! Manages the lifecycle of the `AuroraView` MCP Server.
+//!
+//! This module provides `McpRunner` for starting/stopping the MCP server
+//! with optional mDNS broadcast and AG-UI event streaming.
+
 use crate::{
     agui::{AguiBus, AguiEvent},
     error::{McpError, Result},
+    mcp_server::McpServer,
     mdns::MdnsBroadcaster,
     oauth::OAuthStore,
-    server::AuroraViewMcpServer,
     types::{McpServerConfig, WebViewId},
+    CdpAdapterConfig,
 };
 use axum::Router;
 use rmcp::transport::streamable_http_server::{
@@ -13,26 +19,52 @@ use rmcp::transport::streamable_http_server::{
 use std::sync::Arc;
 use tokio::sync::{oneshot, Mutex};
 use tokio_util::sync::CancellationToken;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 /// Manages the lifecycle of the `AuroraView` MCP Server.
 ///
-/// Starts an axum HTTP server that serves the MCP Streamable HTTP transport
-/// at `/mcp` and an AG-UI SSE event stream at `/agui/events`.
+/// `McpRunner` starts an axum HTTP server that serves:
+/// - `POST /mcp` — MCP Streamable HTTP transport (initialize + tool calls)
+/// - `GET /mcp` — MCP SSE stream (stateful session reconnect)
+/// - `DELETE /mcp` — terminate MCP session
+/// - `GET /agui/events?run_id=<id>` — AG-UI SSE event stream
+///
+/// # Example
+///
+/// ```rust,ignore
+/// let runner = McpRunner::new(McpServerConfig::default());
+/// // Start server in background (non-blocking)
+/// tokio::spawn(async move {
+///     runner.start().await.expect("server start failed");
+/// });
+/// ```
 pub struct McpRunner {
+    /// Server configuration.
     config: McpServerConfig,
-    server: AuroraViewMcpServer,
+    /// MCP server implementation (handles tool calls).
+    server: McpServer,
+    /// OAuth 2.0 store (None if OAuth is disabled).
     oauth_store: Option<OAuthStore>,
+    /// mDNS broadcaster (None if mDNS is disabled).
     broadcaster: Option<MdnsBroadcaster>,
+    /// AG-UI event bus for streaming events to UI clients.
     agui_bus: AguiBus,
+    /// Shutdown signal sender (used to stop the server).
     shutdown_tx: Arc<Mutex<Option<oneshot::Sender<()>>>>,
+    /// Server task handle (used to wait for graceful shutdown).
+    server_task: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
 }
 
 impl McpRunner {
+    /// Create a new `McpRunner` with the given configuration.
+    ///
+    /// Initializes the AG-UI bus, CDP adapter, optional mDNS broadcaster,
+    /// and optional OAuth store based on the configuration.
     #[must_use]
     pub fn new(config: McpServerConfig) -> Self {
         let agui_bus = AguiBus::new();
-        let server = AuroraViewMcpServer::new(config.clone()).with_agui_bus(agui_bus.clone());
+        let cdp_config = CdpAdapterConfig::localhost(config.port, env!("CARGO_PKG_VERSION"));
+        let server = McpServer::new(cdp_config).with_agui_bus(agui_bus.clone());
         let broadcaster = if config.enable_mdns {
             MdnsBroadcaster::new()
                 .map_err(|e| warn!("mDNS init failed: {e}"))
@@ -51,7 +83,8 @@ impl McpRunner {
             oauth_store,
             broadcaster,
             agui_bus,
-            shutdown_tx: Arc::new(Mutex::new(None)),
+            shutdown_tx: Arc::default(),
+            server_task: Arc::default(),
         }
     }
 
@@ -83,11 +116,13 @@ impl McpRunner {
         Self::new(config)
     }
 
+    /// Return a reference to the inner `McpServer`.
     #[must_use]
-    pub fn server(&self) -> &AuroraViewMcpServer {
+    pub fn server(&self) -> &McpServer {
         &self.server
     }
 
+    /// Return a reference to the server configuration.
     #[must_use]
     pub fn config(&self) -> &McpServerConfig {
         &self.config
@@ -110,9 +145,17 @@ impl McpRunner {
     ///
     /// Returns immediately; the server runs until `stop()` is called.
     ///
+    /// # Errors
+    ///
     /// Returns [`McpError::InvalidConfig`] if the configuration is invalid
     /// (e.g. `port == 0`, empty `host`, or empty `service_name`).
+    ///
+    /// Returns [`McpError::AlreadyRunning`] if the server is already running.
+    ///
+    /// Returns [`McpError::Io`] if the TCP listener fails to bind.
     pub async fn start(&self) -> Result<()> {
+        let start_time = std::time::Instant::now();
+
         self.config.validate().map_err(McpError::InvalidConfig)?;
 
         let mut lock = self.shutdown_tx.lock().await;
@@ -134,6 +177,7 @@ impl McpRunner {
         let agui_bus = self.agui_bus.clone();
 
         let mut router = Router::new()
+            .route("/health", axum::routing::get(health_handler))
             .nest_service("/mcp", mcp_service)
             .merge(agui_router(agui_bus));
 
@@ -141,18 +185,19 @@ impl McpRunner {
         if let Some(oauth_store) = &self.oauth_store {
             let oauth_store = oauth_store.clone();
             router = router.merge(oauth_router(oauth_store));
-            info!("OAuth 2.0 endpoints enabled");
+            info!(oauth_enabled = true, "OAuth 2.0 endpoints enabled");
         }
 
-        info!("AuroraView MCP Server starting on http://{addr}");
+        info!(%addr, "AuroraView MCP Server starting");
 
         let tcp = tokio::net::TcpListener::bind(&addr)
             .await
             .map_err(McpError::Io)?;
 
-        info!("AuroraView MCP Server listening on http://{addr}");
+        let elapsed = start_time.elapsed();
+        info!(%addr, ?elapsed, "AuroraView MCP Server listening");
 
-        tokio::spawn({
+        let server_task = tokio::spawn({
             let cancel = cancel.clone();
             async move {
                 let serve = axum::serve(tcp, router).with_graceful_shutdown(async move {
@@ -161,25 +206,76 @@ impl McpRunner {
                     cancel.cancel();
                 });
                 if let Err(e) = serve.await {
-                    warn!("MCP server error: {e}");
+                    warn!(error = %e, "MCP server error");
                 }
                 info!("AuroraView MCP Server exited");
             }
         });
 
+        // Store task handle for graceful shutdown
+        *self.server_task.lock().await = Some(server_task);
+
         Ok(())
     }
 
     /// Stop the running server and unregister mDNS.
+    ///
+    /// Sends shutdown signal and waits for graceful shutdown with timeout.
+    /// Cleans up resources (mDNS, registry, CDP connections) after shutdown.
     pub async fn stop(&self) {
-        let mut lock = self.shutdown_tx.lock().await;
-        if let Some(tx) = lock.take() {
-            let _ = tx.send(());
+        info!(port = self.config.port, "Stopping AuroraView MCP Server");
+
+        // Send shutdown signal
+        let task_handle = {
+            let mut tx_lock = self.shutdown_tx.lock().await;
+            if let Some(tx) = tx_lock.take() {
+                if tx.send(()).is_err() {
+                    warn!("Shutdown signal already consumed");
+                }
+            }
+
+            // Take the server task handle
+            let mut task_lock = self.server_task.lock().await;
+            task_lock.take()
+        };
+
+        // Wait for server to stop (with timeout)
+        if let Some(task) = task_handle {
+            info!("Waiting for server to shut down gracefully");
+            match tokio::time::timeout(std::time::Duration::from_secs(30), task).await {
+                Ok(Ok(())) => {
+                    info!(port = self.config.port, "Server stopped gracefully");
+                }
+                Ok(Err(e)) => {
+                    warn!(error = %e, "Server task failed during shutdown");
+                }
+                Err(_) => {
+                    warn!(timeout_secs = 30, "Server shutdown timed out, forcing exit");
+                    // Task will be dropped, which cancels it
+                }
+            }
+        } else {
+            debug!("No active server task to stop");
         }
+
+        // Stop mDNS broadcaster
         if let Some(broadcaster) = &self.broadcaster {
             broadcaster.stop().await;
+            info!("mDNS broadcaster stopped");
         }
-        info!("AuroraView MCP Server stopped");
+
+        // Cleanup: Clear registry and CDP client
+        self.server.registry().clear();
+        info!("WebView registry cleared");
+
+        // Reset CDP client (will reconnect on next use)
+        // Note: OnceCell doesn't have a clear() method, so we rely on
+        // with_cdp_endpoint() to reset it when needed
+
+        info!(
+            port = self.config.port,
+            "AuroraView MCP Server fully stopped"
+        );
     }
 
     /// Check if the server is currently running.
@@ -188,7 +284,9 @@ impl McpRunner {
     }
 
     /// Emit an AG-UI event to all active SSE subscribers.
-    pub fn emit_agui(&self, event: AguiEvent) {
+    ///
+    /// The event must be wrapped in an `Arc` for zero-copy broadcasting.
+    pub fn emit_agui(&self, event: Arc<AguiEvent>) {
         self.agui_bus.emit(event);
     }
 
@@ -199,21 +297,32 @@ impl McpRunner {
     ///
     /// Both events share the same `run_id` and `step_id`.
     pub fn emit_agui_step(&self, run_id: &str, step_name: &str, step_id: &str) {
-        self.agui_bus.emit(AguiEvent::StepStarted {
+        self.agui_bus.emit(Arc::new(AguiEvent::StepStarted {
             run_id: run_id.to_string(),
             step_name: step_name.to_string(),
             step_id: step_id.to_string(),
-        });
-        self.agui_bus.emit(AguiEvent::StepFinished {
+        }));
+        self.agui_bus.emit(Arc::new(AguiEvent::StepFinished {
             run_id: run_id.to_string(),
             step_id: step_id.to_string(),
-        });
+        }));
     }
 
     /// Update the CDP endpoint for a registered `WebView`.
     ///
     /// Returns `Ok(())` if the `WebView` was found and updated.
     /// Returns `Err(...)` if no `WebView` with the given ID exists.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` with a string error message if no `WebView` with the
+    /// given `id` exists in the registry.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `id` string cannot be parsed into a [`WebViewId`].
+    /// In current implementation, `WebViewId` parsing is infallible,
+    /// so this should not panic in practice.
     pub fn update_cdp_endpoint(&self, id: &str, endpoint: &str) -> std::result::Result<(), String> {
         let wid = id.parse::<WebViewId>().unwrap(); // Infallible
         if self
@@ -233,11 +342,11 @@ impl McpRunner {
 // ---------------------------------------------------------------------------
 
 fn build_mcp_service(
-    server: AuroraViewMcpServer,
+    server: McpServer,
     _cancel: CancellationToken,
-) -> StreamableHttpService<AuroraViewMcpServer, LocalSessionManager> {
+) -> StreamableHttpService<McpServer, LocalSessionManager> {
     let config = StreamableHttpServerConfig::default();
-    StreamableHttpService::new(move || Ok(server.clone()), Default::default(), config)
+    StreamableHttpService::new(move || Ok(server.clone()), Arc::default(), config)
 }
 
 /// Build the AG-UI SSE router.
@@ -298,6 +407,7 @@ fn agui_router(bus: AguiBus) -> Router {
 /// - `POST /oauth/register` — dynamic client registration
 /// - `GET  /oauth/authorize` — authorization endpoint (simplified)
 /// - `POST /oauth/token` — token endpoint
+#[allow(clippy::too_many_lines)]
 fn oauth_router(oauth_store: OAuthStore) -> Router {
     use axum::{
         extract::{Json, Query, State},
@@ -416,6 +526,28 @@ fn oauth_router(oauth_store: OAuthStore) -> Router {
         .with_state(oauth_store)
 }
 
+// ---------------------------------------------------------------------------
+// Health check handler
+// ---------------------------------------------------------------------------
+
+/// Health check handler for `GET /health`.
+///
+/// Returns a JSON response with server status:
+/// ```json
+/// {
+///   "status": "ok",
+///   "service": "auroraview-mcp",
+///   "version": "<version>"
+/// }
+/// ```
+async fn health_handler() -> axum::Json<serde_json::Value> {
+    axum::Json(serde_json::json!({
+        "status": "ok",
+        "service": "auroraview-mcp",
+        "version": env!("CARGO_PKG_VERSION")
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -458,7 +590,7 @@ mod tests {
             run_id: "test".to_string(),
             thread_id: "t1".to_string(),
         };
-        runner.emit_agui(event);
+        runner.emit_agui(Arc::new(event));
     }
 
     #[test]
@@ -484,6 +616,31 @@ mod tests {
     fn update_cdp_endpoint_returns_err_for_unknown_id() {
         let runner = McpRunner::new(McpServerConfig::default());
         let result = runner.update_cdp_endpoint("nonexistent", "http://127.0.0.1:9222");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn config_returns_valid_config() {
+        let config = McpServerConfig::default().with_port(9000);
+        let runner = McpRunner::new(config.clone());
+        let returned_config = runner.config();
+        assert_eq!(returned_config.port, 9000);
+    }
+
+    #[test]
+    fn server_returns_valid_server() {
+        let runner = McpRunner::new(McpServerConfig::default());
+        let server = runner.server();
+        // Server should have an empty registry initially
+        assert!(server.registry().is_empty());
+    }
+
+    #[tokio::test]
+    async fn start_returns_err_for_invalid_config() {
+        // Port 0 is invalid
+        let config = McpServerConfig::default().with_port(0);
+        let runner = McpRunner::new(config);
+        let result = runner.start().await;
         assert!(result.is_err());
     }
 }

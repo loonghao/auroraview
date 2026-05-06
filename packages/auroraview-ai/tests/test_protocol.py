@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from auroraview_ai.protocol import AGUIEvent, AGUIEventEmitter, EventType
 
 

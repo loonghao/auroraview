@@ -180,15 +180,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+* **deps**: update `dcc-mcp-core` from v0.13.2 to v0.14.23
+  * New features: `DccDispatcher`, cross-DCC main thread scheduling, `HostAdapter` base class
+  * Improved Python 3.7/3.8 compatibility
+  * Fixed gateway dynamic capability routing logic
+
 ### Fixed
 
-* Fix `ureq 3.x` API compatibility issues in `auroraview-pack`
-  * Update `downloader.rs`: Use `body_mut().read_to_vec()` instead of `into_reader().read_to_end()`
-  * Update `vx_tool.rs`: Replace deprecated `set()` with `header()`, use `body_mut().read_to_vec()`
-* Fix `image 0.25` API compatibility issues in `auroraview-core`
-  * Update `compress.rs`, `converter.rs`, `loader.rs`: Use `ImageReader` instead of `io::Reader`
-  * Fix `ColorType::Rgba8` to `ExtendedColorType` conversion using `.into()`
-
+* **security**: fix 47 Dependabot security vulnerabilities (20 high, 21 medium, 6 low)
+  * Updated npm dependencies: `@playwright/test`, `@types/node`, `@types/react`, `@vitest/coverage-v8`, `serve`, `tsup`, `typescript`, `vitest`, `vue`
+  * Updated Rust dependencies: `cargo update` to lock compatible versions
+  * Updated Python dependencies: `uv lock --upgrade` (17 packages)
+  * Fixed transitive dependency `postcss` (CVE-2026-41305)
+  * Added `"ignoreDeprecations": "6.0"` to `tsconfig.json` (fixed TypeScript 6.0 deprecation)
+* **code quality**: resolve ruff warnings (F841, SIM117, I001, F401)
+  * Removed unused variable `history` in `agent.py`
+  * Merged nested `with` statements in `test_agent.py` (4 occurrences)
+  * Organized imports and removed unused imports
 ## [0.4.6](https://github.com/loonghao/auroraview/compare/auroraview-v0.4.5...auroraview-v0.4.6) (2026-02-08)
 
 

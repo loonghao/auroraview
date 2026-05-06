@@ -8,7 +8,7 @@ This module provides window control methods for the WebView class.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from typing import Any
@@ -124,3 +124,23 @@ class WebViewWindowMixin:
             self._core.focus()
         else:
             logger.warning("focus() not supported by current backend")
+
+    @property
+    def width(self) -> int:
+        """Get the window width."""
+        return self._width
+
+    @property
+    def height(self) -> int:
+        """Get the window height."""
+        return self._height
+
+    @property
+    def x(self) -> Optional[int]:
+        """Get the window x position."""
+        return self._x
+
+    @property
+    def y(self) -> Optional[int]:
+        """Get the window y position."""
+        return self._y

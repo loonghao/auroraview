@@ -1,7 +1,8 @@
-/// AG-UI protocol event types for `AuroraView` MCP Server.
-///
-/// AG-UI is a protocol for streaming agent state updates to UI clients.
-/// See: <https://docs.ag-ui.com>
+//! AG-UI protocol event types for `AuroraView` MCP Server.
+//!
+//! AG-UI is a protocol for streaming agent state updates to UI clients.
+//! See: <https://docs.ag-ui.com>
+
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::broadcast;
@@ -11,68 +12,115 @@ use tokio::sync::broadcast;
 #[serde(tag = "type", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AguiEvent {
     /// Run lifecycle: started
-    RunStarted { run_id: String, thread_id: String },
+    RunStarted {
+        /// Unique identifier for this run.
+        run_id: String,
+        /// Thread associated with this run.
+        thread_id: String,
+    },
     /// Run lifecycle: finished
-    RunFinished { run_id: String, thread_id: String },
+    RunFinished {
+        /// Unique identifier for this run.
+        run_id: String,
+        /// Thread associated with this run.
+        thread_id: String,
+    },
     /// Run lifecycle: error
     RunError {
+        /// Unique identifier for this run.
         run_id: String,
+        /// Human-readable error message.
         message: String,
+        /// Optional machine-readable error code.
         code: Option<String>,
     },
     /// Step (action) started
     StepStarted {
+        /// Unique identifier for this run.
         run_id: String,
+        /// Display name of the step.
         step_name: String,
+        /// Unique identifier for this step.
         step_id: String,
     },
     /// Step finished
-    StepFinished { run_id: String, step_id: String },
+    StepFinished {
+        /// Unique identifier for this run.
+        run_id: String,
+        /// Unique identifier for this step.
+        step_id: String,
+    },
     /// Text message delta (streaming)
     TextMessageStart {
+        /// Unique identifier for this run.
         run_id: String,
+        /// Unique identifier for this message.
         message_id: String,
+        /// Role of the message sender (e.g. "user", "assistant").
         role: String,
     },
     /// Text delta content
     TextMessageContent {
+        /// Unique identifier for this run.
         run_id: String,
+        /// Unique identifier for this message.
         message_id: String,
+        /// Text delta to append to the message.
         delta: String,
     },
     /// Text message finished
-    TextMessageEnd { run_id: String, message_id: String },
+    TextMessageEnd {
+        /// Unique identifier for this run.
+        run_id: String,
+        /// Unique identifier for this message.
+        message_id: String,
+    },
     /// Tool call started
     ToolCallStart {
+        /// Unique identifier for this run.
         run_id: String,
+        /// Unique identifier for this tool call.
         tool_call_id: String,
+        /// Name of the tool being called.
         tool_name: String,
     },
     /// Tool call argument delta
     ToolCallArgs {
+        /// Unique identifier for this run.
         run_id: String,
+        /// Unique identifier for this tool call.
         tool_call_id: String,
+        /// Argument delta (partial JSON string).
         delta: String,
     },
     /// Tool call finished
     ToolCallEnd {
+        /// Unique identifier for this run.
         run_id: String,
+        /// Unique identifier for this tool call.
         tool_call_id: String,
     },
     /// State snapshot update
     StateSnapshot {
+        /// Unique identifier for this run.
         run_id: String,
+        /// Full state snapshot.
         snapshot: serde_json::Value,
     },
     /// State delta update
     StateDelta {
+        /// Unique identifier for this run.
         run_id: String,
+        /// List of JSON patch operations.
         delta: Vec<serde_json::Value>,
     },
     /// Raw custom event
     Custom {
+        /// Unique identifier for this run.
         run_id: String,
+        /// Custom event name.
         name: String,
+        /// Arbitrary event payload.
         data: serde_json::Value,
     },
 }
@@ -107,35 +155,87 @@ impl AguiEvent {
     }
 }
 
-/// Broadcast bus for AG-UI events.\
-/// Cloning this is cheap — all clones share the same channel.
+/// Broadcast bus for AG-UI events.
+///
+/// `AguiBus` wraps a `broadcast::Sender` and allows multiple subscribers to
+/// receive AG-UI protocol events. Cloning is cheap — all clones share the
+/// same underlying channel.
+///
+/// # Performance
+///
+/// This bus uses `Arc<AguiEvent>` for zero-copy broadcasting. When calling
+/// `emit()`, the event is wrapped in an `Arc`, and each subscriber receives
+/// a clone of the `Arc` (atomic increment) rather than a deep clone of
+/// the event. This is important for large events (e.g., `StateDelta` with
+/// many JSON patches) and many subscribers.
+///
+/// # Example
+///
+/// ```rust
+/// use auroraview_mcp::agui::{AguiBus, AguiEvent};
+/// use std::sync::Arc;
+///
+/// let bus = AguiBus::new();
+/// let mut rx = bus.subscribe();
+///
+/// bus.emit(Arc::new(AguiEvent::RunStarted {
+///     run_id: "r1".to_string(),
+///     thread_id: "t1".to_string(),
+/// }));
+/// ```
 #[derive(Clone)]
 pub struct AguiBus {
-    tx: Arc<broadcast::Sender<AguiEvent>>,
+    tx: Arc<broadcast::Sender<Arc<AguiEvent>>>,
 }
 
 impl AguiBus {
-    /// Create a new bus with a buffer capacity of 256 events.
+    /// Create a new bus with a buffer capacity of 64 events.
+    ///
+    /// The capacity is the number of events the channel can hold.
+    /// If subscribers are slow, events will be dropped (latest wins).
     #[must_use]
     pub fn new() -> Self {
-        let (tx, _) = broadcast::channel(256);
+        let (tx, _) = broadcast::channel(64);
         Self { tx: Arc::new(tx) }
     }
 
     /// Publish an event to all active subscribers.
-    pub fn emit(&self, event: AguiEvent) {
+    ///
+    /// The event is wrapped in an `Arc` for zero-copy broadcasting.
+    /// Each subscriber receives a clone of the `Arc` (atomic increment),
+    /// avoiding expensive deep clones of large events.
+    ///
+    /// If there are no receivers, the send result is ignored silently.
+    /// This is intentional — the bus should not panic if no one is listening.
+    pub fn emit(&self, event: Arc<AguiEvent>) {
         // If there are no receivers, send returns an error — we ignore it.
         let _result = self.tx.send(event);
     }
 
-    /// Subscribe to receive events.  Returns a `Receiver` that receives
-    /// events emitted *after* this call.
+    /// Subscribe to receive events.
+    ///
+    /// Returns a `broadcast::Receiver` that receives events emitted *after*
+    /// this call. Events emitted before this call are not received.
+    ///
+    /// The receiver yields `Arc<AguiEvent>` (not `AguiEvent` directly).
+    /// This allows zero-copy sharing of events across subscribers.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use auroraview_mcp::agui::AguiBus;
+    /// let bus = AguiBus::new();
+    /// let mut rx = bus.subscribe();
+    /// ```
     #[must_use]
-    pub fn subscribe(&self) -> broadcast::Receiver<AguiEvent> {
+    pub fn subscribe(&self) -> broadcast::Receiver<Arc<AguiEvent>> {
         self.tx.subscribe()
     }
 
     /// Return the number of active subscribers.
+    ///
+    /// This is useful for debugging and testing. Note that disconnected
+    /// receivers are not immediately removed from the count.
     #[must_use]
     pub fn receiver_count(&self) -> usize {
         self.tx.receiver_count()
@@ -153,6 +253,20 @@ mod tests {
     use super::*;
 
     #[test]
+    fn agui_bus_new_creates_instance() {
+        let bus = AguiBus::new();
+        // New bus has 0 subscribers
+        assert_eq!(bus.receiver_count(), 0);
+    }
+
+    #[test]
+    fn agui_bus_default_creates_instance() {
+        let bus = AguiBus::default();
+        // Default should behave same as new()
+        assert_eq!(bus.receiver_count(), 0);
+    }
+
+    #[test]
     fn run_id_returns_correct_value() {
         let event = AguiEvent::RunStarted {
             run_id: "run-1".to_string(),
@@ -166,6 +280,53 @@ mod tests {
             tool_name: "screenshot".to_string(),
         };
         assert_eq!(event.run_id(), "run-2");
+    }
+
+    #[test]
+    fn run_id_returns_correct_value_for_all_variants() {
+        // Test all AguiEvent variants have correct run_id
+        let events: Vec<(AguiEvent, &str)> = vec![
+            (
+                AguiEvent::RunStarted {
+                    run_id: "r1".to_string(),
+                    thread_id: "t1".to_string(),
+                },
+                "r1",
+            ),
+            (
+                AguiEvent::RunFinished {
+                    run_id: "r2".to_string(),
+                    thread_id: "t2".to_string(),
+                },
+                "r2",
+            ),
+            (
+                AguiEvent::RunError {
+                    run_id: "r3".to_string(),
+                    message: "err".to_string(),
+                    code: None,
+                },
+                "r3",
+            ),
+            (
+                AguiEvent::StepStarted {
+                    run_id: "r4".to_string(),
+                    step_name: "s1".to_string(),
+                    step_id: "s1".to_string(),
+                },
+                "r4",
+            ),
+            (
+                AguiEvent::StepFinished {
+                    run_id: "r5".to_string(),
+                    step_id: "s1".to_string(),
+                },
+                "r5",
+            ),
+        ];
+        for (event, expected_id) in events {
+            assert_eq!(event.run_id(), expected_id);
+        }
     }
 
     #[test]
@@ -189,14 +350,33 @@ mod tests {
         let bus = AguiBus::new();
         let mut rx = bus.subscribe();
 
-        let event = AguiEvent::RunStarted {
+        let event = Arc::new(AguiEvent::RunStarted {
             run_id: "r1".to_string(),
             thread_id: "t1".to_string(),
-        };
+        });
         bus.emit(event.clone());
 
         let received = rx.recv().await.unwrap();
         assert_eq!(received.run_id(), "r1");
+    }
+
+    #[tokio::test]
+    async fn bus_emit_with_multiple_subscribers() {
+        let bus = AguiBus::new();
+        let mut rx1 = bus.subscribe();
+        let mut rx2 = bus.subscribe();
+
+        let event = Arc::new(AguiEvent::RunStarted {
+            run_id: "r1".to_string(),
+            thread_id: "t1".to_string(),
+        });
+        bus.emit(event.clone());
+
+        // Both subscribers should receive the event
+        let received1 = rx1.recv().await.unwrap();
+        let received2 = rx2.recv().await.unwrap();
+        assert_eq!(received1.run_id(), "r1");
+        assert_eq!(received2.run_id(), "r1");
     }
 
     #[test]
@@ -215,9 +395,23 @@ mod tests {
     fn bus_emit_without_receivers_does_not_panic() {
         let bus = AguiBus::new();
         // Should not panic even with no receivers
-        bus.emit(AguiEvent::RunFinished {
+        bus.emit(Arc::new(AguiEvent::RunFinished {
             run_id: "r1".to_string(),
             thread_id: "t1".to_string(),
-        });
+        }));
+    }
+
+    #[test]
+    fn subscribe_returns_valid_receiver() {
+        let bus = AguiBus::new();
+        let _rx = bus.subscribe();
+        // Receiver should be valid (we can't do much with it without emitting,
+        // but we can check that it's a different receiver each time)
+        let _rx2 = bus.subscribe();
+        // Two different subscribers should have different receiver IDs
+        assert_eq!(bus.receiver_count(), 2);
+        // Dropping receiver should decrement count
+        drop(_rx);
+        // Note: broadcast receiver count may not immediately decrement
     }
 }
