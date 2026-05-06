@@ -43,14 +43,9 @@ async fn mdns_broadcast_is_discoverable() {
     let start = std::time::Instant::now();
     let mut service_found = false;
     while start.elapsed() < Duration::from_secs(5) {
-        if let Ok(event) = receiver.try_recv() {
-            match event {
-                ServiceEvent::ServiceFound { .. } => {
-                    service_found = true;
-                    break;
-                }
-                _ => {}
-            }
+        if let Ok(ServiceEvent::ServiceFound { .. }) = receiver.try_recv() {
+            service_found = true;
+            break;
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
@@ -76,14 +71,9 @@ async fn mdns_broadcast_stop_broadcast() {
     let start = std::time::Instant::now();
     let mut service_found = false;
     while start.elapsed() < Duration::from_secs(5) {
-        if let Ok(event) = receiver.try_recv() {
-            match event {
-                ServiceEvent::ServiceFound { .. } => {
-                    service_found = true;
-                    break;
-                }
-                _ => {}
-            }
+        if let Ok(ServiceEvent::ServiceFound { .. }) = receiver.try_recv() {
+            service_found = true;
+            break;
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
@@ -102,14 +92,9 @@ async fn mdns_broadcast_stop_broadcast() {
     let start = std::time::Instant::now();
     let mut service_removed = false;
     while start.elapsed() < Duration::from_secs(5) {
-        if let Ok(event) = receiver.try_recv() {
-            match event {
-                ServiceEvent::ServiceRemoved { .. } => {
-                    service_removed = true;
-                    break;
-                }
-                _ => {}
-            }
+        if let Ok(ServiceEvent::ServiceRemoved { .. }) = receiver.try_recv() {
+            service_removed = true;
+            break;
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
     }

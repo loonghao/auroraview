@@ -496,14 +496,14 @@ mod pyo3_impl {
         fn start(&self) -> PyResult<()> {
             self.inner
                 .start()
-                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+                .map_err(pyo3::exceptions::PyRuntimeError::new_err)
         }
 
         /// Stop the server.
         fn stop(&self) -> PyResult<()> {
             self.inner
                 .stop()
-                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+                .map_err(pyo3::exceptions::PyRuntimeError::new_err)
         }
 
         /// Create a server from a `McpConfig` object.
@@ -550,14 +550,14 @@ mod pyo3_impl {
         fn emit_run_started(&self, run_id: &str, thread_id: &str) -> PyResult<()> {
             self.inner
                 .emit_run_started(run_id, thread_id)
-                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+                .map_err(pyo3::exceptions::PyRuntimeError::new_err)
         }
 
         /// Emit a RunFinished AG-UI event.
         fn emit_run_finished(&self, run_id: &str, thread_id: &str) -> PyResult<()> {
             self.inner
                 .emit_run_finished(run_id, thread_id)
-                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+                .map_err(pyo3::exceptions::PyRuntimeError::new_err)
         }
 
         /// Emit a ToolCallStart AG-UI event.
@@ -569,14 +569,14 @@ mod pyo3_impl {
         ) -> PyResult<()> {
             self.inner
                 .emit_tool_call_start(run_id, tool_call_id, tool_name)
-                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+                .map_err(pyo3::exceptions::PyRuntimeError::new_err)
         }
 
         /// Emit a ToolCallEnd AG-UI event.
         fn emit_tool_call_end(&self, run_id: &str, tool_call_id: &str) -> PyResult<()> {
             self.inner
                 .emit_tool_call_end(run_id, tool_call_id)
-                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+                .map_err(pyo3::exceptions::PyRuntimeError::new_err)
         }
 
         /// Emit a `StepStarted` + `StepFinished` pair for a synchronous step.
@@ -590,7 +590,7 @@ mod pyo3_impl {
         fn emit_step(&self, run_id: &str, step_name: &str, step_id: &str) -> PyResult<()> {
             self.inner
                 .emit_step(run_id, step_name, step_id)
-                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+                .map_err(pyo3::exceptions::PyRuntimeError::new_err)
         }
 
         /// Update the CDP endpoint for a registered WebView.
@@ -600,7 +600,7 @@ mod pyo3_impl {
         fn update_cdp_endpoint(&self, id: &str, endpoint: &str) -> PyResult<()> {
             self.inner
                 .update_cdp_endpoint(id, endpoint)
-                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))
+                .map_err(pyo3::exceptions::PyRuntimeError::new_err)
         }
 
         fn __repr__(&self) -> String {

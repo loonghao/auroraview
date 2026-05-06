@@ -46,28 +46,6 @@ pub struct SendEventParams {
     pub data: Value,
 }
 
-/// Parameters for the `get_hwnd` tool (placeholder).
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct GetHwndParams {}
-
-/// Parameters for the `list_webviews` tool (placeholder).
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListWebviewsParams {}
-
-/// Parameters for the `create_webview` tool (placeholder).
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct CreateWebviewParams {
-    /// `WebView` configuration (JSON).
-    pub config: Value,
-}
-
-/// Parameters for the `close_webview` tool (placeholder).
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct CloseWebviewParams {
-    /// `WebView` ID to close.
-    pub id: String,
-}
-
 /// Parameters for the `set_attribute` tool.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct SetAttributeParams {

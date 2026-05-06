@@ -2,7 +2,6 @@
 // These are integration-style tests that verify JSON parsing logic.
 
 use auroraview_mcp::cdp::{BrowserVersion, CdpError};
-use serde_json;
 use std::time::Duration;
 
 #[test]

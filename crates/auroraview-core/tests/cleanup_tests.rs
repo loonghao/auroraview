@@ -562,7 +562,6 @@ fn cleanup_stats_mutate_fields() {
         alive_dirs: 15,
         stale_dirs: 5,
         stale_size_bytes: 2048,
-        ..Default::default()
     };
     assert_eq!(stats.total_dirs, stats.alive_dirs + stats.stale_dirs);
     assert_eq!(stats.stale_size_bytes, 2048);

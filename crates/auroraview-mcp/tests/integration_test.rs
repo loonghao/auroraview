@@ -10,7 +10,6 @@ use base64_url::encode;
 use futures::StreamExt;
 use serial_test::serial;
 use sha2::{Digest, Sha256};
-use urlencoding;
 
 /// Parse SSE response format: split by "\n\n", find "data: {...}" lines.
 fn parse_sse_response(sse_text: &str) -> serde_json::Value {
@@ -496,7 +495,7 @@ async fn agui_events_filters_by_run_id() {
                     received_run_ids.push(event["run_id"].as_str().unwrap().to_string());
                 }
             }
-            if received_run_ids.len() >= 1 {
+            if !received_run_ids.is_empty() {
                 break;
             }
         } else {

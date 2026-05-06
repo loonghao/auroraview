@@ -318,13 +318,10 @@ impl McpRunner {
     /// Returns `Err` with a string error message if no `WebView` with the
     /// given `id` exists in the registry.
     ///
-    /// # Panics
-    ///
-    /// Panics if the `id` string cannot be parsed into a [`WebViewId`].
-    /// In current implementation, `WebViewId` parsing is infallible,
-    /// so this should not panic in practice.
     pub fn update_cdp_endpoint(&self, id: &str, endpoint: &str) -> std::result::Result<(), String> {
-        let wid = id.parse::<WebViewId>().unwrap(); // Infallible
+        let wid = id
+            .parse::<WebViewId>()
+            .map_err(|e| format!("invalid WebViewId '{id}': {e}"))?;
         if self
             .server
             .registry()
