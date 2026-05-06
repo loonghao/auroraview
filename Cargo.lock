@@ -562,6 +562,7 @@ dependencies = [
  "auroraview-plugins",
  "auroraview-telemetry",
  "auroraview-workspace-hack",
+ "base64",
  "clap",
  "console 0.16.3",
  "dirs",
