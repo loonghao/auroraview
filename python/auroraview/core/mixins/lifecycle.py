@@ -82,7 +82,7 @@ class WebViewLifecycleMixin:
             >>> # to API server mode. All bind_call() handlers work seamlessly.
         """
         # Check for packed mode first - transparent to developers
-        from .packed import is_packed_mode, run_api_server
+        from ..packed import is_packed_mode, run_api_server
 
         if is_packed_mode():
             logger.info("Packed mode detected: running as API server")

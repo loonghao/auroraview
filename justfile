@@ -764,11 +764,6 @@ info:
     @echo "  UV version: $(vx uv --version)"
     @echo "  Node version: $(vx node --version)"
 
-# Run security audit
-audit:
-    @echo "Running security audit..."
-    vx cargo audit
-
 # Documentation
 docs:
     @echo "Building documentation..."
@@ -1528,7 +1523,7 @@ gallery-pack-local: assets-build
 # Uses dedicated debug config and writes a separate output binary name.
 gallery-pack-debug: assets-build
     @echo "Packing Gallery debug executable..."
-    vx cargo run -p auroraview-cli --release -- pack --config gallery/auroraview.pack.debug.toml --output auroraview-gallery-debug
+    vx cargo run -p auroraview-cli --release -- pack --config gallery/auroraview.pack.toml --output auroraview-gallery-debug
     @echo "[OK] Gallery debug package built!"
     @echo ""
     @echo "Output: gallery/pack-output/auroraview-gallery-debug.exe"
