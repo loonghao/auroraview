@@ -819,7 +819,7 @@ jobs:
   benchmark:
     name: Performance Benchmark
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     needs: [path-filter]
     if: needs.path-filter.outputs.needs_rust_checks == 'true'
     steps:
@@ -844,10 +844,12 @@ jobs:
           key: ${{ runner.os }}-cargo-bench-${{ hashFiles('Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-bench-
 
-      - name: Run benchmarks
-        run: |
-          cargo bench --no-run 2>/dev/null || echo "No benchmarks defined yet"
-          # TODO: Add criterion benchmarks and compare against baseline
+      - name: Build benchmarks (compile-only smoke)
+        # Only compile the registry bench; --no-run avoids running it. We do
+        # not yet have a baseline-comparison script, so this guard is enough to
+        # detect compile regressions in the bench targets without burning a
+        # full workspace bench compile (which exceeds 15 min on cold caches).
+        run: cargo bench --bench registry_bench --no-run
 
   # =============================================================================
   # CLI Build Test - Ensures CLI releases will work (parallel)

@@ -33,6 +33,11 @@ _IS_WINDOWS = sys.platform == "win32"
 # Windows CI can run these tests with offscreen Qt and WebView2
 # Also skip if Rust core is not available
 _SKIP_WEBVIEW_TESTS = (_IN_CI and not _IS_WINDOWS) or not _CORE_AVAILABLE
+# The offscreen Qt platform plugin does not produce a valid native HWND, so any
+# test that asks the Rust backend to create a real Win32 window will fail with
+# "Invalid window handle". Skip those tests under offscreen.
+_QT_PLATFORM = os.environ.get("QT_QPA_PLATFORM", "").lower()
+_SKIP_NATIVE_WINDOW_TESTS = _QT_PLATFORM in {"offscreen", "minimal"}
 
 
 class TestQtBackendAvailability:
@@ -165,6 +170,11 @@ class TestQtWebViewFunctionality:
 
     def test_show_hide(self, webview):
         """Test show/hide functionality."""
+        if _SKIP_NATIVE_WINDOW_TESTS:
+            pytest.skip(
+                "Native window creation is not supported under the offscreen "
+                "Qt platform; tao requires a real HWND from the parent widget."
+            )
         webview.show()
         assert webview.isVisible()
 
