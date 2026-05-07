@@ -5,10 +5,17 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Literal, Optional, Union
+import threading
+from typing import TYPE_CHECKING, Optional, Union
+
+try:
+    from typing import Literal  # py38+
+except ImportError:  # pragma: no cover - py37 compatibility
+    from typing_extensions import Literal
 
 if TYPE_CHECKING:
     from ..bridge import Bridge
+    from ..webview import WebView
 
 logger = logging.getLogger(__name__)
 
