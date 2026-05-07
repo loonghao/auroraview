@@ -63,7 +63,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: ['18', '20', '22']
+        # Node 18 is past upstream LTS and trips up vitest 4 (hook timeouts in
+        # the SDK suite); supporting only the active LTS branches keeps the
+        # matrix meaningful without giving false reds.
+        node-version: ['20', '22']
     steps:
       - uses: actions/checkout@v6
 
