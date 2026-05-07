@@ -295,6 +295,7 @@ impl std::error::Error for UeError {}
 #[cfg(feature = "python-bindings")]
 mod python {
     use super::*;
+    #[allow(unused_imports)]
     use pyo3::prelude::*;
 
     #[pyclass(name = "UeIntegration")]
