@@ -6,7 +6,7 @@
 use std::path::PathBuf;
 
 /// Embedded window icon (32x32 PNG) - used as fallback.
-const DEFAULT_ICON_PNG_BYTES: &[u8] = include_bytes!("../../assets/icons/auroraview-32.png");
+const DEFAULT_ICON_PNG_BYTES: &[u8] = include_bytes!("../../../assets/icons/auroraview-32.png");
 
 /// Load window icon from custom path or use embedded default.
 ///

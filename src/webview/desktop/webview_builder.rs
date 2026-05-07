@@ -6,23 +6,28 @@
 use std::sync::{Arc, Mutex};
 
 use wry::WebViewBuilder as WryWebViewBuilder;
+#[cfg(target_os = "windows")]
+use wry::WebViewBuilderExtWindows;
 
-use super::config::WebViewConfig;
-use super::js_assets;
 use crate::ipc::{IpcHandler, IpcMessage, MessageQueue};
+use crate::webview::config::{NewWindowMode, WebViewConfig};
+use crate::webview::event_loop::UserEvent;
+use crate::webview::{child_window, js_assets};
 
 /// Configures and returns a WebViewBuilder with all handlers and settings.
 pub fn configure_webview_builder(
     config: &WebViewConfig,
     ipc_handler: Arc<IpcHandler>,
     message_queue: Arc<MessageQueue>,
-    window: &tao::window::Window,
-) -> Result<wry::WebViewBuilder<'static, Mutex<wry::WebContext>>, Box<dyn std::error::Error>> {
-    // Create WebContext with unique user data folder per process
-    let mut web_context = create_web_context(config)?;
+    _window: &tao::window::Window,
+) -> Result<wry::WebViewBuilder<'static>, Box<dyn std::error::Error>> {
+    // Create WebContext with unique user data folder per process.
+    // Wry's builder borrows the context for the builder lifetime, so keep it
+    // alive for the process lifetime like the previous standalone runtime did.
+    let web_context = Box::leak(Box::new(create_web_context(config)?));
 
     // Create the WebView builder
-    let mut webview_builder = WryWebViewBuilder::new_with_web_context(&mut web_context);
+    let mut webview_builder = WryWebViewBuilder::new_with_web_context(web_context);
 
     // Configure dev tools
     if config.dev_tools {
@@ -89,7 +94,8 @@ pub fn configure_webview_builder(
 
     // Add navigation handler
     if config.block_external_navigation {
-        webview_builder = add_navigation_handler(webview_builder, &config.allowed_navigation_domains);
+        webview_builder =
+            add_navigation_handler(webview_builder, &config.allowed_navigation_domains);
     }
 
     // Add new window handler
@@ -111,7 +117,12 @@ pub fn configure_webview_builder(
 
     // Add download handlers
     if config.allow_downloads {
-        webview_builder = add_download_handlers(webview_builder, config, ipc_handler.clone(), message_queue.clone());
+        webview_builder = add_download_handlers(
+            webview_builder,
+            config,
+            ipc_handler.clone(),
+            message_queue.clone(),
+        );
     }
 
     // Add IPC handler
@@ -121,7 +132,9 @@ pub fn configure_webview_builder(
 }
 
 /// Create WebContext with unique user data folder per process.
-fn create_web_context(config: &WebViewConfig) -> Result<wry::WebContext, Box<dyn std::error::Error>> {
+fn create_web_context(
+    config: &WebViewConfig,
+) -> Result<wry::WebContext, Box<dyn std::error::Error>> {
     if let Some(ref data_dir) = config.data_directory {
         Ok(wry::WebContext::new(Some(data_dir.clone())))
     } else {
@@ -144,9 +157,9 @@ fn create_web_context(config: &WebViewConfig) -> Result<wry::WebContext, Box<dyn
 
 /// Configure proxy settings for WebView builder.
 fn configure_proxy(
-    mut builder: wry::WebViewBuilder<'static, Mutex<wry::WebContext>>,
+    builder: wry::WebViewBuilder<'static>,
     proxy_url: &str,
-) -> Result<wry::WebViewBuilder<'static, Mutex<wry::WebContext>>, Box<dyn std::error::Error>> {
+) -> Result<wry::WebViewBuilder<'static>, Box<dyn std::error::Error>> {
     if let Ok(url) = url::Url::parse(proxy_url) {
         let host = url.host_str().unwrap_or("localhost").to_string();
         let port = url.port().unwrap_or(8080).to_string();
@@ -166,9 +179,9 @@ fn configure_proxy(
 
 /// Add navigation handler for security filtering.
 fn add_navigation_handler(
-    mut builder: wry::WebViewBuilder<'static, Mutex<wry::WebContext>>,
+    mut builder: wry::WebViewBuilder<'static>,
     allowed_domains: &[String],
-) -> wry::WebViewBuilder<'static, Mutex<wry::WebContext>> {
+) -> wry::WebViewBuilder<'static> {
     let allowed_domains = allowed_domains.to_vec();
     builder = builder.with_navigation_handler(move |uri| {
         if uri.starts_with("auroraview://")
@@ -195,16 +208,13 @@ fn add_navigation_handler(
 
 /// Add new window handler based on configuration.
 fn add_new_window_handler(
-    mut builder: wry::WebViewBuilder<'static, Mutex<wry::WebContext>>,
-    mode: super::config::NewWindowMode,
-) -> wry::WebViewBuilder<'static, Mutex<wry::WebContext>> {
-    use super::config::NewWindowMode;
-
+    mut builder: wry::WebViewBuilder<'static>,
+    mode: NewWindowMode,
+) -> wry::WebViewBuilder<'static> {
     match mode {
         NewWindowMode::Deny => {
-            builder = builder.with_new_window_req_handler(|_url, _features| {
-                wry::NewWindowResponse::Deny
-            });
+            builder =
+                builder.with_new_window_req_handler(|_url, _features| wry::NewWindowResponse::Deny);
         }
         NewWindowMode::SystemBrowser => {
             builder = builder.with_new_window_req_handler(|url, _features| {
@@ -216,7 +226,7 @@ fn add_new_window_handler(
             builder = builder.with_new_window_req_handler(move |url, features| {
                 let width = features.size.map(|s| s.width as u32).unwrap_or(1024);
                 let height = features.size.map(|s| s.height as u32).unwrap_or(768);
-                let _ = super::child_window::create_child_webview_window(&url, width, height);
+                let _ = child_window::create_child_webview_window(&url, width, height);
                 wry::NewWindowResponse::Deny
             });
         }
@@ -226,9 +236,9 @@ fn add_new_window_handler(
 
 /// Configure initial content (HTML or URL) for WebView.
 fn configure_initial_content(
-    mut builder: wry::WebViewBuilder<'static, Mutex<wry::WebContext>>,
+    mut builder: wry::WebViewBuilder<'static>,
     config: &WebViewConfig,
-) -> wry::WebViewBuilder<'static, Mutex<wry::WebContext>> {
+) -> wry::WebViewBuilder<'static> {
     if let Some(ref html) = config.html {
         builder = builder.with_html(html);
     } else if let Some(ref url) = config.url {
@@ -242,9 +252,9 @@ fn configure_initial_content(
 
 /// Add page load handler.
 fn add_page_load_handler(
-    mut builder: wry::WebViewBuilder<'static, Mutex<wry::WebContext>>,
+    mut builder: wry::WebViewBuilder<'static>,
     ipc_handler: Arc<IpcHandler>,
-) -> wry::WebViewBuilder<'static, Mutex<wry::WebContext>> {
+) -> wry::WebViewBuilder<'static> {
     builder = builder.with_on_page_load_handler(move |event, url| {
         let event_name = match event {
             wry::PageLoadEvent::Started => "page_load_started",
@@ -264,9 +274,9 @@ fn add_page_load_handler(
 
 /// Add document title changed handler.
 fn add_title_change_handler(
-    mut builder: wry::WebViewBuilder<'static, Mutex<wry::WebContext>>,
+    mut builder: wry::WebViewBuilder<'static>,
     ipc_handler: Arc<IpcHandler>,
-) -> wry::WebViewBuilder<'static, Mutex<wry::WebContext>> {
+) -> wry::WebViewBuilder<'static> {
     builder = builder.with_document_title_changed_handler(move |title| {
         let ipc_message = IpcMessage {
             event: "title_changed".to_string(),
@@ -281,11 +291,11 @@ fn add_title_change_handler(
 
 /// Add download handlers.
 fn add_download_handlers(
-    mut builder: wry::WebViewBuilder<'static, Mutex<wry::WebContext>>,
+    mut builder: wry::WebViewBuilder<'static>,
     config: &WebViewConfig,
     ipc_handler: Arc<IpcHandler>,
-    message_queue: Arc<MessageQueue>,
-) -> wry::WebViewBuilder<'static, Mutex<wry::WebContext>> {
+    _message_queue: Arc<MessageQueue>,
+) -> wry::WebViewBuilder<'static> {
     let download_dir = config
         .download_directory
         .clone()
@@ -378,14 +388,12 @@ fn add_download_handlers(
 
 /// Add IPC handler for JavaScript communication.
 fn add_ipc_handler(
-    mut builder: wry::WebViewBuilder<'static, Mutex<wry::WebContext>>,
+    mut builder: wry::WebViewBuilder<'static>,
     ipc_handler: Arc<IpcHandler>,
     message_queue: Arc<MessageQueue>,
-) -> wry::WebViewBuilder<'static, Mutex<wry::WebContext>> {
-    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-
+) -> wry::WebViewBuilder<'static> {
     // Create event loop proxy holder for native window operations
-    let event_loop_proxy_holder: Arc<Mutex<Option<tao::event_loop::EventLoopProxy<super::event_loop::UserEvent>>>> =
+    let event_loop_proxy_holder: Arc<Mutex<Option<tao::event_loop::EventLoopProxy<UserEvent>>>> =
         Arc::new(Mutex::new(None));
     let event_loop_proxy_for_ipc = event_loop_proxy_holder.clone();
 
@@ -407,7 +415,7 @@ fn add_ipc_handler(
                         if action == "drag_window" {
                             if let Ok(proxy_guard) = event_loop_proxy_for_ipc.lock() {
                                 if let Some(proxy) = proxy_guard.as_ref() {
-                                    let _ = proxy.send_event(super::event_loop::UserEvent::DragWindow);
+                                    let _ = proxy.send_event(UserEvent::DragWindow);
                                 }
                             }
                         }

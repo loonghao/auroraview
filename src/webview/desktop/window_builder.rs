@@ -3,28 +3,19 @@
 //! This module handles creating the window and event loop for desktop mode WebViews.
 //! It extracts the window creation logic from `create_desktop` into a reusable function.
 
-use std::sync::atomic::Ordering;
-
-use tao::event_loop::{EventLoopBuilder, EventLoopProxy};
-use tao::platform::run_return::EventLoopExtRunReturn;
+use tao::event_loop::EventLoopBuilder;
 use tao::window::WindowBuilder;
-use wry::WebViewBuilder as WryWebViewBuilder;
 
-use super::config::WebViewConfig;
-use super::event_loop::UserEvent;
+use crate::webview::config::WebViewConfig;
+use crate::webview::event_loop::UserEvent;
 
 /// Creates the window and event loop for a desktop WebView.
 ///
 /// Returns the `Window` and `EventLoop<UserEvent>` for further use in WebView creation.
 pub fn create_window_and_event_loop(
     config: &WebViewConfig,
-) -> Result<
-    (
-        tao::window::Window,
-        tao::event_loop::EventLoop<UserEvent>,
-    ),
-    Box<dyn std::error::Error>,
-> {
+) -> Result<(tao::window::Window, tao::event_loop::EventLoop<UserEvent>), Box<dyn std::error::Error>>
+{
     // Initialize COM for WebView2 on Windows (using shared utility)
     #[cfg(target_os = "windows")]
     auroraview_core::builder::init_com_sta();
@@ -127,7 +118,9 @@ pub fn create_window_and_event_loop(
                         EmbedMode::Owner => {
                             // Set owner relationship using GWLP_HWNDPARENT
                             auroraview_core::builder::apply_owner_window_style(
-                                hwnd, parent, config.tool_window,
+                                hwnd,
+                                parent,
+                                config.tool_window,
                             );
                         }
                         EmbedMode::None => {}
