@@ -19,13 +19,13 @@
 // Sub-modules
 // ---------------------------------------------------------------------------
 
-pub mod connect;
 pub mod browser;
-pub mod page;
+pub mod connect;
 pub mod dom;
-pub mod runtime;
-pub mod network;
 pub mod emulation;
+pub mod network;
+pub mod page;
+pub mod runtime;
 pub mod security;
 
 // ---------------------------------------------------------------------------
@@ -101,9 +101,7 @@ pub struct BrowserVersion {
 use std::sync::Arc;
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
-use tokio_tungstenite::{
-    MaybeTlsStream, WebSocketStream,
-};
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
 /// Async CDP client holding a single browser-level WebSocket.
 ///
