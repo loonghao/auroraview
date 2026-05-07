@@ -9,31 +9,26 @@ import threading
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
-try:
-    from typing import Literal  # py38+
-except ImportError:  # pragma: no cover - only for py37
-    from typing_extensions import Literal  # type: ignore
-
 # Import Mixin classes
 from auroraview.core.mixins import (
     WebViewApiMixin,
+    WebViewBridgeMixin,
+    WebViewChannelsMixin,
+    WebViewCommandsMixin,
     WebViewContentMixin,
     WebViewDOMMixin,
     WebViewEventMixin,
+    WebViewFactoryMixin,
     WebViewJSMixin,
     WebViewLifecycleMixin,
+    WebViewStateMixin,
     WebViewTelemetryMixin,
     WebViewWindowMixin,
-    WebViewStateMixin,
-    WebViewCommandsMixin,
-    WebViewChannelsMixin,
-    WebViewFactoryMixin,
-    WebViewBridgeMixin,
 )
 
 if TYPE_CHECKING:
     from .bridge import Bridge
-    from .channel import Channel, ChannelManager
+    from .channel import ChannelManager
     from .commands import CommandRegistry
     from .config import WebViewConfig
     from .ready_events import ReadyEvents
@@ -565,12 +560,6 @@ class WebView(
         # Initialize auto-telemetry (after WindowManager registration)
         self._init_telemetry()
 
-
-
-
-
-
-
     def set_event_processor(self, processor: Any) -> None:
         """Set event processor (strategy pattern for UI framework integration).
 
@@ -904,7 +893,6 @@ class WebView(
         """
         return self._dcc_mode
 
-
     def _setup_lifecycle_events(self) -> None:
         """Setup internal event handlers for lifecycle tracking."""
 
@@ -966,5 +954,3 @@ class WebView(
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:  # noqa: ARG002
         """Context manager exit."""
         self.close()
-
-

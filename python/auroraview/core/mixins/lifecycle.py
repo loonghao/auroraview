@@ -9,10 +9,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import TYPE_CHECKING, Any, Optional
-
-if TYPE_CHECKING:
-    from typing import Callable
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +87,11 @@ class WebViewLifecycleMixin:
             return
 
         # Detect mode
-        is_embedded = self._core is not None and hasattr(self._core, "_is_embedded") and self._core._is_embedded
+        is_embedded = (
+            self._core is not None
+            and hasattr(self._core, "_is_embedded")
+            and self._core._is_embedded
+        )
 
         if wait is None:
             wait = not is_embedded  # Standalone=blocking, Embedded=non-blocking
