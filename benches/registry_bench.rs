@@ -8,6 +8,7 @@
 use auroraview_mcp::registry::WebViewRegistry;
 use auroraview_mcp::types::WebViewConfig;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use std::hint::black_box;
 
 /// Benchmark WebViewRegistry::register
 fn bench_register(c: &mut Criterion) {
@@ -20,7 +21,7 @@ fn bench_register(c: &mut Criterion) {
         b.iter(|| {
             let reg = WebViewRegistry::new();
             let _id = reg.register(&config);
-            criterion::black_box(());
+            black_box(());
         })
     });
 
@@ -32,7 +33,7 @@ fn bench_register(c: &mut Criterion) {
             for _ in 0..10 {
                 let _id = reg.register(&config);
             }
-            criterion::black_box(());
+            black_box(());
         })
     });
 
@@ -44,7 +45,7 @@ fn bench_register(c: &mut Criterion) {
             for _ in 0..100 {
                 let _id = reg.register(&config);
             }
-            criterion::black_box(());
+            black_box(());
         })
     });
 
@@ -71,7 +72,7 @@ fn bench_get(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("size", size), &first_id, |b, id| {
             b.iter(|| {
                 let _info = reg.get(id);
-                criterion::black_box(());
+                black_box(());
             })
         });
     }
@@ -97,8 +98,8 @@ fn bench_update_url(c: &mut Criterion) {
         let first_id = ids[0].clone();
         group.bench_with_input(BenchmarkId::new("size", size), &first_id, |b, id| {
             b.iter(|| {
-                reg.update_url(id, "https://example.com");
-                criterion::black_box(());
+                let _ = reg.update_url(id, "https://example.com");
+                black_box(());
             })
         });
     }
@@ -126,8 +127,8 @@ fn bench_remove(c: &mut Criterion) {
                 },
                 |(reg, ids)| {
                     let id = &ids[0];
-                    reg.remove(id);
-                    criterion::black_box(());
+                    let _ = reg.remove(id);
+                    black_box(());
                 },
             )
         });
@@ -145,14 +146,14 @@ fn bench_list(c: &mut Criterion) {
     for size in sizes {
         let reg = WebViewRegistry::new();
         for _ in 0..size {
-            reg.register(&WebViewConfig::default());
+            let _ = reg.register(&WebViewConfig::default());
         }
 
         group.throughput(Throughput::Elements(size as u64));
         group.bench_with_input(BenchmarkId::new("size", size), &reg, |b, reg| {
             b.iter(|| {
                 let views = reg.list();
-                criterion::black_box(views);
+                black_box(views);
             })
         });
     }
