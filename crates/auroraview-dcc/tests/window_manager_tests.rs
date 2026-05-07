@@ -170,7 +170,7 @@ fn close_all_windows_empties_manager() {
         let ids: Vec<_> = (0..5)
             .map(|i| {
                 _manager
-                    .create(DccConfig::new().title(&format!("Win {}", i)))
+                    .create(DccConfig::new().title(format!("Win {}", i)))
                     .unwrap()
             })
             .collect();
@@ -542,7 +542,7 @@ fn concurrent_create_and_close() {
             let m = Arc::clone(&_manager);
             let handle = thread::spawn(move || {
                 let id = m
-                    .create(DccConfig::new().title(&format!("Thread-{}", i)))
+                    .create(DccConfig::new().title(format!("Thread-{}", i)))
                     .unwrap();
                 // verify it was created
                 assert!(m.has_window(&id));
