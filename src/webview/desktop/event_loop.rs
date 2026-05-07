@@ -5,17 +5,18 @@
 //! and Ctrl+C signals.
 
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
-use tao::event_loop::{ControlFlow, EventLoop};
-use tao::window::Window;
-use wry::WebView;
+use tao::event_loop::ControlFlow;
+use tao::platform::run_return::EventLoopExtRunReturn;
+
+#[cfg(target_os = "windows")]
+use auroraview_core::builder::apply_frameless_popup_window_style;
 
 use super::create_desktop;
 use crate::ipc::{IpcHandler, MessageQueue};
 use crate::webview::config::WebViewConfig;
 use crate::webview::tray::TrayManager;
-use crate::webview::webview_inner::WebViewInner;
 
 /// Run desktop WebView with event_loop.run() (blocking until window closes).
 ///
@@ -77,9 +78,7 @@ pub fn run_desktop(
     // Get tray settings for event handling
     let hide_on_close = tray_config.as_ref().is_some_and(|t| t.hide_on_close);
     let show_on_click = tray_config.as_ref().is_some_and(|t| t.show_on_click);
-    let show_on_double_click = tray_config
-        .as_ref()
-        .is_some_and(|t| t.show_on_double_click);
+    let show_on_double_click = tray_config.as_ref().is_some_and(|t| t.show_on_double_click);
 
     // Store menu IDs for event handling
     let menu_ids = tray_manager

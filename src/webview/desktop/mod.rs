@@ -43,22 +43,12 @@
 //! // Note: This is a blocking call that will run until the window is closed
 //! ```
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use tao::event_loop::{EventLoopBuilder, EventLoopProxy};
-use tao::platform::run_return::EventLoopExtRunReturn;
-use tao::window::WindowBuilder;
-use wry::WebViewBuilder as WryWebViewBuilder;
-#[cfg(target_os = "windows")]
-use wry::WebViewBuilderExtWindows;
 
-use super::config::{NewWindowMode, WebViewConfig};
-use super::event_loop::{UserEvent, WindowStyleHints};
-
-use super::js_assets;
-use super::tray::TrayManager;
+use super::config::WebViewConfig;
+use super::event_loop::WindowStyleHints;
 use super::webview_inner::WebViewInner;
-use crate::ipc::{IpcHandler, IpcMessage, MessageQueue};
+use crate::ipc::{IpcHandler, MessageQueue};
 
 // Use shared builder utilities from auroraview-core
 #[cfg(target_os = "windows")]
@@ -68,19 +58,16 @@ use auroraview_core::builder::{
     ChildWindowStyleOptions,
 };
 
-use auroraview_core::builder::{get_background_color, init_com_sta, log_background_color};
-
 // Sub-modules
-mod icon;
 mod event_loop;
-mod window_builder;
+mod icon;
 mod webview_builder;
+mod window_builder;
 
 // Re-exports
-pub use icon::load_window_icon;
 pub use event_loop::run_desktop;
-pub use window_builder::create_window_and_event_loop;
 pub use webview_builder::configure_webview_builder;
+pub use window_builder::create_window_and_event_loop;
 
 /// Create desktop WebView with its own window
 ///
@@ -202,7 +189,9 @@ pub fn create_desktop(
     // Strategy: Use process ID to ensure each process has its own WebView2 data folder.
     // This trades disk space for reliability - each process gets isolated WebView2 state.
     // Use helper to configure WebView builder
-    let webview_builder = configure_webview_builder(config, ipc_handler.clone(), message_queue.clone(), &window)?;
+    let build_start = std::time::Instant::now();
+    let webview_builder =
+        configure_webview_builder(&config, ipc_handler.clone(), message_queue.clone(), &window)?;
     let webview = webview_builder.build(&window)?;
     tracing::info!("[standalone] webview_builder.build() returned successfully");
     let build_duration = build_start.elapsed();
@@ -222,40 +211,6 @@ pub fn create_desktop(
     // Without this, messages pushed to queue won't wake the event loop!
     message_queue.set_event_loop_proxy(event_loop_proxy.clone());
     tracing::info!("[standalone] Event loop proxy set in message queue for wake-up");
-
-    // Set event loop proxy in the holder for IPC handler to use (for native drag)
-    if let Ok(mut proxy_guard) = event_loop_proxy_holder.lock() {
-        *proxy_guard = Some(event_loop_proxy.clone());
-        tracing::info!("[standalone] Event loop proxy set in holder for native drag support");
-    }
-
-    // Set up plugin router event callback to forward events to WebView
-    // This enables ProcessPlugin to emit events like process:stdout, process:stderr, process:exit
-    {
-        let proxy_for_plugins = event_loop_proxy.clone();
-        let event_callback: auroraview_core::plugins::PluginEventCallback =
-            std::sync::Arc::new(move |event_name: &str, data: serde_json::Value| {
-                tracing::info!(
-                    "[Rust:PluginRouter] Event callback: {} with data: {}",
-                    event_name,
-                    data
-                );
-                let data_str = serde_json::to_string(&data).unwrap_or_default();
-                if let Err(e) = proxy_for_plugins.send_event(UserEvent::PluginEvent {
-                    event: event_name.to_string(),
-                    data: data_str,
-                }) {
-                    tracing::error!("Failed to send plugin event to event loop: {}", e);
-                }
-            });
-
-        if let Ok(router) = plugin_router.read() {
-            router.set_event_callback(event_callback);
-            tracing::info!(
-                "[standalone] Plugin router event callback set for ProcessPlugin events"
-            );
-        }
-    }
 
     // Create lifecycle manager
     use crate::webview::lifecycle::LifecycleManager;
@@ -435,9 +390,6 @@ pub fn create_desktop(
 /// // This will block until the window is closed and then exit the process
 /// // run_desktop(config, ipc_handler, message_queue).unwrap();
 /// ```
-/// Embedded window icon (32x32 PNG) - used as fallback
-const DEFAULT_ICON_PNG_BYTES: &[u8] = include_bytes!("../../assets/icons/auroraview-32.png");
-
 /// Load window icon from custom path or use embedded default
 ///
 /// # Arguments
