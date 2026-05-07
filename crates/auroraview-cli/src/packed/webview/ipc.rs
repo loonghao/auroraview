@@ -154,7 +154,12 @@ fn handle_plugin_call(
     plugin_router: &Arc<RwLock<PluginRouter>>,
     proxy: &EventLoopProxy<UserEvent>,
 ) {
-    if let Some(request) = PluginRequest::from_invoke(method, msg.get("params").cloned().unwrap_or(serde_json::Value::Null)) {
+    if let Some(request) = PluginRequest::from_invoke(
+        method,
+        msg.get("params")
+            .cloned()
+            .unwrap_or(serde_json::Value::Null),
+    ) {
         let response = match plugin_router.read() {
             Ok(router) => router.handle(request),
             Err(e) => {
@@ -304,9 +309,7 @@ fn handle_event_message(msg: &Value, proxy: &EventLoopProxy<UserEvent>) {
     }
     // Handle page ready event (auroraview bridge initialized after navigation)
     else if event == "__auroraview_ready" {
-        tracing::info!(
-            "[Rust] Received __auroraview_ready event - page bridge initialized"
-        );
+        tracing::info!("[Rust] Received __auroraview_ready event - page bridge initialized");
         let _ = proxy.send_event(UserEvent::PageReady);
     }
 }

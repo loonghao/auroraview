@@ -15,9 +15,9 @@ use mime_guess::from_path;
 use wry::http::Response;
 
 #[cfg(target_os = "windows")]
-use auroraview_pack::OverlayData;
-#[cfg(target_os = "windows")]
 use crate::packed::utils::get_extensions_dir;
+#[cfg(target_os = "windows")]
+use auroraview_pack::OverlayData;
 
 /// Install bundled extensions from overlay assets into shared extension directory
 #[cfg(target_os = "windows")]

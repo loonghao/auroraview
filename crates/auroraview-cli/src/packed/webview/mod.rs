@@ -9,8 +9,8 @@
 //! - `extensions` - Extension installation and resource handling (Windows only)
 //! - `ipc` - IPC message handling from WebView
 
-mod helpers;
 mod extensions;
+mod helpers;
 mod ipc;
 
 // Re-exports
@@ -137,7 +137,8 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
             if !is_ready {
                 tracing::warn!("[Rust] Python backend not ready after 10s, showing warning...");
                 let _ = proxy_for_timeout.send_event(UserEvent::BackendError {
-                    message: "Python backend initialization taking longer than expected...".to_string(),
+                    message: "Python backend initialization taking longer than expected..."
+                        .to_string(),
                     source: "startup".to_string(),
                 });
                 let _ = proxy_for_timeout.send_event(UserEvent::LoadingUpdate {
@@ -365,7 +366,10 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
 
                     #[cfg(target_os = "windows")]
                     if let Some(ext_path) = path.strip_prefix("extension/") {
-                        return extensions::handle_extension_resource_request(ext_path, allowed_origin);
+                        return extensions::handle_extension_resource_request(
+                            ext_path,
+                            allowed_origin,
+                        );
                     }
 
                     let response = memory_assets.handle_request(path);
