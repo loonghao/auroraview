@@ -42,6 +42,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  issues: write
 
 concurrency:
   group: mutation-${{ github.event.pull_request.number || github.ref }}
@@ -152,7 +153,8 @@ jobs:
           fi
 
       - name: Comment PR with mutation results
-        if: steps.changed.outputs.skip != 'true' && always()
+        if: steps.changed.outputs.skip != 'true' && always() && github.event.pull_request.head.repo.full_name == github.repository
+        continue-on-error: true
         uses: actions/github-script@v9
         with:
           script: |
@@ -205,6 +207,20 @@ jobs:
                 body
               });
             }
+
+      - name: Write mutation results to step summary
+        if: steps.changed.outputs.skip != 'true' && always()
+        run: |
+          {
+            echo "## Mutation Testing Results"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|--------|-------|"
+            echo "| Caught | ${{ steps.results.outputs.caught }} |"
+            echo "| Missed | ${{ steps.results.outputs.missed }} |"
+            echo "| Timeout | ${{ steps.results.outputs.timeout }} |"
+            echo "| **Score** | **${{ steps.results.outputs.score }}%** |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload mutation results
         if: always()
