@@ -265,15 +265,15 @@ class EventTimer:
 
         With the non-blocking WebView2 startup, the synchronous ``_core`` and
         the background-thread ``_async_core`` may become available in either
-        order. The timer should keep ticking — and IPC events should keep
-        flowing — as soon as EITHER is ready.
+        order. The timer should keep ticking -- and IPC events should keep
+        flowing -- as soon as EITHER is ready.
 
         Notes on shape compatibility:
             * Some embedding modes (e.g. packed mode, lightweight test stubs)
               may not define ``_async_core`` / ``_async_core_lock`` at all.
               In that case we fall back to checking ``_core`` only.
             * The ``_async_core_lock`` critical section is intentionally
-              minimal — we only read the attribute and release the lock
+              minimal -- we only read the attribute and release the lock
               before any further work, so we never hold it across blocking
               calls into the core.
         """
@@ -288,7 +288,7 @@ class EventTimer:
                 with lock:
                     async_ready = webview._async_core is not None
             else:
-                # Lock missing for some reason — best-effort read.
+                # Lock missing for some reason -- best-effort read.
                 async_ready = webview._async_core is not None
 
         sync_ready = getattr(webview, "_core", None) is not None

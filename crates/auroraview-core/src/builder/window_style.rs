@@ -252,7 +252,10 @@ pub(crate) fn drain_thread_messages(cap: u32) {
             n += 1;
         }
         if n > 0 {
-            tracing::trace!("[drain_thread_messages] dispatched {} pending message(s)", n);
+            tracing::trace!(
+                "[drain_thread_messages] dispatched {} pending message(s)",
+                n
+            );
         }
     }
 }
