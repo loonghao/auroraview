@@ -32,12 +32,12 @@ use windows::Win32::Graphics::Dwm::{
 use windows::Win32::UI::Controls::MARGINS;
 #[cfg(target_os = "windows")]
 use windows::Win32::UI::WindowsAndMessaging::{
-    CallWindowProcW, GetWindowLongPtrW, GetWindowLongW, SetParent, SetWindowLongPtrW,
-    SetWindowLongW, SetWindowPos, GWLP_HWNDPARENT, GWLP_WNDPROC, GWL_EXSTYLE, GWL_STYLE,
-    SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WNDPROC, WS_BORDER,
-    WS_CAPTION, WS_CHILD, WS_CLIPCHILDREN, WS_DLGFRAME, WS_EX_CLIENTEDGE, WS_EX_CONTEXTHELP,
-    WS_EX_DLGMODALFRAME, WS_EX_STATICEDGE, WS_EX_TOOLWINDOW, WS_EX_WINDOWEDGE, WS_POPUP,
-    WS_THICKFRAME,
+    CallWindowProcW, DispatchMessageW, GetParent, GetWindowLongPtrW, GetWindowLongW, PeekMessageW,
+    SetParent, SetWindowLongPtrW, SetWindowLongW, SetWindowPos, TranslateMessage, GWLP_HWNDPARENT,
+    GWLP_WNDPROC, GWL_EXSTYLE, GWL_STYLE, MSG, PM_REMOVE, SWP_FRAMECHANGED, SWP_NOACTIVATE,
+    SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WNDPROC, WS_BORDER, WS_CAPTION, WS_CHILD,
+    WS_CLIPCHILDREN, WS_DLGFRAME, WS_EX_CLIENTEDGE, WS_EX_CONTEXTHELP, WS_EX_DLGMODALFRAME,
+    WS_EX_STATICEDGE, WS_EX_TOOLWINDOW, WS_EX_WINDOWEDGE, WS_POPUP, WS_THICKFRAME,
 };
 
 /// Options for applying child window style
@@ -141,30 +141,35 @@ pub fn subclass_for_zero_nc_area(hwnd: isize) {
     unsafe {
         let hwnd_win = HWND(hwnd as *mut _);
 
-        // Initialize the map if needed.
-        {
+        // Initialize the map if needed AND check / insert the original WndProc
+        // ENTIRELY inside this short scope. The Mutex MUST be released before
+        // we install the new WndProc with SetWindowLongPtrW, because the very
+        // next SetWindowPos(SWP_FRAMECHANGED) call below synchronously dispatches
+        // WM_NCCALCSIZE back into `nc_subclass_wndproc` on this same thread —
+        // which would then re-acquire the same Mutex and deadlock (parking_lot
+        // Mutex is NOT reentrant).
+        let original: isize = {
             let mut guard = ORIGINAL_WNDPROCS.lock();
             let map = guard.get_or_insert_with(HashMap::new);
             if map.contains_key(&hwnd) {
                 // Already subclassed — nothing to do.
                 return;
             }
-        }
-
-        let original = GetWindowLongPtrW(hwnd_win, GWLP_WNDPROC);
-        if original == 0 {
-            tracing::warn!(
-                "subclass_for_zero_nc_area: GetWindowLongPtrW returned 0 for HWND 0x{:X}",
-                hwnd
-            );
-            return;
-        }
-
-        // Store original before replacing.
-        let mut guard = ORIGINAL_WNDPROCS.lock();
-        if let Some(map) = guard.as_mut() {
+            // Read the original WndProc with the lock held; storing a stale
+            // value would race with concurrent subclass attempts on the same HWND.
+            let original = GetWindowLongPtrW(hwnd_win, GWLP_WNDPROC);
+            if original == 0 {
+                tracing::warn!(
+                    "subclass_for_zero_nc_area: GetWindowLongPtrW returned 0 for HWND 0x{:X}",
+                    hwnd
+                );
+                return;
+            }
             map.insert(hwnd, original);
-        }
+            original
+            // `guard` drops here, releasing the lock BEFORE we install the
+            // new WndProc and before SetWindowPos triggers WM_NCCALCSIZE.
+        };
 
         SetWindowLongPtrW(
             hwnd_win,
@@ -173,6 +178,10 @@ pub fn subclass_for_zero_nc_area(hwnd: isize) {
         );
 
         // Trigger re-calculation so the subclass takes effect immediately.
+        // NOTE: this synchronously dispatches WM_NCCALCSIZE into
+        // `nc_subclass_wndproc`, which will re-enter ORIGINAL_WNDPROCS.lock()
+        // for the forwarding lookup. Safe now because we already released our
+        // own guard above.
         let _ = SetWindowPos(
             hwnd_win,
             None,
@@ -182,6 +191,12 @@ pub fn subclass_for_zero_nc_area(hwnd: isize) {
             0,
             SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
         );
+
+        // Suppress the unused warning when `original` is otherwise dead in
+        // this branch (it's already stored in the map; we just keep the binding
+        // to make the intent clear and to avoid future regressions if someone
+        // reorders the code).
+        let _ = original;
 
         tracing::info!(
             "Subclassed HWND 0x{:X} for zero NC area (WM_NCCALCSIZE interception)",
@@ -193,6 +208,58 @@ pub fn subclass_for_zero_nc_area(hwnd: isize) {
 /// Stub for non-Windows platforms
 #[cfg(not(target_os = "windows"))]
 pub fn subclass_for_zero_nc_area(_hwnd: isize) {
+    // No-op on non-Windows platforms
+}
+
+/// Drain all pending Win32 messages on the *current* thread's queue.
+///
+/// # Why this is needed
+///
+/// In DCC-embedded mode (Maya/Houdini/3ds Max + Qt), the host's main thread
+/// owns the message loop. When we are deep inside a synchronous Python → Rust
+/// call (e.g. `core.show_embedded()`), the host's `GetMessage` loop is paused —
+/// any messages produced during our Rust work pile up on this thread's queue.
+///
+/// Several Win32 calls used by `apply_child_window_style`
+/// (`SetWindowLongW`, `SetParent`, `SetWindowPos`) trigger **synchronous**
+/// `SendMessage` cascades to the modified window AND its descendants
+/// (notably the WebView2 `Chrome_WidgetWin_*` child windows). For windows
+/// owned by the **same thread**, `SendMessage` calls the target's `WndProc`
+/// inline — but if the target's `WndProc` performs COM marshaling (which
+/// WebView2 frequently does), the COM runtime needs the STA's message
+/// pump to deliver its own asynchronous responses. With no pump running,
+/// the call deadlocks.
+///
+/// Pumping a single round of pending messages right before / after each
+/// big style mutation is the minimum invasive fix: it lets every pending
+/// `WM_*` reach its `WndProc` (including any COM RPC reply windows) so the
+/// next synchronous `SendMessage` cascade does not pile on top of an
+/// already-saturated queue.
+///
+/// This is a *bounded* operation: we drain at most `cap` messages so we
+/// can never spin forever if the host keeps producing messages.
+#[cfg(target_os = "windows")]
+pub(crate) fn drain_thread_messages(cap: u32) {
+    // SAFETY: PeekMessageW / TranslateMessage / DispatchMessageW are documented
+    // Win32 APIs; we own the call (no foreign references) and the MSG buffer
+    // is stack-local. No memory safety concerns.
+    unsafe {
+        let mut msg = MSG::default();
+        let mut n: u32 = 0;
+        while n < cap && PeekMessageW(&mut msg, None, 0, 0, PM_REMOVE).as_bool() {
+            let _ = TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+            n += 1;
+        }
+        if n > 0 {
+            tracing::trace!("[drain_thread_messages] dispatched {} pending message(s)", n);
+        }
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+#[allow(dead_code)]
+pub(crate) fn drain_thread_messages(_cap: u32) {
     // No-op on non-Windows platforms
 }
 
@@ -224,17 +291,26 @@ pub fn apply_child_window_style(
 ) -> Result<ChildWindowStyleResult, String> {
     // SAFETY: Both hwnd and parent_hwnd are valid window handles provided by the caller
     // (guaranteed by the `# Safety` contract). All Win32 APIs (GetWindowLongW,
-    // SetWindowLongW, SetParent, SetWindowPos) operate on these valid handles.
+    // SetWindowLongW, SetParent, SetWindowPos, GetParent, PeekMessageW) operate on
+    // these valid handles or stack-local buffers.
     unsafe {
         let hwnd_win = HWND(hwnd as *mut _);
         let parent_hwnd_win = HWND(parent_hwnd as *mut _);
 
-        // Get current window styles
+        // Step 0: Drain any messages left over by wry/WebView2 creation.
+        //
+        // Without this, the upcoming SetWindowLongW/SetParent/SetWindowPos calls
+        // would issue synchronous SendMessage cascades on top of a saturated
+        // queue, deadlocking the STA when WebView2's child windows perform COM
+        // marshaling. See `drain_thread_messages` for full rationale.
+        drain_thread_messages(256);
+
+        // Step 1: Compute new styles
         let style = GetWindowLongW(hwnd_win, GWL_STYLE);
         let ex_style = GetWindowLongW(hwnd_win, GWL_EXSTYLE);
 
-        // Remove popup/caption/thickframe/border styles and add WS_CHILD
-        // WS_CHILD windows cannot be moved independently of their parent
+        // Remove popup/caption/thickframe/border styles and add WS_CHILD.
+        // WS_CHILD windows cannot be moved independently of their parent.
         let new_style = (style
             & !(WS_POPUP.0 as i32)
             & !(WS_CAPTION.0 as i32)
@@ -253,19 +329,46 @@ pub fn apply_child_window_style(
             & !(WS_EX_DLGMODALFRAME.0 as i32)
             & !(WS_EX_CONTEXTHELP.0 as i32);
 
+        // Step 2: Apply style mutations.
         SetWindowLongW(hwnd_win, GWL_STYLE, new_style);
         SetWindowLongW(hwnd_win, GWL_EXSTYLE, new_ex_style);
 
-        // Ensure parent is set correctly (in case tao didn't do it)
-        let _ = SetParent(hwnd_win, Some(parent_hwnd_win));
+        // Step 3: Conditionally call SetParent.
+        //
+        // tao's `with_parent_window(parent_hwnd)` already sets the parent at
+        // window-creation time; calling SetParent again here triggers a much
+        // larger SendMessage storm because the WebView2 `Chrome_WidgetWin_*`
+        // child windows have been created in the meantime and the OS has to
+        // notify the *whole* subtree (WM_PARENTNOTIFY, DWM updates, etc.).
+        //
+        // Only call SetParent when the current parent is actually different
+        // from the desired one. Pump the queue afterwards so the resulting
+        // synchronous notifications can complete before we proceed.
+        let current_parent: HWND = GetParent(hwnd_win).unwrap_or(HWND(std::ptr::null_mut()));
+        if current_parent.0 != parent_hwnd_win.0 {
+            tracing::info!(
+                "[apply_child_window_style] SetParent: HWND 0x{:X} -> 0x{:X} (current parent 0x{:X})",
+                hwnd,
+                parent_hwnd,
+                current_parent.0 as isize
+            );
+            let _ = SetParent(hwnd_win, Some(parent_hwnd_win));
+            // Let WM_PARENTNOTIFY / DWM / Chrome_WidgetWin_* updates settle.
+            drain_thread_messages(256);
+        } else {
+            tracing::debug!(
+                "[apply_child_window_style] parent already 0x{:X}, skip SetParent",
+                parent_hwnd
+            );
+        }
 
-        // Subclass the window to intercept WM_NCCALCSIZE and force NC area to zero.
+        // Step 4: Subclass the window to intercept WM_NCCALCSIZE and force NC area to zero.
         // This is the only reliable way to eliminate the NC region — simply removing
         // style bits and calling SetWindowPos/SWP_FRAMECHANGED is insufficient because
         // tao's WndProc may still return a non-zero NC calculation.
         subclass_for_zero_nc_area(hwnd);
 
-        // Apply style changes with SWP_FRAMECHANGED so the subclass takes effect
+        // Step 5: Apply style changes with SWP_FRAMECHANGED so the subclass takes effect.
         if options.force_position {
             // For DCC/Qt embedding: force position to (0, 0) within parent
             let _ = SetWindowPos(
@@ -288,6 +391,11 @@ pub fn apply_child_window_style(
                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
             );
         }
+
+        // Drain again so SetWindowPos's WM_WINDOWPOSCHANGED / WM_NCCALCSIZE /
+        // WM_SIZE cascade is delivered before the caller proceeds to the next
+        // big Win32 call (e.g. fix_webview2_child_windows).
+        drain_thread_messages(256);
 
         tracing::info!(
             "Applied WS_CHILD style: HWND 0x{:X} -> Parent 0x{:X} (style 0x{:08X} -> 0x{:08X}, ex_style 0x{:08X} -> 0x{:08X})",
