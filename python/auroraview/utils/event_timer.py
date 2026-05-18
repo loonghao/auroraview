@@ -260,6 +260,40 @@ class EventTimer:
             logger.debug("Tick callback not found during unregistration")
             return False
 
+    def _is_core_ready(self) -> bool:
+        """Return True when at least one of the WebView cores is initialized.
+
+        With the non-blocking WebView2 startup, the synchronous ``_core`` and
+        the background-thread ``_async_core`` may become available in either
+        order. The timer should keep ticking — and IPC events should keep
+        flowing — as soon as EITHER is ready.
+
+        Notes on shape compatibility:
+            * Some embedding modes (e.g. packed mode, lightweight test stubs)
+              may not define ``_async_core`` / ``_async_core_lock`` at all.
+              In that case we fall back to checking ``_core`` only.
+            * The ``_async_core_lock`` critical section is intentionally
+              minimal — we only read the attribute and release the lock
+              before any further work, so we never hold it across blocking
+              calls into the core.
+        """
+        webview = self._webview
+        if webview is None:
+            return False
+
+        async_ready = False
+        if hasattr(webview, "_async_core"):
+            lock = getattr(webview, "_async_core_lock", None)
+            if lock is not None:
+                with lock:
+                    async_ready = webview._async_core is not None
+            else:
+                # Lock missing for some reason — best-effort read.
+                async_ready = webview._async_core is not None
+
+        sync_ready = getattr(webview, "_core", None) is not None
+        return async_ready or sync_ready
+
     def _tick(self) -> None:
         """Timer tick callback (runs in main thread for Qt, background thread for thread backend)."""
         if not self._running:
@@ -278,13 +312,9 @@ class EventTimer:
             # Process WebView events (only if WebView is initialized)
             should_close = False
             try:
-                if hasattr(self._webview, "_async_core"):
-                    with self._webview._async_core_lock:
-                        async_ready = self._webview._async_core is not None
-                    sync_ready = getattr(self._webview, "_core", None) is not None
-                    if not async_ready and not sync_ready:
-                        # WebView not yet initialized, skip this tick
-                        return
+                if not self._is_core_ready():
+                    # WebView not yet initialized, skip this tick
+                    return
 
                 # Choose event-processing strategy based on timer backend.
                 # Qt backend uses IPC-only mode if available, others use full process_events
@@ -309,13 +339,9 @@ class EventTimer:
             # Check window validity (Windows only, and only if WebView is initialized)
             if self._check_validity and hasattr(self._webview, "_core"):
                 try:
-                    if hasattr(self._webview, "_async_core"):
-                        with self._webview._async_core_lock:
-                            async_ready = self._webview._async_core is not None
-                        sync_ready = getattr(self._webview, "_core", None) is not None
-                        if not async_ready and not sync_ready:
-                            # WebView not yet initialized, skip validity check
-                            return
+                    if not self._is_core_ready():
+                        # WebView not yet initialized, skip validity check
+                        return
 
                     is_valid = self._check_window_valid()
                     if self._last_valid and not is_valid:
