@@ -128,14 +128,61 @@ pub mod win {
         rx: mpsc::Receiver<std::result::Result<T, webview2::Error>>,
         what: &str,
     ) -> Result<T> {
+        // Replace the previous busy-loop (PeekMessageW + Sleep(1ms)) implementation,
+        // which would aggressively dispatch ALL host (e.g. Maya/Qt) window messages
+        // on the calling thread and could cause the host UI to appear frozen for
+        // several seconds during WebView2 cold start.
+        //
+        // Instead, let the OS wake us up only when:
+        //   * a COM call is dispatched into our STA (WebView2's async callback), or
+        //   * a window message arrives for this thread.
+        //
+        // We keep an outer loop with try_recv() so we never miss the channel send,
+        // and rely on the kernel to schedule us efficiently while the WebView2
+        // browser process is initializing.
+        use windows::Win32::System::Com::{
+            CoWaitForMultipleHandles, COWAIT_DISPATCH_CALLS, COWAIT_DISPATCH_WINDOW_MESSAGES,
+        };
+
         let start = Instant::now();
+        // Generous timeout: WebView2 cold start (Edge runtime spin-up, user-data
+        // folder bring-up, ICU data load, etc.) can legitimately take several
+        // seconds on first run, especially on slower machines or under AV scans.
+        const TOTAL_TIMEOUT: Duration = Duration::from_secs(30);
+        // Per-iteration wait. Short enough to react quickly when the callback
+        // fires before a window message arrives; long enough to avoid burning CPU.
+        const TICK_MS: u32 = 50;
+
+        // The two flags together let the OS:
+        //   - run any pending COM calls targeted at this STA
+        //     (this is how WebView2's async build callback gets delivered)
+        //   - dispatch any window messages waiting on this thread
+        //     (so the host UI stays responsive)
+        // This is safer than calling PeekMessageW/DispatchMessageW ourselves,
+        // because we don't reorder or steal the host's own message stream.
+        //
+        // NOTE on types: in `windows = 0.62`, `COWAIT_*` constants are exposed as
+        // `COWAIT_FLAGS(i32)` newtypes, but `CoWaitForMultipleHandles` takes a raw
+        // `u32` for `dwflags`. We unwrap with `.0`, OR the bits together, then
+        // reinterpret the bit pattern as u32.
+        let flags: u32 =
+            (COWAIT_DISPATCH_CALLS.0 | COWAIT_DISPATCH_WINDOW_MESSAGES.0).try_into().unwrap();
+
         loop {
             if let Ok(res) = rx.try_recv() {
                 return res.map_err(|e| anyhow!(e.to_string()));
             }
-            pump_windows_messages();
-            std::thread::sleep(Duration::from_millis(1));
-            if start.elapsed() > Duration::from_secs(10) {
+
+            // SAFETY: CoWaitForMultipleHandles is a documented Win32 API.
+            // We pass an empty handle slice and rely solely on the timeout +
+            // dispatch flags to wake us.
+            unsafe {
+                // Ignore the result: RPC_S_CALLPENDING / timeout / dispatched
+                // are all expected and we re-check the channel on the next iter.
+                let _ = CoWaitForMultipleHandles(flags, TICK_MS, &[]);
+            }
+
+            if start.elapsed() > TOTAL_TIMEOUT {
                 return Err(anyhow!(format!("timeout while waiting for {}", what)));
             }
         }
