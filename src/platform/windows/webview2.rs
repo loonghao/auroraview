@@ -140,9 +140,24 @@ pub mod win {
         // We keep an outer loop with try_recv() so we never miss the channel send,
         // and rely on the kernel to schedule us efficiently while the WebView2
         // browser process is initializing.
+        use windows::core::HRESULT;
         use windows::Win32::System::Com::{
             CoWaitForMultipleHandles, COWAIT_DISPATCH_CALLS, COWAIT_DISPATCH_WINDOW_MESSAGES,
         };
+
+        // HRESULTs that indicate the *caller* mis-set up COM/threading state
+        // and that no amount of retrying will fix. Bail out immediately so we
+        // surface the real problem instead of waiting out the 30s timeout.
+        //
+        // Values are stable Win32 constants:
+        //   CO_E_NOTINITIALIZED  = 0x800401F0  (CoInitialize[Ex] not called)
+        //   RPC_E_WRONG_THREAD   = 0x8001010E  (called from the wrong apartment)
+        //
+        // We compare against `HRESULT` (which is `i32` underneath) using the
+        // documented `0x...u32 as i32` round-trip so the bit pattern matches
+        // regardless of platform integer width.
+        const CO_E_NOTINITIALIZED: HRESULT = HRESULT(0x800401F0u32 as i32);
+        const RPC_E_WRONG_THREAD: HRESULT = HRESULT(0x8001010Eu32 as i32);
 
         let start = Instant::now();
         // Generous timeout: WebView2 cold start (Edge runtime spin-up, user-data
@@ -163,10 +178,12 @@ pub mod win {
         //
         // NOTE on types: in `windows = 0.62`, `COWAIT_*` constants are exposed as
         // `COWAIT_FLAGS(i32)` newtypes, but `CoWaitForMultipleHandles` takes a raw
-        // `u32` for `dwflags`. We unwrap with `.0`, OR the bits together, then
-        // reinterpret the bit pattern as u32.
+        // `u32` for `dwflags`. We use `as u32` (bit-pattern reinterpretation)
+        // rather than `try_into()`, because future SDK versions could legitimately
+        // define a flag with the high bit set (i.e. negative i32) and `try_into()`
+        // would then panic at runtime even though the bit pattern is correct.
         let flags: u32 =
-            (COWAIT_DISPATCH_CALLS.0 | COWAIT_DISPATCH_WINDOW_MESSAGES.0).try_into().unwrap();
+            (COWAIT_DISPATCH_CALLS.0 as u32) | (COWAIT_DISPATCH_WINDOW_MESSAGES.0 as u32);
 
         loop {
             if let Ok(res) = rx.try_recv() {
@@ -175,11 +192,57 @@ pub mod win {
 
             // SAFETY: CoWaitForMultipleHandles is a documented Win32 API.
             // We pass an empty handle slice and rely solely on the timeout +
-            // dispatch flags to wake us.
-            unsafe {
-                // Ignore the result: RPC_S_CALLPENDING / timeout / dispatched
-                // are all expected and we re-check the channel on the next iter.
-                let _ = CoWaitForMultipleHandles(flags, TICK_MS, &[]);
+            // dispatch flags to wake us. Passing cHandles == 0 is observed to
+            // behave as "block up to dwTimeout while dispatching per dwFlags",
+            // which is exactly what we want; if a future Windows release changes
+            // this, we will need to plumb in a real auto-reset event handle.
+            //
+            // Signature in `windows = 0.62`:
+            //   fn CoWaitForMultipleHandles(...) -> Result<u32, windows::core::Error>
+            // The `Ok(u32)` payload is the WAIT_* index that signaled — useless
+            // to us with an empty handle slice, but we still check `Err` to
+            // detect fatal apartment / initialization mistakes.
+            let wait_result = unsafe { CoWaitForMultipleHandles(flags, TICK_MS, &[]) };
+
+            // Map the result into one of three categories:
+            //   * "fatal caller error" — STA not initialized or wrong thread.
+            //     Return immediately so the caller sees the real cause instead
+            //     of a 30s timeout.
+            //   * other Err  — RPC_S_CALLPENDING / RPC_S_TIMEOUT / etc. Expected
+            //     during normal operation; trace and keep looping.
+            //   * Ok(_)      — a wait was satisfied; just loop and re-check
+            //     the channel.
+            match wait_result {
+                Err(ref e) if e.code() == CO_E_NOTINITIALIZED => {
+                    return Err(anyhow!(
+                        "{}: COM not initialized on this thread (CO_E_NOTINITIALIZED). \
+                         CoInitializeEx(COINIT_APARTMENTTHREADED) must be called first.",
+                        what
+                    ));
+                }
+                Err(ref e) if e.code() == RPC_E_WRONG_THREAD => {
+                    return Err(anyhow!(
+                        "{}: called from the wrong COM apartment (RPC_E_WRONG_THREAD). \
+                         This function must run on the STA that owns the WebView2 controller.",
+                        what
+                    ));
+                }
+                Err(e) => {
+                    tracing::trace!(
+                        "[recv_with_pump:{}] CoWaitForMultipleHandles hr=0x{:08X}, elapsed={:?}",
+                        what,
+                        e.code().0 as u32,
+                        start.elapsed()
+                    );
+                }
+                Ok(idx) => {
+                    tracing::trace!(
+                        "[recv_with_pump:{}] CoWaitForMultipleHandles signaled idx={}, elapsed={:?}",
+                        what,
+                        idx,
+                        start.elapsed()
+                    );
+                }
             }
 
             if start.elapsed() > TOTAL_TIMEOUT {
