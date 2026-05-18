@@ -59,7 +59,7 @@ def main():
             if snap.ref_count() > 0:
                 print("Interactive Elements:")
                 for ref_id, ref_info in list(snap.refs.items())[:10]:  # Show first 10
-                    print(f"  {ref_id}  [{ref_info.role}] \"{ref_info.name}\"")
+                    print(f'  {ref_id}  [{ref_info.role}] "{ref_info.name}"')
                 if snap.ref_count() > 10:
                     print(f"  ... and {snap.ref_count() - 10} more")
             print()
@@ -95,7 +95,7 @@ def main():
             print("=" * 60)
 
             result = page.eval("document.title")
-            print(f"document.title = \"{result}\"")
+            print(f'document.title = "{result}"')
 
             result = page.eval("window.innerWidth + 'x' + window.innerHeight")
             print(f"viewport = {result}")
@@ -131,9 +131,9 @@ def main():
             if snap.ref_count() > 0:
                 first_ref = next(iter(snap.refs.keys()))
                 print(f"\nTo click element {first_ref}:")
-                print(f"  page.click(\"{first_ref}\")")
+                print(f'  page.click("{first_ref}")')
                 print("\nTo fill a textbox:")
-                print(f"  page.fill(\"{first_ref}\", \"your text\")")
+                print(f'  page.fill("{first_ref}", "your text")')
             print()
 
             # === 7. Snapshot Formats ===
