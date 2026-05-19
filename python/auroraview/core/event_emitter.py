@@ -28,8 +28,11 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Union
 
 try:
-    from typing import Literal  # py38+
-except ImportError:  # pragma: no cover - only for py37
+    from typing import Literal  # py3.8+
+except ImportError:  # pragma: no cover - py3.7 fallback
+    # ``typing_extensions`` is declared as a conditional dependency in
+    # ``pyproject.toml`` (``python_version<'3.8'``), so this import is
+    # guaranteed to succeed on the only Python version that needs it.
     from typing_extensions import Literal  # type: ignore
 
 logger = logging.getLogger(__name__)
