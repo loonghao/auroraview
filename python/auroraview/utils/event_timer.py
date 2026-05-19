@@ -39,7 +39,7 @@ Example:
 """
 
 import logging
-from typing import Any, Callable, Optional
+from typing import Any, Callable, ClassVar, Optional, Set
 
 from auroraview.utils.timer_backends import (
     QtTimerBackend,
@@ -84,6 +84,16 @@ class EventTimer:
         >>> timer = EventTimer(webview)  # Will use Maya backend if available
         >>> timer.start()
     """
+
+    # Class-level dedup set of webview types that already emitted the
+    # "missing `is_ready`" debug message. Keyed on ``type(webview)`` so the
+    # warning is suppressed once per stub class for the lifetime of the
+    # process — even if the same partial mock is wrapped by many
+    # short-lived ``EventTimer`` instances (a common pattern in test
+    # fixtures). Class-level set keeps this independent of per-instance
+    # state and avoids the weakref bookkeeping that a per-instance flag
+    # would otherwise need.
+    _warned_missing_is_ready_types: ClassVar[Set[type]] = set()
 
     def __init__(
         self,
@@ -261,38 +271,40 @@ class EventTimer:
             return False
 
     def _is_core_ready(self) -> bool:
-        """Return True when at least one of the WebView cores is initialized.
+        """Return True when the WebView core is initialized.
 
-        With the non-blocking WebView2 startup, the synchronous ``_core`` and
-        the background-thread ``_async_core`` may become available in either
-        order. The timer should keep ticking -- and IPC events should keep
-        flowing -- as soon as EITHER is ready.
+        Single source of truth: :attr:`WebView.is_ready`. The timer never
+        inspects ``_core`` / ``_async_core`` directly — stub compatibility,
+        lock acquisition and dual-core (sync + async) semantics are all
+        owned by ``WebView.is_ready`` so we don't drift from the canonical
+        probe.
 
-        Notes on shape compatibility:
-            * Some embedding modes (e.g. packed mode, lightweight test stubs)
-              may not define ``_async_core`` / ``_async_core_lock`` at all.
-              In that case we fall back to checking ``_core`` only.
-            * The ``_async_core_lock`` critical section is intentionally
-              minimal -- we only read the attribute and release the lock
-              before any further work, so we never hold it across blocking
-              calls into the core.
+        Stubs that don't expose ``is_ready`` (or expose a non-bool value)
+        are treated as not-ready; they should add an ``is_ready`` property
+        to integrate with the timer.
         """
         webview = self._webview
         if webview is None:
             return False
-
-        async_ready = False
-        if hasattr(webview, "_async_core"):
-            lock = getattr(webview, "_async_core_lock", None)
-            if lock is not None:
-                with lock:
-                    async_ready = webview._async_core is not None
-            else:
-                # Lock missing for some reason -- best-effort read.
-                async_ready = webview._async_core is not None
-
-        sync_ready = getattr(webview, "_core", None) is not None
-        return async_ready or sync_ready
+        # Lightweight one-shot warning for legacy stubs / partial mocks that
+        # don't expose `is_ready`. We log at DEBUG (not WARNING) because some
+        # test fixtures intentionally fake a webview without going through
+        # the full `WebView` constructor — and we don't want noisy output in
+        # the steady state. Dedup is keyed on the stub's *type* (class-level
+        # set) so we emit at most one message per webview class for the
+        # lifetime of the process, even across many short-lived timers.
+        if not hasattr(webview, "is_ready"):
+            wv_type = type(webview)
+            if wv_type not in EventTimer._warned_missing_is_ready_types:
+                EventTimer._warned_missing_is_ready_types.add(wv_type)
+                logger.debug(
+                    "EventTimer: webview %r exposes no `is_ready` property; "
+                    "treating as not-ready. Add an `is_ready` property to the "
+                    "stub if it should drive the timer.",
+                    wv_type.__name__,
+                )
+            return False
+        return bool(webview.is_ready)
 
     def _tick(self) -> None:
         """Timer tick callback (runs in main thread for Qt, background thread for thread backend)."""
@@ -336,8 +348,15 @@ class EventTimer:
             except Exception as e:
                 logger.error(f"Error processing events: {e}", exc_info=True)
 
-            # Check window validity (Windows only, and only if WebView is initialized)
-            if self._check_validity and hasattr(self._webview, "_core"):
+            # Check window validity (Windows only, gated by `_is_core_ready`).
+            #
+            # We previously also tested `hasattr(self._webview, "_core")` here,
+            # but that became a hidden second source of truth: stubs without
+            # `_core` would silently bypass validity checks even when their
+            # `is_ready` reported True. Delegating entirely to
+            # `_is_core_ready()` keeps :class:`WebView` as the single owner
+            # of "what does ready mean".
+            if self._check_validity:
                 try:
                     if not self._is_core_ready():
                         # WebView not yet initialized, skip validity check
@@ -379,16 +398,39 @@ class EventTimer:
             logger.error(f"Unexpected error in timer tick: {e}", exc_info=True)
 
     def _check_window_valid(self) -> bool:
-        """Check if window is still valid (Windows only).
+        """Check if window is still valid.
+
+        Delegates entirely to :meth:`WebView.is_window_valid` — the timer
+        does **not** look at ``_core`` / ``_async_core`` directly. This
+        keeps :class:`WebView` as the single owner of "what does ready /
+        valid mean" and removes the previous duplicated fallback path
+        that silently bypassed checks for stubs without a ``_core``
+        attribute.
+
+        Stubs that don't expose ``is_window_valid`` are treated as valid
+        (legacy behavior preserved); they should add the method if they
+        want to drive the timer's close-on-destroy logic.
 
         Returns:
-            True if window is valid, False otherwise
+            True if window is valid or its validity cannot be determined,
+            False only when the native probe explicitly reports the
+            window has been destroyed.
         """
-        try:
-            # Call Rust function to check window validity
-            if hasattr(self._webview, "_core"):
-                return self._webview._core.is_window_valid()
+        webview = self._webview
+        if webview is None:
+            return False
+        # ``_is_core_ready`` already gated the call site, but keep the
+        # guard here too so direct callers (tests) get the same answer.
+        if not self._is_core_ready():
             return True
+
+        probe = getattr(webview, "is_window_valid", None)
+        if probe is None:
+            # Stub without the public probe — treat as valid so the
+            # timer doesn't synthesize a spurious close event.
+            return True
+        try:
+            return bool(probe())
         except Exception as e:
             logger.error(f"Error checking window validity: {e}")
             return False
