@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+* **windows**: `AURORAVIEW_WEBVIEW2_TIMEOUT_SECS` environment variable to
+  override the WebView2 cold-start timeout. Value is interpreted as seconds
+  (plain unsigned integer, no unit suffix). Defaults to 30s. Useful on slow
+  hosts (CI containers, AV-heavy enterprise machines, first-run Edge install
+  paths) where the default is not enough.
+
+### Changed
+
+* **windows**: `recv_with_pump` no longer busy-loops with `PeekMessageW` +
+  `Sleep(1ms)`. It now uses `CoWaitForMultipleHandles` with
+  `COWAIT_DISPATCH_CALLS | COWAIT_DISPATCH_WINDOW_MESSAGES`, letting the OS
+  schedule the wait and avoiding several seconds of host-UI freeze during
+  WebView2 cold start in DCC / Qt embeddings. The wait is now driven by a
+  real auto-reset event signaled from the WebView2 builder callback (via
+  `SetEvent`), so the waiter wakes up on demand instead of polling on a
+  50 ms tick.
+* **windows**: `apply_child_window_style` now drains pending Win32 messages
+  scoped to the embedded HWND before / after each style mutation, and skips
+  redundant `SetParent` calls when the parent already matches. After the
+  `GWL_STYLE` / `GWL_EXSTYLE` mutations it now issues a side-effect-free
+  `SetWindowPos(SWP_FRAMECHANGED)` so the new styles are committed to the
+  NC frame even when the `SetParent` branch short-circuits.
+* **python**: `EventTimer._is_core_ready` now delegates entirely to
+  `WebView.is_ready` and no longer inspects `_core` / `_async_core`
+  directly. Stub-compatibility, lock acquisition and dual-core readiness
+  are all owned by `WebView.is_ready`, which removes the duplicated
+  fallback path and its inconsistent stub-warning policy.
+
+### Fixed
+
+* **windows**: `subclass_for_zero_nc_area` released the `parking_lot::Mutex`
+  before installing the new `WndProc`, fixing a deadlock where
+  `SetWindowPos(SWP_FRAMECHANGED)` re-entered the same non-reentrant mutex
+  via the synchronous `WM_NCCALCSIZE` dispatch.
+
 ## [0.5.2](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.1...auroraview-v0.5.2) (2026-04-25)
 
 
