@@ -36,6 +36,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   directly. Stub-compatibility, lock acquisition and dual-core readiness
   are all owned by `WebView.is_ready`, which removes the duplicated
   fallback path and its inconsistent stub-warning policy.
+* **python** (refactor): inline the previously-separate
+  `WebViewLifecycleMixin` / `WebViewFactoryMixin` indirection back into
+  `WebView` itself. `python/auroraview/core/factory.py` is removed and
+  `mixins/__init__.py` no longer re-exports the deleted symbols. Adding a
+  new construction-time field used to require updating four files in
+  lock-step; it is now a single edit on `WebView`.
+* **python** (refactor): collapse the `WebView.__init__` /
+  `WebView.create_embedded` drift surface behind a single
+  `_WebViewInitState` dataclass funnel. Both construction paths now
+  reach `_init_runtime_state` via `_WebViewInitState.from_init_kwargs`,
+  which centralises the field defaults, the `core.set_asset_root`
+  ownership fork (`forward_asset_root_to_core`), and a `strict=True`
+  guard that rejects typos like `parent_hwnd=` at the funnel boundary
+  instead of silently leaving fields at their defaults. No public API
+  changes.
 
 ### Fixed
 
@@ -43,6 +58,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   before installing the new `WndProc`, fixing a deadlock where
   `SetWindowPos(SWP_FRAMECHANGED)` re-entered the same non-reentrant mutex
   via the synchronous `WM_NCCALCSIZE` dispatch.
+* **python**: `WebView.process_events` and `process_events_ipc_only` no
+  longer raise `AttributeError` on every host-timer tick in packed mode.
+  Both methods previously called `self._core.<...>()` unconditionally;
+  in packed mode `_core` is `None` until the show-thread wires up
+  `_async_core`, while `is_ready` already reports True. They now route
+  through `_peek_active_core` so they share readiness semantics with
+  `is_ready` / `is_window_valid` and return `False` when no backing
+  core is currently available (packed mode, pre-init, post-dispose, or
+  transient `_async_core_lock` contention).
+
+### Tests
+
+* **python**: pin the `_WebViewInitState.from_init_kwargs` state
+  machine with 13 cases in `tests/python/unit/test_webview_init_state.py`
+  — required vs optional field semantics, the
+  `forward_asset_root_to_core` fork, `strict=True` raises on typos and
+  lists offending keys, `bridge=False` survives the None-sentinel filter
+  as a legal user choice. Adds a `TestRequiredFieldInvariant` meta-test
+  that fails loudly if any of the four `Optional[X]` required fields
+  (`url` / `html` / `parent` / `mode`) ever gain a dataclass default,
+  since that would silently change what `<field>=None` means for every
+  caller.
 
 ## [0.5.2](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.1...auroraview-v0.5.2) (2026-04-25)
 
