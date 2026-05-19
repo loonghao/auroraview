@@ -5,6 +5,82 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+* **windows**: `AURORAVIEW_WEBVIEW2_TIMEOUT_SECS` environment variable to
+  override the WebView2 cold-start timeout. Value is interpreted as seconds
+  (plain unsigned integer, no unit suffix). Defaults to 30s. Useful on slow
+  hosts (CI containers, AV-heavy enterprise machines, first-run Edge install
+  paths) where the default is not enough.
+
+### Changed
+
+* **windows**: `recv_with_pump` no longer busy-loops with `PeekMessageW` +
+  `Sleep(1ms)`. It now uses `CoWaitForMultipleHandles` with
+  `COWAIT_DISPATCH_CALLS | COWAIT_DISPATCH_WINDOW_MESSAGES`, letting the OS
+  schedule the wait and avoiding several seconds of host-UI freeze during
+  WebView2 cold start in DCC / Qt embeddings. The wait is now driven by a
+  real auto-reset event signaled from the WebView2 builder callback (via
+  `SetEvent`), so the waiter wakes up on demand instead of polling on a
+  50 ms tick.
+* **windows**: `apply_child_window_style` now drains pending Win32 messages
+  scoped to the embedded HWND before / after each style mutation, and skips
+  redundant `SetParent` calls when the parent already matches. After the
+  `GWL_STYLE` / `GWL_EXSTYLE` mutations it now issues a side-effect-free
+  `SetWindowPos(SWP_FRAMECHANGED)` so the new styles are committed to the
+  NC frame even when the `SetParent` branch short-circuits.
+* **python**: `EventTimer._is_core_ready` now delegates entirely to
+  `WebView.is_ready` and no longer inspects `_core` / `_async_core`
+  directly. Stub-compatibility, lock acquisition and dual-core readiness
+  are all owned by `WebView.is_ready`, which removes the duplicated
+  fallback path and its inconsistent stub-warning policy.
+* **python** (refactor): inline the previously-separate
+  `WebViewLifecycleMixin` / `WebViewFactoryMixin` indirection back into
+  `WebView` itself. `python/auroraview/core/factory.py` is removed and
+  `mixins/__init__.py` no longer re-exports the deleted symbols. Adding a
+  new construction-time field used to require updating four files in
+  lock-step; it is now a single edit on `WebView`.
+* **python** (refactor): collapse the `WebView.__init__` /
+  `WebView.create_embedded` drift surface behind a single
+  `_WebViewInitState` dataclass funnel. Both construction paths now
+  reach `_init_runtime_state` via `_WebViewInitState.from_init_kwargs`,
+  which centralises the field defaults, the `core.set_asset_root`
+  ownership fork (`forward_asset_root_to_core`), and a `strict=True`
+  guard that rejects typos like `parent_hwnd=` at the funnel boundary
+  instead of silently leaving fields at their defaults. No public API
+  changes.
+
+### Fixed
+
+* **windows**: `subclass_for_zero_nc_area` released the `parking_lot::Mutex`
+  before installing the new `WndProc`, fixing a deadlock where
+  `SetWindowPos(SWP_FRAMECHANGED)` re-entered the same non-reentrant mutex
+  via the synchronous `WM_NCCALCSIZE` dispatch.
+* **python**: `WebView.process_events` and `process_events_ipc_only` no
+  longer raise `AttributeError` on every host-timer tick in packed mode.
+  Both methods previously called `self._core.<...>()` unconditionally;
+  in packed mode `_core` is `None` until the show-thread wires up
+  `_async_core`, while `is_ready` already reports True. They now route
+  through `_peek_active_core` so they share readiness semantics with
+  `is_ready` / `is_window_valid` and return `False` when no backing
+  core is currently available (packed mode, pre-init, post-dispose, or
+  transient `_async_core_lock` contention).
+
+### Tests
+
+* **python**: pin the `_WebViewInitState.from_init_kwargs` state
+  machine with 13 cases in `tests/python/unit/test_webview_init_state.py`
+  — required vs optional field semantics, the
+  `forward_asset_root_to_core` fork, `strict=True` raises on typos and
+  lists offending keys, `bridge=False` survives the None-sentinel filter
+  as a legal user choice. Adds a `TestRequiredFieldInvariant` meta-test
+  that fails loudly if any of the four `Optional[X]` required fields
+  (`url` / `html` / `parent` / `mode`) ever gain a dataclass default,
+  since that would silently change what `<field>=None` means for every
+  caller.
+
 ## [0.5.2](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.1...auroraview-v0.5.2) (2026-04-25)
 
 

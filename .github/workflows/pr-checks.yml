@@ -32,6 +32,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  issues: write
 
 # Cancel in-progress runs for the same PR
 concurrency:
@@ -1021,7 +1022,8 @@ jobs:
           retention-days: 7
 
       - name: Post screenshots to PR
-        if: github.event_name == 'pull_request' && always()
+        if: github.event_name == 'pull_request' && always() && github.event.pull_request.head.repo.full_name == github.repository
+        continue-on-error: true
         uses: actions/github-script@v9
         with:
           script: |

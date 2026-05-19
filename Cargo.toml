@@ -181,7 +181,23 @@ rust-embed = { version = "8.5", optional = true }
 auroraview-workspace-hack = { version = "0.1", path = "crates/auroraview-workspace-hack" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Com", "Win32_Graphics_Gdi", "Win32_System_LibraryLoader", "Win32_System_Threading"] }
+windows = { version = "0.62", features = [
+    # Core types & error codes (HWND, HRESULT, CO_E_*, RPC_E_*)
+    "Win32_Foundation",
+    # Window/message APIs (PeekMessageW, SetWindowPos, GetParent, ...)
+    "Win32_UI_WindowsAndMessaging",
+    # COM apartment / CoWaitForMultipleHandles for the WebView2 STA pump
+    "Win32_System_Com",
+    # GDI brush / class background (set_window_class_dark_background)
+    "Win32_Graphics_Gdi",
+    # GetModuleHandle (used by class registration)
+    "Win32_System_LibraryLoader",
+    # CreateEventW / threading primitives (recv_with_pump dummy handle)
+    "Win32_System_Threading",
+    # Required transitively by `CreateEventW`'s `SECURITY_ATTRIBUTES`
+    # parameter (even when `None` is passed).
+    "Win32_Security",
+] }
 winapi = "0.3.9"
 webview2 = { version = "0.1.4", optional = true }
 webview2-com = { version = "0.39", optional = true }

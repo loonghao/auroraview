@@ -6,12 +6,16 @@ from __future__ import annotations
 import json
 import logging
 import threading
+from dataclasses import MISSING, dataclass, fields
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, List, Optional, Union
 
 try:
-    from typing import Literal  # py38+
-except ImportError:  # pragma: no cover - only for py37
+    from typing import Literal  # py3.8+
+except ImportError:  # pragma: no cover - py3.7 fallback
+    # `typing_extensions` is declared as a conditional dependency in
+    # ``pyproject.toml`` (``python_version<'3.8'``), so this import is
+    # guaranteed to succeed on the only Python version that needs it.
     from typing_extensions import Literal  # type: ignore
 
 # Import Mixin classes
@@ -46,6 +50,261 @@ except ImportError as e:
     _IS_PACKED_MODE = os.environ.get("AURORAVIEW_PACKED", "0") == "1"
 
 logger = logging.getLogger(__name__)
+
+
+# ----------------------------------------------------------------------------
+# Mixin layout note
+# ----------------------------------------------------------------------------
+# Historically WebView was assembled out of ~12 Mixin classes (Window / Content /
+# JS / Event / Api / DOM / Telemetry / Lifecycle / State / Commands / Channels /
+# Factory / Bridge). The lifecycle, state, commands, channels, factory and
+# bridge mixins were inlined directly into ``WebView`` because:
+#
+#   * Their methods touched private ``_core`` / ``_async_core`` /
+#     ``_async_core_lock`` state owned by ``__init__``, so each Mixin had to
+#     re-declare those attributes in stubs anyway — defeating the
+#     "small focused mixin" goal.
+#   * Pyright / mypy could not follow the cross-mixin attribute access pattern
+#     and emitted a flood of false-positive ``reportPrivateUsage`` /
+#     ``attr-defined`` warnings.
+#   * The lifecycle methods (``show`` / ``show_async`` / ``close`` / ``wait``)
+#     and factory (``WebView.create``) need the concrete class for
+#     ``Self``-typed return values; keeping them in mixins forced
+#     ``TYPE_CHECKING`` gymnastics on every call site.
+#
+# The remaining mixins (Window / Content / JS / Event / Api / DOM / Telemetry)
+# are pure capability bundles with no shared state coupling — they stay as
+# mixins. See ``auroraview/core/mixins/__init__.py`` for the up-to-date list.
+# ----------------------------------------------------------------------------
+
+
+# ----------------------------------------------------------------------------
+# Construction state
+# ----------------------------------------------------------------------------
+# ``_WebViewInitState`` is the single source of truth for the inputs that
+# :meth:`WebView._init_runtime_state` consumes. Keeping it as a dataclass
+# (instead of a long ``**kwargs`` form) gives us three concrete properties
+# that the previous "21 keyword arguments" version did not have:
+#
+#   * **Adding a field is a one-liner.** Drop a new attribute here, decide
+#     where it should be assigned in ``_init_runtime_state``, done. The
+#     ``__init__`` and :meth:`WebView.create_embedded` paths both fan in
+#     through this dataclass via :meth:`_WebViewInitState.from_init_kwargs`,
+#     so they cannot drift on which fields they forward — the type system
+#     rejects any mismatch at construction time.
+#   * **Defaults are authoritative here.** The public ``WebView.__init__``
+#     signature mirrors these defaults for IDE / autocomplete ergonomics,
+#     but any caller that goes through :meth:`from_init_kwargs` and omits
+#     a field will pick up the dataclass default. If the two ever
+#     disagree, **the dataclass wins** — that is what makes
+#     ``create_embedded`` (which only forwards a subset of kwargs)
+#     produce a structurally identical instance to ``__init__``.
+#   * **It is the right home for "wiring" inputs that aren't part of the
+#     visible ``WebView(...)`` ergonomics**, such as ``asset_root`` —
+#     which the embedded-host path needs to forward to the Rust core but
+#     which the standard ``__init__`` already passes via the Rust core
+#     constructor itself (except in packed mode, where the core
+#     constructor is skipped entirely; ``from_init_kwargs`` handles
+#     that fork in one place).
+#
+# Field ordering follows the public ``__init__`` signature so reviewers can
+# diff the two sources visually.
+@dataclass
+class _WebViewInitState:
+    """Aggregated inputs for :meth:`WebView._init_runtime_state`.
+
+    Construction-path-agnostic snapshot of every value that participates
+    in pure attribute assignment (``self._title = ...``) plus the small
+    set of "core wiring" calls (``core.set_asset_root(...)``) that must
+    run on every construction path. The lifecycle phase
+    (:meth:`WebView._init_lifecycle`) reads only ``self`` and therefore
+    does not appear here.
+
+    All fields are required-by-construction unless they have a default —
+    see :meth:`from_init_kwargs` for the canonical funnel both
+    ``__init__`` and ``create_embedded`` use.
+    """
+
+    # Visible window / content properties. Required: the standard
+    # ``__init__`` always passes them and ``create_embedded`` has its
+    # own concrete values for them.
+    title: str
+    width: int
+    height: int
+    url: Optional[str]
+    html: Optional[str]
+    debug: bool
+    resizable: bool
+    frame: bool
+    parent: Optional[int]
+    mode: Optional[str]
+
+    # Window style / behaviour. Defaults are authoritative here; the
+    # public ``WebView.__init__`` signature mirrors them.
+    always_on_top: bool = False
+    transparent: bool = False
+    background_color: Optional[str] = None
+    tool_window: bool = False
+    undecorated_shadow: bool = False
+    allow_new_window: bool = False
+    new_window_mode: Optional[str] = None
+    remote_debugging_port: Optional[int] = None
+    splash_overlay: bool = False
+    auto_show: bool = True
+    dcc_mode: Union[bool, str] = "auto"
+
+    # Bridge integration. ``Bridge`` is only available under
+    # ``TYPE_CHECKING`` so we string-quote it. ``= None`` is the right
+    # default form here (mutable-default restrictions only apply to
+    # list/dict/set, not to ``None``); we used to wrap this in
+    # ``field(default=None)`` but the wrapper added no value.
+    bridge: Union["Bridge", bool, None] = None  # type: ignore[name-defined]
+
+    # Asset root for the auroraview:// protocol. Standard ``__init__``
+    # forwards this to the Rust core via the core constructor *except*
+    # in packed mode (where ``self._core`` stays ``None`` and the core
+    # constructor is skipped entirely). :meth:`from_init_kwargs`
+    # decides whether to populate this field via the
+    # ``forward_asset_root_to_core`` switch; :meth:`_init_runtime_state`
+    # owns the single ``core.set_asset_root`` call site.
+    asset_root: Optional[str] = None
+
+    @classmethod
+    def from_init_kwargs(
+        cls,
+        *,
+        asset_root: Optional[str] = None,
+        forward_asset_root_to_core: bool = False,
+        strict: bool = True,
+        **kwargs: Any,
+    ) -> "_WebViewInitState":
+        """Build a state object from a public-``__init__``-shaped kwargs dict.
+
+        This is the single funnel both :meth:`WebView.__init__` and
+        :meth:`WebView.create_embedded` use to construct a
+        ``_WebViewInitState``. Centralising it here gives us:
+
+          * **Field filtering for free.** Callers can pass kwargs that
+            are not dataclass fields (e.g. things ``__init__`` forwards
+            to ``_CoreWebView`` only) without us having to enumerate
+            them at every call site. By default (``strict=True``)
+            unknown keys raise ``TypeError`` to catch typos like
+            ``parent_hwnd=`` instead of ``parent=`` immediately;
+            external callers feeding user-controlled kwargs can opt
+            into ``strict=False`` for silent filtering.
+          * **Sentinel ``None`` semantics.** Callers that want to
+            "leave a field at its dataclass default" can simply pass
+            ``None`` (or omit it). Any explicit non-``None`` value
+            wins over the dataclass default. **This only applies to
+            fields with a dataclass default**; required fields keep
+            ``None`` as a real value (their type is ``Optional[X]``).
+          * **One place to decide who calls ``set_asset_root``.**
+            ``asset_root`` can reach the Rust core in two different
+            ways depending on the construction path:
+
+              - Standard ``__init__`` in non-packed mode forwards it
+                via ``_CoreWebView(asset_root=..., ...)``; we must
+                NOT call ``core.set_asset_root`` again.
+              - Standard ``__init__`` in packed mode skips the core
+                constructor entirely (``self._core is None``); we
+                need ``_init_runtime_state`` to no-op gracefully.
+              - ``create_embedded`` builds the core via
+                ``_CoreWebView.create_embedded(...)`` which doesn't
+                accept ``asset_root`` — only the post-construction
+                ``set_asset_root`` call inside ``_init_runtime_state``
+                can apply it.
+
+            ``forward_asset_root_to_core`` collapses the second and
+            third cases into one switch: pass ``True`` whenever the
+            active path did NOT already hand ``asset_root`` to the
+            core constructor. The previous design called this same
+            switch ``is_packed`` and forced ``create_embedded`` to
+            lie about being "packed" just to flip it; the new name
+            describes the actual contract.
+
+        Args:
+            asset_root: Asset-root value as passed by the public API.
+                Only matters when ``forward_asset_root_to_core`` is
+                ``True``; otherwise dropped (the core constructor
+                already received it).
+            forward_asset_root_to_core: ``True`` when the active
+                construction path did NOT pass ``asset_root`` to the
+                Rust core constructor and therefore needs
+                :meth:`_init_runtime_state` to make the
+                ``core.set_asset_root`` call. Set this whenever:
+
+                  * standard ``__init__`` is running in packed mode
+                    (``self._core is None``), or
+                  * ``create_embedded`` is the caller (always — the
+                    embedded core constructor doesn't accept
+                    ``asset_root``).
+
+                Set to ``False`` for the standard non-packed
+                ``__init__`` path (the default).
+            strict: When ``True`` (default), raise ``TypeError`` on
+                kwargs that aren't ``_WebViewInitState`` fields. The
+                two internal call sites pass ``True`` so a typo like
+                ``parent_hwnd=...`` fails loudly instead of being
+                silently dropped (which would leave ``state.parent``
+                as ``None`` and produce a hard-to-debug "embedded
+                webview never reparented" symptom). Set to ``False``
+                only when forwarding user-controlled kwargs.
+            **kwargs: Public-``__init__`` keyword arguments. ``None``
+                is treated as a "use the dataclass default" sentinel
+                **only for fields that have a default**; required
+                fields (e.g. ``url``, ``html``, ``parent``, ``mode``)
+                keep ``None`` as a real value.
+
+        Returns:
+            A fully-populated ``_WebViewInitState`` instance.
+
+        Raises:
+            TypeError: If ``strict=True`` and ``kwargs`` contains any
+                key that is not a ``_WebViewInitState`` field.
+        """
+        # Split fields into "required" (no default) vs "optional"
+        # (has default). ``None`` has different meaning in each:
+        #   * required field: ``None`` is a real value (the type
+        #     signature says ``Optional[X]``, e.g. ``url``, ``parent``).
+        #     We must keep it.
+        #   * optional field: ``None`` is a sentinel for "use the
+        #     dataclass default". Drop it so the dataclass default
+        #     fires, which is the whole point of the funnel.
+        #
+        # **Invariant**: required fields MUST NOT gain a default
+        # later. If they do, the None-sentinel rule above silently
+        # changes meaning (e.g. ``debug=None`` would suddenly fall
+        # through to ``False`` instead of staying ``None``). The
+        # ``test_optional_none_falls_to_default`` regression test
+        # pins this assumption.
+        required_keys = {f.name for f in fields(cls) if f.default is MISSING}
+        optional_keys = {f.name for f in fields(cls) if f.default is not MISSING}
+        valid_keys = required_keys | optional_keys
+
+        if strict:
+            unknown = set(kwargs) - valid_keys
+            if unknown:
+                raise TypeError(
+                    f"_WebViewInitState.from_init_kwargs got unexpected "
+                    f"keyword argument(s): {sorted(unknown)}. "
+                    f"Valid fields: {sorted(valid_keys)}."
+                )
+
+        filtered: Dict[str, Any] = {}
+        for k, v in kwargs.items():
+            if k not in valid_keys:
+                continue  # Silently drop unknown keys (strict=False path).
+            if k in optional_keys and v is None:
+                continue  # Sentinel: use dataclass default.
+            filtered[k] = v
+        # Asset-root fork: see class docstring + the
+        # ``set_asset_root`` block in ``_init_runtime_state``.
+        if forward_asset_root_to_core and asset_root is not None:
+            filtered["asset_root"] = asset_root
+        return cls(**filtered)
+
+
+# ----------------------------------------------------------------------------
 
 
 class WebView(
@@ -450,28 +709,120 @@ class WebView(
             )
         else:
             self._core = None  # Packed mode: no Rust core needed
+        # All non-core attribute initialization is delegated to a single
+        # entry point so any future field added to ``_WebViewInitState``
+        # is automatically available to alternative construction paths
+        # (e.g. :meth:`create_embedded`) — preventing the silent
+        # ``AttributeError`` drift we used to get when the two paths
+        # initialised disjoint subsets of the same attribute set.
+        #
+        # ``from_init_kwargs`` performs the field-filtering and the
+        # asset-root fork; we just forward everything we have.
+        # ``forward_asset_root_to_core`` flips on iff this path skipped
+        # the ``_CoreWebView(asset_root=..., ...)`` constructor — which
+        # is exactly the packed-mode case (``self._core is None``)
+        # where the core constructor was never called.
+        # ``strict=True`` (default) makes ``from_init_kwargs`` raise
+        # on typos like ``parent_hwnd=`` instead of silently dropping
+        # them; we keep the default explicit here for documentation.
+        self._init_runtime_state(
+            _WebViewInitState.from_init_kwargs(
+                asset_root=asset_root,
+                forward_asset_root_to_core=(self._core is None),
+                title=title,
+                width=width,
+                height=height,
+                url=url,
+                html=html,
+                debug=debug,
+                resizable=resizable,
+                frame=frame,
+                parent=parent,
+                mode=mode,
+                always_on_top=always_on_top,
+                transparent=transparent,
+                background_color=background_color,
+                tool_window=tool_window,
+                undecorated_shadow=undecorated_shadow,
+                allow_new_window=allow_new_window,
+                new_window_mode=new_window_mode,
+                remote_debugging_port=remote_debugging_port,
+                splash_overlay=splash_overlay,
+                auto_show=auto_show,
+                dcc_mode=dcc_mode,
+                bridge=bridge,
+            )
+        )
+
+    def _init_runtime_state(self, state: _WebViewInitState) -> None:
+        """Initialize all runtime / lifecycle attributes.
+
+        This is the single source of truth for the WebView's mutable
+        state. It is invoked from :meth:`__init__` after the Rust
+        ``_core`` has been created, and from :meth:`create_embedded`
+        after the embedded core has been wired up via the special
+        ``_CoreWebView.create_embedded`` static path.
+
+        Construction is split into two phases, both owned by this
+        single entry point so the two construction paths cannot drift:
+
+          * **Phase 1 (this method body)** — assigns every ``self._...``
+            attribute from ``state`` and performs the small set of
+            *self-contained* wiring steps that need to run on every
+            construction path:
+
+              - ``dcc_mode == "auto"`` resolution (calls
+                ``is_dcc_environment`` / ``get_current_dcc_name``;
+                read-only against the host process),
+              - bridge auto-creation (instantiates :class:`Bridge`
+                and calls ``_setup_bridge_integration`` on ``self``),
+              - ``core.set_asset_root`` forwarding when the active
+                construction path did not already do so via the Rust
+                core constructor.
+
+            These are intentionally *not* in :meth:`_init_lifecycle`
+            because they only touch ``self`` (or the Rust core that is
+            already wired up by phase 1's caller); they do not register
+            ``self`` with any external module. **Adding a new attribute?
+            Add it to :class:`_WebViewInitState` and assign it here**,
+            not at a call site.
+
+          * **Phase 2 (:meth:`_init_lifecycle`, called as the last
+            statement of this method)** — owns every step that
+            *registers ``self`` with an external module* or starts a
+            background helper (ReadyEvents allocation, WindowManager
+            registration, lifecycle event subscriptions, telemetry).
+            Adding a new "register / subscribe / start background
+            helper" step? **Add it to ``_init_lifecycle``, not here.**
+
+        Both phases run unconditionally on every construction path,
+        which is what guarantees ``create_embedded`` and standard
+        ``__init__`` produce structurally identical instances.
+        """
         self._event_handlers: Dict[str, List[Callable]] = {}
         self._event_handlers_lock = threading.Lock()
-        self._title = title
-        self._width = width
-        self._height = height
-        self._debug = debug
-        self._resizable = resizable
-        self._frame = frame
-        self._parent = parent
-        self._mode = mode
-        self._always_on_top = always_on_top
-        self._transparent = transparent
-        self._background_color = background_color
-        self._tool_window = tool_window
-        self._undecorated_shadow = undecorated_shadow
-        self._allow_new_window = allow_new_window
-        self._new_window_mode = new_window_mode
-        self._remote_debugging_port = remote_debugging_port
-        self._splash_overlay = splash_overlay
+        self._title = state.title
+        self._width = state.width
+        self._height = state.height
+        self._x: Optional[int] = None
+        self._y: Optional[int] = None
+        self._debug = state.debug
+        self._resizable = state.resizable
+        self._frame = state.frame
+        self._parent = state.parent
+        self._mode = state.mode
+        self._always_on_top = state.always_on_top
+        self._transparent = state.transparent
+        self._background_color = state.background_color
+        self._tool_window = state.tool_window
+        self._undecorated_shadow = state.undecorated_shadow
+        self._allow_new_window = state.allow_new_window
+        self._new_window_mode = state.new_window_mode
+        self._remote_debugging_port = state.remote_debugging_port
+        self._splash_overlay = state.splash_overlay
 
         # Resolve dcc_mode: "auto" → detect DCC environment
-        if dcc_mode == "auto":
+        if state.dcc_mode == "auto":
             from auroraview.utils.thread_dispatcher import is_dcc_environment
 
             self._dcc_mode = is_dcc_environment()
@@ -481,14 +832,14 @@ class WebView(
                 dcc_name = get_current_dcc_name()
                 logger.info(f"DCC mode auto-enabled: {dcc_name} detected")
         else:
-            self._dcc_mode = bool(dcc_mode)
+            self._dcc_mode = bool(state.dcc_mode)
         self._show_thread: Optional[threading.Thread] = None
         self._is_running = False
         self._auto_timer = None  # Will be set by create() factory method
-        self._auto_show = auto_show  # Store auto_show setting
+        self._auto_show = state.auto_show  # Store auto_show setting
         # Store content for async mode (use passed-in values)
-        self._stored_url: Optional[str] = url
-        self._stored_html: Optional[str] = html
+        self._stored_url: Optional[str] = state.url
+        self._stored_html: Optional[str] = state.html
         # Store the background thread's core instance
         self._async_core: Optional[Any] = None
         self._async_core_lock = threading.Lock()
@@ -509,8 +860,8 @@ class WebView(
 
         # Bridge integration
         self._bridge: Optional["Bridge"] = None  # type: ignore
-        if bridge is not None:
-            if bridge is True:
+        if state.bridge is not None:
+            if state.bridge is True:
                 # Auto-create bridge with default settings
                 from .bridge import Bridge
 
@@ -518,8 +869,8 @@ class WebView(
                 logger.info("Auto-created Bridge on port 9001")
             else:
                 # Use provided bridge instance
-                self._bridge = bridge
-                logger.info(f"Using provided Bridge: {bridge}")
+                self._bridge = state.bridge
+                logger.info(f"Using provided Bridge: {state.bridge}")
 
             # Setup bidirectional communication
             if self._bridge:
@@ -537,25 +888,82 @@ class WebView(
         # Plugin manager for handling plugin:* invoke commands
         self._plugin_manager: Optional[Any] = None
 
-        # WindowManager integration - register this window globally
+        # Forward ``asset_root`` to the Rust core when the active
+        # construction path did not already do so. The standard
+        # ``__init__`` passes it via ``_CoreWebView(...)`` and leaves
+        # ``state.asset_root`` as ``None``; ``create_embedded`` populates
+        # it because the embedded core constructor doesn't accept it.
+        # Either way this is the single place that owns the call, so the
+        # two paths can never drift.
+        if state.asset_root and self._core is not None:
+            try:
+                self._core.set_asset_root(state.asset_root)
+            except Exception as e:
+                logger.warning("set_asset_root failed: %s", e)
+
+        # ReadyEvents / WindowManager registration / lifecycle handlers /
+        # telemetry — extracted into ``_init_lifecycle`` so the
+        # ``create_embedded`` static path runs the same setup. Without
+        # this both paths used to drift: ``__init__`` registered the
+        # window globally and wired up ReadyEvents, while
+        # ``create_embedded`` quietly skipped it, surfacing as
+        # ``AttributeError`` on ``ready_events`` and a ghost window
+        # missing from ``WindowManager.get_all()``.
+        self._init_lifecycle()
+
+    def _init_lifecycle(self) -> None:
+        """Initialize lifecycle-coupled side effects.
+
+        This is **phase 2** of construction, invoked as the tail
+        statement of :meth:`_init_runtime_state` (which itself is
+        called from both :meth:`__init__` and :meth:`create_embedded`).
+        Calling it through ``_init_runtime_state`` guarantees both
+        construction paths run the same lifecycle setup, with no
+        room for one path to silently skip a step.
+
+        It owns every step that has a side effect outside ``self``:
+
+          * :class:`ReadyEvents` allocation (and ``set_created`` event)
+          * Global registration with :class:`WindowManager`
+          * Lifecycle event handler wiring (``_setup_lifecycle_events``)
+          * Auto-telemetry bring-up (``_init_telemetry`` from the
+            telemetry mixin)
+
+        **Adding a new "register / subscribe / start background
+        helper" step? Add it here, not at a call site** — that is the
+        only way to keep both construction paths in sync.
+
+        Preconditions:
+            * ``self._core`` is already wired up (set by ``__init__``
+              or by ``create_embedded`` before ``_init_runtime_state``
+              is invoked).
+            * Phase-1 attributes (``_event_handlers``, ``_bridge``,
+              ``_window_id`` placeholders, ...) have already been
+              assigned in the body of ``_init_runtime_state``.
+        """
+        # Local imports keep the module-level import graph free of
+        # cycles (ready_events / window_manager both import from
+        # this module under TYPE_CHECKING).
         from .ready_events import ReadyEvents
         from .window_manager import get_window_manager
 
         self._window_id: Optional[str] = None
         self._ready_events = ReadyEvents(self)
 
-        # Register with WindowManager
+        # Register with WindowManager so cross-window APIs and
+        # ``get_window_manager().get_all()`` see this instance.
         wm = get_window_manager()
         self._window_id = wm.register(self)
         logger.debug(f"WebView registered with WindowManager: {self._window_id}")
 
-        # Mark as created
+        # Mark as created — must run AFTER ``_ready_events`` exists.
         self._ready_events.set_created()
 
-        # Setup lifecycle event handlers
+        # Setup lifecycle event handlers (page:load_finish, auroraviewready, ...).
         self._setup_lifecycle_events()
 
-        # Initialize auto-telemetry (after WindowManager registration)
+        # Initialize auto-telemetry (after WindowManager registration so
+        # the telemetry hooks can resolve ``self._window_id``).
         self._init_telemetry()
 
     @property
@@ -987,33 +1395,40 @@ class WebView(
             height=height,
         )
 
-        # Create Python wrapper
+        # Build the Python wrapper without re-running __init__'s
+        # _CoreWebView(...) construction path (we already have a core
+        # produced by the embedded static method above), then delegate
+        # *all* attribute initialisation to ``_init_runtime_state`` so
+        # any future field added to the standard ``__init__`` flow is
+        # automatically picked up here too.
+        #
+        # ``from_init_kwargs`` is the same funnel ``__init__`` uses;
+        # we forward only the fields ``create_embedded`` actually
+        # accepts and rely on the dataclass defaults for the rest.
+        # ``forward_asset_root_to_core=True`` because the embedded
+        # core constructor (``_CoreWebView.create_embedded``) does
+        # not accept ``asset_root`` — the only place it can be
+        # applied is the ``core.set_asset_root`` call inside
+        # ``_init_runtime_state``.
         instance = cls.__new__(cls)
         instance._core = core
-        instance._parent = parent_hwnd
-        instance._mode = "child"
-        instance._bridge = None
-        instance._auto_timer = None
-        instance._show_thread = None
-        instance._async_core = None
-        instance._async_core_lock = threading.Lock()
-        instance._close_requested = False
-        instance._event_processor = None
-
-        instance._post_eval_js_hook = None
-        instance._config = {
-            "title": title,
-            "width": width,
-            "height": height,
-            "url": url,
-            "html": html,
-            "asset_root": asset_root,
-            "debug": debug,
-        }
-
-        # Configure asset root
-        if asset_root:
-            core.set_asset_root(asset_root)
+        instance._init_runtime_state(
+            _WebViewInitState.from_init_kwargs(
+                asset_root=asset_root,
+                forward_asset_root_to_core=True,
+                title=title,
+                width=width,
+                height=height,
+                url=url,
+                html=html,
+                debug=debug,
+                resizable=True,
+                frame=False,
+                parent=parent_hwnd,
+                mode="child",
+                auto_show=False,
+            )
+        )
 
         # Load content
         if url:
@@ -1103,8 +1518,8 @@ class WebView(
             else:
                 # Non-blocking (background thread)
                 logger.info("Standalone mode: non-blocking (background thread)")
-                logger.warning("⚠️  Window will close when script exits!")
-                logger.warning("⚠️  Use wait=True or keep script running with input()")
+                logger.warning("Window will close when script exits!")
+                logger.warning("Use wait=True or keep script running with input()")
                 self._show_non_blocking()
                 # Mark as shown
                 if hasattr(self, "_ready_events") and self._ready_events:
@@ -1446,7 +1861,11 @@ class WebView(
         should be closed.
 
         Returns:
-            True if the window should close, False otherwise
+            True if the window should close, False otherwise. Also returns
+            False when no backing core is currently available (packed mode,
+            pre-init, post-dispose, or a transient ``_async_core_lock``
+            contention) — in those cases there is nothing to drain and
+            synthesizing a close request would be wrong.
 
         Example:
             >>> # In Maya, use a scriptJob to process events
@@ -1457,7 +1876,16 @@ class WebView(
             ...
             >>> job_id = cmds.scriptJob(event=["idle", process_webview_events])
         """
-        return self._core.process_events()
+        # Route through ``_peek_active_core`` so this stays in lock-step
+        # with :attr:`is_ready` / :meth:`is_window_valid`. Without this,
+        # packed mode (``_core is None`` but ``_async_core`` wired up by
+        # the show-thread) would have ``is_ready`` report True while
+        # ``self._core.process_events()`` raises ``AttributeError`` on
+        # every 16 ms timer tick.
+        core = self._peek_active_core()
+        if core is None or core is WebView._CORE_LOCK_CONTENDED:
+            return False
+        return core.process_events()
 
     def process_events_ipc_only(self) -> bool:
         """Process only internal AuroraView IPC without touching host event loop.
@@ -1466,8 +1894,18 @@ class WebView(
         where the native window message pump is owned by the host application.
         It only drains the internal WebView message queue and respects
         lifecycle close requests.
+
+        Returns:
+            True if the window should close, False otherwise. Also returns
+            False when no backing core is currently available — see
+            :meth:`process_events` for the full enumeration.
         """
-        return self._core.process_ipc_only()
+        # Same active-core probe as :meth:`process_events`; see that method
+        # for the rationale on aligning with :attr:`is_ready` semantics.
+        core = self._peek_active_core()
+        if core is None or core is WebView._CORE_LOCK_CONTENDED:
+            return False
+        return core.process_ipc_only()
 
     def is_alive(self) -> bool:
         """Check if WebView is still running.
@@ -1752,6 +2190,141 @@ class WebView(
         """
         return self._ready_events
 
+    # ------------------------------------------------------------------
+    # Active-core probe
+    # ------------------------------------------------------------------
+    # Sentinel returned by :meth:`_peek_active_core` when the
+    # ``_async_core_lock`` is contended. It is intentionally a private
+    # singleton (not ``None``) so the caller can distinguish three states:
+    #
+    #   * ``_CORE_LOCK_CONTENDED`` — another thread is mid-transition on
+    #     ``_async_core``; treat as "ready / validity unknown right now"
+    #     and let the next 60 Hz tick retry.
+    #   * ``None``                 — neither async nor sync core is wired
+    #     up; the WebView is not yet (or no longer) initialized.
+    #   * concrete core object     — the active backing core.
+    _CORE_LOCK_CONTENDED: ClassVar[Any] = object()
+
+    def _peek_active_core(self) -> Any:
+        """Return the currently-active core, or a sentinel on contention.
+
+        This is the single place that knows how to pick between
+        ``_async_core`` and ``_core`` under the non-blocking lock
+        discipline used by 60 Hz timer callers. ``is_ready`` and
+        ``is_window_valid`` both build on this helper so their
+        contention semantics never drift.
+
+        Returns:
+            * :attr:`_CORE_LOCK_CONTENDED` when ``_async_core_lock`` is
+              held by another thread (caller should treat as transient
+              and retry on the next tick),
+            * the active core object (preferring ``_async_core`` over
+              the sync ``_core``), or
+            * ``None`` when no core is wired up.
+        """
+        lock = getattr(self, "_async_core_lock", None)
+        if lock is not None:
+            if not lock.acquire(blocking=False):
+                # Contended → caller decides how to interpret the gap.
+                return WebView._CORE_LOCK_CONTENDED
+            try:
+                async_core = self._async_core
+            finally:
+                lock.release()
+            if async_core is not None:
+                return async_core
+        # Stubs that bypass ``__init__`` may not have ``_async_core_lock``;
+        # fall straight through to the sync core in that case.
+        return getattr(self, "_core", None)
+
+    @property
+    def is_ready(self) -> bool:
+        """Whether the underlying WebView core is initialized.
+
+        Returns True when at least one of the WebView cores is available:
+
+        * The synchronous ``_core`` (created at construction time, used for
+          standalone / in-process modes), or
+        * The background-thread ``_async_core`` (assigned later in non-blocking
+          mode after the host thread has finished spinning up the controller).
+
+        Threading contract:
+            ``is_ready`` is called from the event timer tick at ~60 Hz, so
+            it must never stall on a contended ``_async_core_lock``. The
+            probe is delegated to :meth:`_peek_active_core` which acquires
+            the lock with ``blocking=False`` and returns
+            :attr:`_CORE_LOCK_CONTENDED` when another thread is
+            mid-transition on ``_async_core``. In that case we report
+            **not-ready** for this tick; the next tick (~16 ms later)
+            will retry.
+        """
+        core = self._peek_active_core()
+        if core is WebView._CORE_LOCK_CONTENDED:
+            return False
+        return core is not None
+
+    def is_window_valid(self) -> bool:
+        """Whether the underlying native window is still alive.
+
+        On Windows this delegates to ``core.is_window_valid()`` which calls
+        ``IsWindow()`` on the embedded HWND. On other platforms (or when the
+        Rust core does not yet expose the probe) we conservatively return
+        ``True`` so the caller treats the window as live.
+
+        This method is the **single public entry point** for window-validity
+        checks. The event timer (and any other liveness-driven consumer)
+        should call ``is_window_valid()`` instead of poking ``_core``
+        directly so that:
+
+        * the choice between ``_core`` and ``_async_core`` stays internal to
+          ``WebView``, and
+        * stubs/mocks can override the validity result without having to
+          fake a full ``_core`` object.
+
+        Lock-contention semantics match :attr:`is_ready` (see
+        :meth:`_peek_active_core`): we never block the timer on a
+        transient transition and instead report "valid for now".
+
+        Startup short-circuit:
+            When the active-core probe reports either ``None`` (no
+            core wired up yet, or already disposed) or
+            :attr:`_CORE_LOCK_CONTENDED` (another thread is
+            mid-transition on ``_async_core``), we report **valid**.
+            There is no window to be valid or invalid in those
+            states, and the sync ``_core`` may also be in the
+            "object built but HWND not attached" sub-state where
+            ``IsWindow(0)`` would otherwise return False and
+            trigger a spurious close. The timer interprets the gap
+            together with :attr:`is_ready` and skips its tick body
+            in that case anyway.
+
+        Returns:
+            ``True`` when the window is still valid (or when validity cannot
+            be determined). ``False`` only when the native probe explicitly
+            reports the window has been destroyed.
+        """
+        # One probe call covers both the "is_ready" gate and the
+        # "give me the active core" lookup — calling
+        # ``_peek_active_core`` twice (once via ``is_ready``, once
+        # directly) would acquire the non-blocking lock twice and
+        # widen the race window between the two reads for no benefit.
+        core = self._peek_active_core()
+        if core is None or core is WebView._CORE_LOCK_CONTENDED:
+            # Either not yet wired up / already disposed, or another
+            # thread is mid-transition. Both cases collapse to "valid
+            # for now": the next tick will pick up the real state.
+            return True
+
+        probe = getattr(core, "is_window_valid", None)
+        if probe is None:
+            # Older core builds without the probe — treat as valid.
+            return True
+        try:
+            return bool(probe())
+        except Exception as e:
+            logger.error("is_window_valid: native probe failed: %s", e)
+            return False
+
     @property
     def title(self) -> str:
         """Get the window title."""
@@ -1850,12 +2423,12 @@ class WebView(
         """
         return self._bridge
 
-    def send_to_bridge(self, command: str, params: Dict[str, Any] = None):
+    def send_to_bridge(self, command: str, params: Optional[Dict[str, Any]] = None) -> None:
         """Send command to Bridge clients (convenience method).
 
         Args:
             command: Command name
-            params: Command parameters
+            params: Command parameters (defaults to an empty dict when omitted)
 
         Example:
             >>> webview.send_to_bridge('create_layer', {'name': 'New Layer'})
@@ -1864,4 +2437,5 @@ class WebView(
             logger.warning("No bridge associated with this WebView")
             return
 
-        self._bridge.execute_command(command, params)
+        # Avoid mutable default args: build a fresh dict each call when None.
+        self._bridge.execute_command(command, params if params is not None else {})

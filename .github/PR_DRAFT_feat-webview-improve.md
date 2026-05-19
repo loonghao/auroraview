@@ -1,0 +1,270 @@
+## Summary
+
+Two layered improvements to the DCC-host embedding path, plus the
+related CI feedback hardening so fork PRs don't fail noisily:
+
+1. **Windows / Qt embedding fixes** — host UI freeze, STA deadlock,
+   non-reentrant subclass mutex, EventTimer dropping early IPC events.
+2. **Python construction-path hardening** — collapse the long-lived
+   `WebView.__init__` / `WebView.create_embedded` drift surface by
+   inlining the lifecycle mixins back into `WebView` and routing both
+   construction paths through a single `_WebViewInitState` dataclass
+   funnel. Also fixes a `process_events` `AttributeError` in packed
+   mode that was previously masked by `is_ready` only.
+3. **CI** — fork-PR comment 403 in `mutation-testing` and `pr-checks`
+   (missing `issues: write` + no fallback when the head repo is a
+   fork).
+
+13 commits, 17 files touched, no public API changes.
+
+Refs: #401
+
+## Commits
+
+| SHA | Type | Description |
+|---|---|---|
+| `2c393182` | fix(windows) | prevent host UI freeze and STA deadlock during WebView2 embedding |
+| `24e135be` | fix(qt) | keep EventTimer ticking when only the sync core is ready |
+| `84df0b1a` | fix | correct regressions from `2c39318` and `24e135b` |
+| `5c2fd8dc` | fix(ci) | resolve lint, encoding and test naming issues |
+| `6736e9a7` | fix(ci) | handle PR comment 403 from fork PRs and missing issues permission |
+| `45995b9a` | fix(windows) | unfreeze WebView2 cold-start STA pump |
+| `567056f8` | refactor(python) | inline lifecycle mixins into `WebView`, drop `factory` module |
+| `b615b14f` | fix(python) | delegate `EventTimer` readiness checks to `WebView.is_ready` |
+| `ac5467c3` | docs | record webview2 cold-start fixes in CHANGELOG and add this PR draft |
+| `f48d0e88` | chore | sync `Cargo.lock` with workspace 0.5.2 version bump |
+| `911958be` | refactor(python) | funnel `WebView` construction through `_WebViewInitState` |
+| `8e03e5ee` | fix(python) | guard `process_events` against missing core in packed mode |
+| `ac03d6db` | test(python) | pin `_WebViewInitState.from_init_kwargs` state machine |
+
+## Changes
+
+### `src/platform/windows/webview2.rs`
+
+- Replace the `PeekMessageW + Sleep(1ms)` busy-loop in `recv_with_pump`
+  with `CoWaitForMultipleHandles(DISPATCH_CALLS | DISPATCH_WINDOW_MESSAGES,
+  &[signal_event])`. The OS now wakes us only when WebView2's COM
+  callback fires, when a message arrives for this thread, or when
+  `signal_event` is set — so we stop competing with the host's message
+  loop.
+- Add a `SignalEvent` RAII guard (`CreateEventW` + `CloseHandle`) wired
+  into both `create_environment_blocking` and `create_controller_blocking`.
+  The async builder closure does `tx.send(res)` then `SetEvent(handle)`,
+  giving the waiter on-demand wake-up; `TICK_MS` is now a 1000ms
+  backstop instead of a 50ms polling tick.
+- Replace `try_into().unwrap()` on the COWAIT flag mask with `as u32`
+  (the `windows = 0.62` `COWAIT_FLAGS(i32)` newtype could legitimately
+  carry a high-bit flag in a future SDK; `try_into()` would panic at
+  runtime).
+- Surface `CO_E_NOTINITIALIZED` / `RPC_E_WRONG_THREAD` immediately
+  instead of swallowing them and waiting out the 30s cold-start
+  timeout.
+- Cold-start timeout raised 10s → 30s default, configurable via
+  `AURORAVIEW_WEBVIEW2_TIMEOUT_SECS` env var (positive integer in
+  seconds; non-parseable / zero / negative falls back to default with a
+  `tracing::warn!`). Covered by serial unit tests.
+
+### `crates/auroraview-core/src/builder/window_style.rs`
+
+- `drain_thread_messages_for(hwnd_filter, cap, reason)`: scoped
+  `PeekMessageW + DispatchMessageW` drain. Used before/after each big
+  `SetWindowLongW` / `SetParent` / `SetWindowPos` so the synchronous
+  `SendMessage` cascade into WebView2's `Chrome_WidgetWin_*`
+  descendants can finish its COM marshaling while the host's
+  `GetMessage` loop is paused. Scoped to our own HWND so we don't
+  disturb the host's message stream (Maya/Houdini `WM_PAINT` /
+  `WM_TIMER` ordering).
+- Three-level diagnostics: `n == 0` is silent, `0 < n < cap` traces,
+  `n == cap` warns with an actionable hint about raising
+  `STYLE_MUTATION_DRAIN_CAP`.
+- Only call `SetParent` when `GetParent()` differs from the desired
+  parent (tao already parents at creation; the redundant call
+  triggered a large `WM_PARENTNOTIFY` / DWM storm). `GetParent(...).ok()`
+  is treated as "no current parent → needs SetParent".
+- `subclass_for_zero_nc_area`: fix `parking_lot` self-deadlock by
+  splitting "check + read original" / "install WndProc" / "record
+  original" into 3 phases, with the guard always dropped before
+  `SetWindowPos` dispatches `WM_NCCALCSIZE` back into
+  `nc_subclass_wndproc` (which re-locks `ORIGINAL_WNDPROCS`;
+  `parking_lot::Mutex` is not reentrant). Also adds a no-op
+  `SetWindowPos(SWP_FRAMECHANGED)` commit between style mutation and
+  `SetParent` so style changes always materialize even when
+  `SetParent` short-circuits.
+
+### `python/auroraview/utils/event_timer.py`
+
+- Extract readiness into `_is_core_ready()`: treat the timer as ready
+  when EITHER `_async_core` OR `_core` is available, so IPC events
+  queued by the page during the non-blocking WebView2 startup window
+  are no longer silently dropped.
+- Also handles packed-mode / test-stub WebViews (no
+  `_async_core_lock`, possibly `_webview is None`) so they no longer
+  raise `AttributeError` on every tick.
+- Final form: `_is_core_ready()` delegates entirely to
+  `WebView.is_ready` so stub-compatibility, lock acquisition and
+  dual-core readiness are owned in one place.
+
+### `python/auroraview/core/webview.py` — Python construction-path hardening
+
+- **Inline lifecycle mixins** (`567056f8`): the previous
+  `WebViewLifecycleMixin` / `WebViewFactoryMixin` indirection has been
+  collapsed back into `WebView` itself. The `factory.py` module is
+  removed; `mixins/__init__.py` no longer re-exports the deleted
+  symbols. The mixins were the only consumers of the old `factory`
+  module and adding new fields required updating four files in
+  lock-step.
+- **`_WebViewInitState` dataclass funnel** (`911958be`): every input
+  consumed by `_init_runtime_state` is now aggregated in a single
+  `@dataclass`, with a `from_init_kwargs` classmethod that
+  `WebView.__init__` and `WebView.create_embedded` both go through.
+  - `forward_asset_root_to_core` switch makes the
+    `core.set_asset_root` ownership explicit (standard non-packed
+    `__init__` already passes `asset_root` to the Rust core
+    constructor; packed mode and `create_embedded` need
+    `_init_runtime_state` to call `set_asset_root` post-hoc).
+  - `strict=True` (default) makes typos like `parent_hwnd=` raise at
+    the funnel boundary instead of silently leaving fields at their
+    defaults.
+  - The None-sentinel rule (`v is None` on a field-with-default
+    means "use the dataclass default") is documented and pinned by a
+    regression test.
+- **`process_events` packed-mode guard** (`8e03e5ee`):
+  `WebView.process_events` and `process_events_ipc_only` previously
+  called `self._core.<...>()` unconditionally. In packed mode `_core`
+  is `None` until the show-thread wires up `_async_core`; `is_ready`
+  already returns True at that point, so any host timer ticking at
+  16 ms hit `AttributeError` on every tick. Both methods now route
+  through `_peek_active_core` so they share readiness semantics with
+  `is_ready` / `is_window_valid`: when no backing core is currently
+  available (packed mode, pre-init, post-dispose, or transient
+  `_async_core_lock` contention) they return `False` instead of
+  raising.
+
+### `tests/python/unit/test_webview_init_state.py` (new)
+
+- 13 cases pinning every branch of the construction-state funnel:
+  required vs optional field semantics, the
+  `forward_asset_root_to_core` fork (default / embedded / packed),
+  `strict=True` raises on typos and lists offending keys,
+  `strict=False` silently drops them, `bridge=False` survives the
+  None-sentinel filter as a legal user choice, end-to-end shape used
+  by `WebView.create_embedded`.
+- `TestRequiredFieldInvariant` fails loudly if any of the four
+  `Optional[X]` required fields (`url` / `html` / `parent` / `mode`)
+  ever gain a dataclass default — that would silently change what
+  `<field>=None` means for every caller.
+
+### `.github/workflows/{mutation-testing,pr-checks}.yml`
+
+- Add `issues: write` permission alongside `pull-requests: write`
+  (some PR-comment paths go through the issues API; missing it caused
+  403 on protected branches).
+- Guard the "Comment PR" / "Post screenshots to PR" steps with
+  `github.event.pull_request.head.repo.full_name == github.repository`
+  so they're skipped on fork PRs (where the GITHUB_TOKEN has no write
+  access).
+- Mark the comment steps `continue-on-error: true` so a transient 403
+  never fails the whole job.
+- Add a `step summary` fallback in `mutation-testing.yml` so the
+  score is always visible, even when the PR-comment step is skipped.
+
+### `tests/rust/window_utils_integration_tests.rs`
+
+- Rename 4 `rstest` tests to the `test_*` prefix to satisfy the
+  project lint rule (`get_foreground_window` collided with the
+  function under test, which the lint also flagged).
+
+### `Cargo.lock` / `uv.lock`
+
+- `Cargo.lock` synced with the `0.5.2` workspace version bump (`f48d0e88`).
+- `uv.lock`: bump the editable `auroraview` entry from `0.4.18` to
+  `0.5.2` to match the workspace version (carried in `911958be`).
+
+### Style-only changes (no behavior impact)
+
+- `examples/inspector_demo.py`: ruff / formatter pass — switched
+  f-strings from escaped `\"...\"` to outer-single-quote form. Pure
+  cosmetic, kept in this PR to keep the working tree clean.
+
+## Type
+
+- [x] fix
+- [ ] feat
+- [ ] docs
+- [x] refactor
+- [ ] perf
+- [x] test
+- [x] ci/chore
+
+## Checklist
+
+- [x] PR title follows Conventional Commits
+- [x] Existing tests cover the change (no new public API; behavioral
+      fixes verified by the manual matrix below; new
+      `_WebViewInitState` funnel covered by `tests/python/unit/test_webview_init_state.py`)
+- [ ] Docs update not required (no API changes)
+- [x] CI green locally: `vx cargo fmt --all`, `vx cargo clippy --all-targets --all-features -- -D warnings`, `vx uvx ruff check / format --check python/ tests/`, `vx just test`
+
+## Breaking changes
+
+- [x] No breaking changes
+- [ ] Breaking changes
+
+## Validation
+
+### Automated
+
+- Rust: `vx cargo fmt --all`, `vx cargo clippy --all-targets --all-features -- -D warnings`
+- Python: `vx uvx ruff check python/ tests/ examples/`, `vx uvx ruff format --check python/ tests/ examples/`
+- Tests: `vx just test`
+- Unit tests:
+  - `webview2_total_timeout` env-var parsing (serial, 4 cases) —
+    `src/platform/windows/webview2.rs::timeout_env_tests`.
+  - `_WebViewInitState.from_init_kwargs` state machine (13 cases) —
+    `tests/python/unit/test_webview_init_state.py`.
+
+### Manual regression matrix
+
+> Repro: launch the host, open the WebView panel, exercise resize /
+> focus / page reload, then close. Each row covers one host process.
+
+| Host | Python / Qt | Cold start UI freeze | STA deadlock on reparent | Early IPC events delivered | Packed mode `process_events` no `AttributeError` | Idle CPU / memory drift |
+|---|---|---|---|---|---|---|
+| Maya 2025 | Python 3.11 / PySide6 | pass — host stays interactive throughout | pass — no hang on `apply_child_window_style` | pass — `_is_core_ready` accepts sync-only core | pass | pass — no growth over 5 min |
+| Maya 2024 | Python 3.10 / PySide2 | pass — same as 2025 | pass | pass | pass | pass |
+| 3ds Max 2025 | Python 3.11 / PyQt5 | pass | pass | pass | pass | pass |
+| Houdini 20.5 | Python 3.11 / PySide2 | pass | pass | pass | pass | pass |
+| Standalone (Rust shell) | n/a | pass — `recv_with_pump` exits in <1s on warm Edge | n/a | pass | n/a | pass |
+
+Reasoning behind the matrix: each row is one *fix surface* validated
+end-to-end — Maya 2024 covers PySide2, Maya 2025 covers PySide6,
+3ds Max covers a different Qt host process model, Houdini covers an
+older Python with `_async_core` semantics, and Standalone validates
+that the changes do not regress the non-DCC path.
+
+### Edge cases sanity-checked
+
+- `AURORAVIEW_WEBVIEW2_TIMEOUT_SECS` set to `"0"`, `"abc"`, `"30s"`,
+  `"  45  "` — falls back / parses as documented.
+- `STYLE_MUTATION_DRAIN_CAP` saturation under heavy SetParent storm —
+  verified the new `tracing::warn!` fires (forced via a small
+  reproducer that floods `WM_USER`).
+- `_WebViewInitState.from_init_kwargs(parent_hwnd=...)` with a typo
+  raises `TypeError` listing the offending key, instead of silently
+  leaving `state.parent=None`.
+- `WebView(bridge=False)` — `False` survives the None-sentinel filter
+  as a legal user choice (distinct from `bridge=None` "use the
+  default").
+
+## Additional context
+
+- Related issue: #401
+- The `recv_with_pump` SignalEvent design is intentionally portable
+  to other blocking COM bridges; future PRs adding new async
+  WebView2 setters can reuse the same `(SignalEvent, mpsc::Receiver)`
+  pattern.
+- The `_WebViewInitState` funnel makes adding a new construction-time
+  field a one-liner: drop a new `@dataclass` attribute, decide where
+  it should be assigned in `_init_runtime_state`, done. Both
+  `__init__` and `create_embedded` pick it up automatically through
+  `from_init_kwargs`.
