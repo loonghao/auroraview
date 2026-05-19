@@ -43,15 +43,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   before installing the new `WndProc`, fixing a deadlock where
   `SetWindowPos(SWP_FRAMECHANGED)` re-entered the same non-reentrant mutex
   via the synchronous `WM_NCCALCSIZE` dispatch.
-* **python**: `WebView.process_events` and `process_events_ipc_only` no
-  longer raise `AttributeError` on every host-timer tick in packed mode.
-  Both methods previously called `self._core.<...>()` unconditionally;
-  in packed mode `_core` is `None` until the show-thread wires up
-  `_async_core`, while `is_ready` already reports True. They now resolve
-  the active core via the same `_async_core_lock` pattern used elsewhere
-  (`_async_core` if available, otherwise `_core`) and return `False` when
-  neither is wired up yet, so a host timer ticking at 16 ms gracefully
-  no-ops instead of raising.
 
 ## [0.5.2](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.1...auroraview-v0.5.2) (2026-04-25)
 

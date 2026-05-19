@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Event timer for WebView event processing.
 
 This module provides a timer-based event loop for processing WebView events
