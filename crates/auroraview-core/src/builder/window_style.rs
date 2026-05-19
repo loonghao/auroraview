@@ -86,6 +86,31 @@ pub struct ChildWindowStyleResult {
 /// The original WndProc is stored per-HWND in a global map and forwarded for
 /// all other messages.
 ///
+/// # Implementation outline
+///
+/// The install path is a 4-phase state machine, intentionally split into
+/// small helpers so reviewers can read it linearly without having to skim
+/// 200 lines of inline `SAFETY` text:
+///
+///   1. [`claim_subclass_slot`] — atomically reserve the per-HWND map
+///      entry with a sentinel under the lock. Concurrent callers
+///      short-circuit on `contains_key`.
+///   2. [`install_subclass_wndproc`] — call `SetWindowLongPtrW` and
+///      detect failure via the `GetLastError` MSDN contract; on
+///      failure roll the sentinel back so a retry can run.
+///   3. [`upgrade_subclass_slot`] — replace the sentinel with the
+///      real previous WndProc so non-`WM_NCCALCSIZE` forwarding works.
+///      From this point on, re-entrant lookups from the WM_NCCALCSIZE
+///      cascade find the real entry.
+///   4. [`commit_subclass_frame`] — `SetWindowPos(SWP_FRAMECHANGED)`
+///      to make Windows re-run the NC pass with our subclass active.
+///
+/// The lock MUST be released between phases 1 and 2 because phase 4's
+/// `SWP_FRAMECHANGED` synchronously dispatches `WM_NCCALCSIZE` into
+/// [`nc_subclass_wndproc`] on this same thread (parking_lot Mutex is
+/// not reentrant). The sentinel keeps that re-entrant lookup correct
+/// even though the entry isn't yet pointing at the real original.
+///
 /// # Safety
 /// Uses unsafe Win32 subclassing APIs.
 #[cfg(target_os = "windows")]
@@ -98,6 +123,14 @@ pub fn subclass_for_zero_nc_area(hwnd: isize) {
     const WM_NCCALCSIZE: u32 = 0x0083;
 
     /// Global map of original WndProcs, keyed by HWND value.
+    ///
+    /// Map entry semantics:
+    ///   * absent           — HWND has not been (and is not currently being) subclassed.
+    ///   * `Some(SENTINEL)` — install is in flight on another thread; treat as
+    ///     "subclass not yet ready" (forward to `DefWindowProcW` instead of
+    ///     trying to call the sentinel address as a wndproc).
+    ///   * `Some(orig)`     — install completed; `orig` is the real previous
+    ///     WndProc and must receive every non-WM_NCCALCSIZE message.
     static ORIGINAL_WNDPROCS: Mutex<Option<HashMap<isize, isize>>> = Mutex::new(None);
 
     /// Custom WndProc that zeroes out the NC area.
@@ -121,10 +154,22 @@ pub fn subclass_for_zero_nc_area(hwnd: isize) {
         }
 
         // Forward everything else to the original WndProc.
+        //
+        // Sentinel guard: if the map currently holds the sentinel value
+        // (the address of *this* function), it means
+        // [`install_subclass_wndproc`] has just installed us via
+        // `SetWindowLongPtrW` but [`upgrade_subclass_slot`] has not
+        // yet replaced the sentinel with the real original. Calling
+        // the sentinel as a wndproc would re-enter
+        // `nc_subclass_wndproc` and recurse forever. Falling back to
+        // `DefWindowProcW` is the documented safe default for an
+        // un-handled message.
+        let self_addr = nc_subclass_wndproc as *const () as usize as isize;
         let original = ORIGINAL_WNDPROCS
             .lock()
             .as_ref()
-            .and_then(|map| map.get(&(hwnd.0 as isize)).copied());
+            .and_then(|map| map.get(&(hwnd.0 as isize)).copied())
+            .filter(|orig| *orig != self_addr);
 
         if let Some(orig) = original {
             let wndproc: WNDPROC = std::mem::transmute(orig);
@@ -134,54 +179,120 @@ pub fn subclass_for_zero_nc_area(hwnd: isize) {
         }
     }
 
-    // SAFETY: hwnd is a valid window handle provided by the caller (guaranteed by
-    // the `# Safety` contract). Win32 APIs (GetWindowLongPtrW, SetWindowLongPtrW,
-    // SetWindowPos) are called with this valid HWND. The transmute of the original
-    // WndProc pointer to WNDPROC is safe because it was obtained from the same HWND.
-    unsafe {
-        let hwnd_win = HWND(hwnd as *mut _);
+    /// Outcome of [`claim_subclass_slot`].
+    enum SlotClaim {
+        /// Slot is ours. The caller MUST proceed to install / upgrade /
+        /// commit; on any abort path the sentinel must be rolled back
+        /// via `ORIGINAL_WNDPROCS.lock().as_mut().map(|m| m.remove(...))`.
+        Acquired { original: isize },
+        /// Either an install is already in flight on another thread
+        /// (sentinel present) or the subclass was previously installed
+        /// (real entry present). Both are no-ops.
+        AlreadyHandled,
+        /// `GetWindowLongPtrW` returned 0 — the HWND is no longer
+        /// valid, or the caller passed a non-window handle. We log
+        /// and bail out without touching the map.
+        InvalidHwnd,
+    }
 
-        // Initialize the map if needed AND check / insert the original WndProc
-        // ENTIRELY inside this short scope. The Mutex MUST be released before
-        // we install the new WndProc with SetWindowLongPtrW, because the very
-        // next SetWindowPos(SWP_FRAMECHANGED) call below synchronously dispatches
-        // WM_NCCALCSIZE back into `nc_subclass_wndproc` on this same thread —
-        // which would then re-acquire the same Mutex and deadlock (parking_lot
-        // Mutex is NOT reentrant).
-        let original: isize = {
-            let mut guard = ORIGINAL_WNDPROCS.lock();
-            let map = guard.get_or_insert_with(HashMap::new);
-            if map.contains_key(&hwnd) {
-                // Already subclassed — nothing to do.
-                return;
-            }
-            // Read the original WndProc with the lock held; storing a stale
-            // value would race with concurrent subclass attempts on the same HWND.
-            let original = GetWindowLongPtrW(hwnd_win, GWLP_WNDPROC);
-            if original == 0 {
-                tracing::warn!(
-                    "subclass_for_zero_nc_area: GetWindowLongPtrW returned 0 for HWND 0x{:X}",
-                    hwnd
+    /// Phase 1: claim the per-HWND map slot atomically with a sentinel.
+    ///
+    /// Inserting `self_addr` (the address of [`nc_subclass_wndproc`]
+    /// itself) under the lock both dedupes concurrent callers AND gives
+    /// the WM_NCCALCSIZE forward path a way to detect the "install in
+    /// progress" window. Without it, a concurrent caller could see an
+    /// empty map, race past the `contains_key` check, and end up
+    /// double-installing the subclass — the later install would
+    /// overwrite the earlier one's record of the *real* original
+    /// wndproc, leaking it forever.
+    ///
+    /// The sentinel value is `nc_subclass_wndproc as isize`, which is
+    /// guaranteed never to match a legitimate "original" wndproc on
+    /// this HWND: legitimate originals are whatever was registered
+    /// *before* phase 2, and phase 2 is what installs
+    /// `nc_subclass_wndproc` for the first time.
+    ///
+    /// The lock is released as soon as this function returns. See the
+    /// rationale on [`subclass_for_zero_nc_area`] for why this is
+    /// mandatory before phase 2's `SetWindowPos(SWP_FRAMECHANGED)`.
+    unsafe fn claim_subclass_slot(hwnd: isize, hwnd_win: HWND, self_addr: isize) -> SlotClaim {
+        let mut guard = ORIGINAL_WNDPROCS.lock();
+        let map = guard.get_or_insert_with(HashMap::new);
+        if map.contains_key(&hwnd) {
+            return SlotClaim::AlreadyHandled;
+        }
+        let orig = GetWindowLongPtrW(hwnd_win, GWLP_WNDPROC);
+        if orig == 0 {
+            tracing::warn!(
+                "subclass_for_zero_nc_area: GetWindowLongPtrW returned 0 for HWND 0x{:X}",
+                hwnd
+            );
+            return SlotClaim::InvalidHwnd;
+        }
+        // Stake the claim with the sentinel; concurrent callers will
+        // now hit the `contains_key` short-circuit above.
+        map.insert(hwnd, self_addr);
+        SlotClaim::Acquired { original: orig }
+    }
+
+    /// Roll the slot back to "absent". Called when phase 2 fails.
+    fn release_subclass_slot(hwnd: isize) {
+        let mut guard = ORIGINAL_WNDPROCS.lock();
+        if let Some(map) = guard.as_mut() {
+            map.remove(&hwnd);
+        }
+    }
+
+    /// Phase 2: install the new WndProc.
+    ///
+    /// Per MSDN, `SetWindowLongPtrW` returns the previous value on
+    /// success and 0 on failure — but the previous value can
+    /// legitimately be 0 too, so the unambiguous failure check is
+    /// `prev == 0 && GetLastError() != 0`. We clear the thread error
+    /// first to avoid reading stale state.
+    ///
+    /// On failure we roll the sentinel back via
+    /// [`release_subclass_slot`] so a later retry can proceed.
+    unsafe fn install_subclass_wndproc(hwnd: isize, hwnd_win: HWND, self_addr: isize) -> bool {
+        use windows::Win32::Foundation::{GetLastError, SetLastError, WIN32_ERROR};
+
+        SetLastError(WIN32_ERROR(0));
+        let prev = SetWindowLongPtrW(hwnd_win, GWLP_WNDPROC, self_addr);
+        if prev == 0 {
+            let err = GetLastError();
+            if err.0 != 0 {
+                tracing::error!(
+                    "subclass_for_zero_nc_area: SetWindowLongPtrW failed for HWND 0x{:X}, \
+                     GetLastError=0x{:08X}",
+                    hwnd,
+                    err.0
                 );
-                return;
+                release_subclass_slot(hwnd);
+                return false;
             }
-            map.insert(hwnd, original);
-            original
-            // `guard` drops here, releasing the lock BEFORE we install the
-            // new WndProc and before SetWindowPos triggers WM_NCCALCSIZE.
-        };
+        }
+        true
+    }
 
-        SetWindowLongPtrW(
-            hwnd_win,
-            GWLP_WNDPROC,
-            nc_subclass_wndproc as *const () as usize as isize,
-        );
+    /// Phase 3: upgrade the sentinel to the real original WndProc so
+    /// the subclass can forward non-WM_NCCALCSIZE messages.
+    ///
+    /// From this point on, WM_NCCALCSIZE re-entries from phase 4's
+    /// `SetWindowPos` find the real entry (not the sentinel) and
+    /// dispatch correctly.
+    fn upgrade_subclass_slot(hwnd: isize, original: isize) {
+        let mut guard = ORIGINAL_WNDPROCS.lock();
+        let map = guard.get_or_insert_with(HashMap::new);
+        map.insert(hwnd, original);
+    }
 
-        // Trigger re-calculation so the subclass takes effect immediately.
-        // NOTE: this synchronously dispatches WM_NCCALCSIZE into
-        // `nc_subclass_wndproc`, which will re-enter ORIGINAL_WNDPROCS.lock()
-        // for the forwarding lookup. Safe now because we already released our
-        // own guard above.
+    /// Phase 4: trigger NC frame re-calculation so the subclass takes
+    /// effect immediately.
+    ///
+    /// `SWP_FRAMECHANGED` synchronously dispatches `WM_NCCALCSIZE`
+    /// into [`nc_subclass_wndproc`] on this thread; the lookup now
+    /// finds the real original and the cascade returns cleanly.
+    unsafe fn commit_subclass_frame(hwnd_win: HWND) {
         let _ = SetWindowPos(
             hwnd_win,
             None,
@@ -191,12 +302,28 @@ pub fn subclass_for_zero_nc_area(hwnd: isize) {
             0,
             SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
         );
+    }
 
-        // Suppress the unused warning when `original` is otherwise dead in
-        // this branch (it's already stored in the map; we just keep the binding
-        // to make the intent clear and to avoid future regressions if someone
-        // reorders the code).
-        let _ = original;
+    // SAFETY: hwnd is a valid window handle provided by the caller (guaranteed by
+    // the `# Safety` contract). All Win32 calls below operate on this valid HWND
+    // or stack-local data. The transmute of the original WndProc pointer to WNDPROC
+    // (inside `nc_subclass_wndproc`) is safe because the value was obtained from
+    // `GetWindowLongPtrW` on the same HWND.
+    unsafe {
+        let hwnd_win = HWND(hwnd as *mut _);
+        let self_addr = nc_subclass_wndproc as *const () as usize as isize;
+
+        let original = match claim_subclass_slot(hwnd, hwnd_win, self_addr) {
+            SlotClaim::Acquired { original } => original,
+            SlotClaim::AlreadyHandled | SlotClaim::InvalidHwnd => return,
+        };
+
+        if !install_subclass_wndproc(hwnd, hwnd_win, self_addr) {
+            return;
+        }
+
+        upgrade_subclass_slot(hwnd, original);
+        commit_subclass_frame(hwnd_win);
 
         tracing::info!(
             "Subclassed HWND 0x{:X} for zero NC area (WM_NCCALCSIZE interception)",
@@ -211,7 +338,7 @@ pub fn subclass_for_zero_nc_area(_hwnd: isize) {
     // No-op on non-Windows platforms
 }
 
-/// Drain all pending Win32 messages on the *current* thread's queue.
+/// Drain pending Win32 messages on the *current* thread's queue.
 ///
 /// # Why this is needed
 ///
@@ -236,35 +363,90 @@ pub fn subclass_for_zero_nc_area(_hwnd: isize) {
 /// next synchronous `SendMessage` cascade does not pile on top of an
 /// already-saturated queue.
 ///
+/// # Scope filter
+///
+/// `hwnd_filter`:
+///   * `Some(hwnd)` — only drain messages targeted at `hwnd` (and its
+///     descendants per `PeekMessageW` semantics). Use this in DCC-embedded
+///     paths to avoid disturbing the host's own message stream
+///     (e.g. Maya/Qt `WM_PAINT` / `WM_TIMER`).
+///   * `None` — drain all messages on this thread's queue. Use only when
+///     the calling code owns the thread's message loop (standalone / tests).
+///
+/// # Tracing
+///
+/// `reason` is a short, static label (e.g. `"pre-style"`,
+/// `"post-set-parent"`, `"post-set-window-pos"`) that is logged alongside
+/// the dispatched count. It lets diagnostics tell which step in
+/// `apply_child_window_style` produced the queue pressure without having
+/// to walk the stack.
+///
 /// This is a *bounded* operation: we drain at most `cap` messages so we
 /// can never spin forever if the host keeps producing messages.
 #[cfg(target_os = "windows")]
-pub(crate) fn drain_thread_messages(cap: u32) {
+pub(crate) fn drain_thread_messages_for(hwnd_filter: Option<HWND>, cap: u32, reason: &'static str) {
     // SAFETY: PeekMessageW / TranslateMessage / DispatchMessageW are documented
     // Win32 APIs; we own the call (no foreign references) and the MSG buffer
     // is stack-local. No memory safety concerns.
     unsafe {
         let mut msg = MSG::default();
         let mut n: u32 = 0;
-        while n < cap && PeekMessageW(&mut msg, None, 0, 0, PM_REMOVE).as_bool() {
+        while n < cap && PeekMessageW(&mut msg, hwnd_filter, 0, 0, PM_REMOVE).as_bool() {
             let _ = TranslateMessage(&msg);
             DispatchMessageW(&msg);
             n += 1;
         }
-        if n > 0 {
+
+        // Distinguish three observable outcomes so diagnostics are not silent
+        // when the queue is actually saturated:
+        //   * n == 0       — quiet path, do nothing.
+        //   * 0 < n < cap  — normal cascade fully drained, trace at TRACE.
+        //   * n == cap     — drained up to the bound but PeekMessageW *might*
+        //     still have more pending. Emit a WARN with rate-limiting context
+        //     so operators can spot a real saturation issue (e.g. cap too
+        //     low for a particular DCC host) without grepping TRACE logs.
+        //     The message is intentionally actionable: it names the call site
+        //     (`reason`) and the cap value so bumping `STYLE_MUTATION_DRAIN_CAP`
+        //     is a one-line change driven by real evidence rather than
+        //     guesswork.
+        if n == 0 {
+            // Nothing to log: the common "no pending work" path stays silent
+            // so we don't spam logs in the steady state.
+        } else if n == cap {
+            tracing::warn!(
+                reason = reason,
+                filter = ?hwnd_filter,
+                dispatched = n,
+                cap = cap,
+                "drain_thread_messages_for hit cap; queue may still be saturated \
+                 (consider raising STYLE_MUTATION_DRAIN_CAP if this fires under load)"
+            );
+        } else {
             tracing::trace!(
-                "[drain_thread_messages] dispatched {} pending message(s)",
-                n
+                reason = reason,
+                filter = ?hwnd_filter,
+                dispatched = n,
+                cap = cap,
+                "drain_thread_messages_for"
             );
         }
     }
 }
 
-#[cfg(not(target_os = "windows"))]
-#[allow(dead_code)]
-pub(crate) fn drain_thread_messages(_cap: u32) {
-    // No-op on non-Windows platforms
-}
+// Non-Windows platforms have no callers: every `drain_thread_messages_for`
+// call site is gated behind `#[cfg(target_os = "windows")]`. We deliberately
+// do NOT expose a stub to keep cross-platform signature drift impossible.
+
+/// Maximum number of pending Win32 messages drained around each big style
+/// mutation in [`apply_child_window_style`].
+///
+/// Empirically large enough for one full cascade of
+/// `WM_NCCALCSIZE` / `WM_WINDOWPOSCHANGED` / `WM_PARENTNOTIFY` /
+/// `Chrome_WidgetWin_*` notifications produced by `SetWindowLongW` /
+/// `SetParent` / `SetWindowPos`, while staying bounded so we cannot spin
+/// forever if the host keeps producing messages.
+#[cfg(target_os = "windows")]
+const STYLE_MUTATION_DRAIN_CAP: u32 = 256;
 
 /// Apply WS_CHILD style to a window and set its parent
 ///
@@ -305,8 +487,12 @@ pub fn apply_child_window_style(
         // Without this, the upcoming SetWindowLongW/SetParent/SetWindowPos calls
         // would issue synchronous SendMessage cascades on top of a saturated
         // queue, deadlocking the STA when WebView2's child windows perform COM
-        // marshaling. See `drain_thread_messages` for full rationale.
-        drain_thread_messages(256);
+        // marshaling. See `drain_thread_messages_for` for full rationale.
+        //
+        // Scope the drain to messages targeted at our own HWND so we don't
+        // disturb the host's (Maya/Houdini/Qt) message stream — those hosts
+        // may have ordering assumptions on their own WM_PAINT/WM_INPUT/WM_TIMER.
+        drain_thread_messages_for(Some(hwnd_win), STYLE_MUTATION_DRAIN_CAP, "pre-style");
 
         // Step 1: Compute new styles
         let style = GetWindowLongW(hwnd_win, GWL_STYLE);
@@ -336,6 +522,37 @@ pub fn apply_child_window_style(
         SetWindowLongW(hwnd_win, GWL_STYLE, new_style);
         SetWindowLongW(hwnd_win, GWL_EXSTYLE, new_ex_style);
 
+        // Step 2.5: Commit style changes to the NC frame.
+        //
+        // Per MSDN, GWL_STYLE / GWL_EXSTYLE mutations are not visible to the
+        // window's non-client area until the next SetWindowPos with
+        // SWP_FRAMECHANGED. Without this commit, when the SetParent branch
+        // below short-circuits (`needs_set_parent == false`) the styles
+        // would only become visible at step 5's SetWindowPos — leaving a
+        // brief window where the new styles are stored but the frame is
+        // still drawn from the old ones (visible as a flash of the old
+        // caption / border on some DPI / theme combinations).
+        //
+        // The call is intentionally side-effect-free (no move, size, z-order
+        // or activation change); it just triggers the WM_NCCALCSIZE /
+        // WM_NCPAINT pass that materialises the style mutation.
+        let _ = SetWindowPos(
+            hwnd_win,
+            None,
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+        );
+        // Drain the resulting WM_NCCALCSIZE / WM_WINDOWPOSCHANGED cascade so
+        // it does not pile on top of the next SetParent / SetWindowPos call.
+        drain_thread_messages_for(
+            Some(hwnd_win),
+            STYLE_MUTATION_DRAIN_CAP,
+            "post-style-commit",
+        );
+
         // Step 3: Conditionally call SetParent.
         //
         // tao's `with_parent_window(parent_hwnd)` already sets the parent at
@@ -345,19 +562,57 @@ pub fn apply_child_window_style(
         // notify the *whole* subtree (WM_PARENTNOTIFY, DWM updates, etc.).
         //
         // Only call SetParent when the current parent is actually different
-        // from the desired one. Pump the queue afterwards so the resulting
-        // synchronous notifications can complete before we proceed.
-        let current_parent: HWND = GetParent(hwnd_win).unwrap_or(HWND(std::ptr::null_mut()));
-        if current_parent.0 != parent_hwnd_win.0 {
+        // from the desired one. Use `GetParent(...).ok()` instead of comparing
+        // raw HWND pointers — when GetParent fails (top-level window with no
+        // parent, or the call itself errored) it returns Err, and treating
+        // that as "different parent" is exactly the behavior we want.
+        //
+        // Diagnostic level for the Err branch is gated on the *original*
+        // style (`style`, before our SetWindowLongW above):
+        //
+        //   * Original style had `WS_CHILD` set → the HWND was already a
+        //     child window, which by definition must have a parent.
+        //     `GetParent` returning Err here points at a real anomaly
+        //     (parent destroyed, HWND torn down mid-call) — `warn!`.
+        //   * Original style did NOT have `WS_CHILD` set → caller passed
+        //     a legitimate top-level window (e.g. WS_POPUP) that we are
+        //     about to re-parent. This is the normal embedding flow,
+        //     not a bug — `debug!` so we don't drown out real warnings
+        //     in DCC logs.
+        //
+        // In both cases we still proceed: `SetParent` is the correct
+        // recovery action either way.
+        let was_child_originally = (style & (WS_CHILD.0 as i32)) != 0;
+        let needs_set_parent = match GetParent(hwnd_win).ok() {
+            Some(current) => current.0 != parent_hwnd_win.0,
+            None => {
+                if was_child_originally {
+                    tracing::warn!(
+                        "[apply_child_window_style] GetParent returned no parent for HWND 0x{:X} \
+                         that already had WS_CHILD set; parent may have been destroyed. \
+                         Proceeding with SetParent as recovery.",
+                        hwnd
+                    );
+                } else {
+                    tracing::debug!(
+                        "[apply_child_window_style] HWND 0x{:X} is currently top-level \
+                         (no WS_CHILD); will re-parent to 0x{:X}",
+                        hwnd,
+                        parent_hwnd
+                    );
+                }
+                true
+            }
+        };
+        if needs_set_parent {
             tracing::info!(
-                "[apply_child_window_style] SetParent: HWND 0x{:X} -> 0x{:X} (current parent 0x{:X})",
+                "[apply_child_window_style] SetParent: HWND 0x{:X} -> 0x{:X}",
                 hwnd,
-                parent_hwnd,
-                current_parent.0 as isize
+                parent_hwnd
             );
             let _ = SetParent(hwnd_win, Some(parent_hwnd_win));
             // Let WM_PARENTNOTIFY / DWM / Chrome_WidgetWin_* updates settle.
-            drain_thread_messages(256);
+            drain_thread_messages_for(Some(hwnd_win), STYLE_MUTATION_DRAIN_CAP, "post-set-parent");
         } else {
             tracing::debug!(
                 "[apply_child_window_style] parent already 0x{:X}, skip SetParent",
@@ -397,8 +652,13 @@ pub fn apply_child_window_style(
 
         // Drain again so SetWindowPos's WM_WINDOWPOSCHANGED / WM_NCCALCSIZE /
         // WM_SIZE cascade is delivered before the caller proceeds to the next
-        // big Win32 call (e.g. fix_webview2_child_windows).
-        drain_thread_messages(256);
+        // big Win32 call (e.g. fix_webview2_child_windows). Scoped to our HWND
+        // so we don't disturb the host's message stream.
+        drain_thread_messages_for(
+            Some(hwnd_win),
+            STYLE_MUTATION_DRAIN_CAP,
+            "post-set-window-pos",
+        );
 
         tracing::info!(
             "Applied WS_CHILD style: HWND 0x{:X} -> Parent 0x{:X} (style 0x{:08X} -> 0x{:08X}, ex_style 0x{:08X} -> 0x{:08X})",
