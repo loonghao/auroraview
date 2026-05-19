@@ -348,7 +348,7 @@ def create_webview(ctx: ChildContext):
 
     # Listen for parent events (if in child mode)
     if ctx.bridge:
-        ctx.on_parent_event("parent:data", lambda data: (webview.emit("parent:response", data)))
+        ctx.on_parent_event("parent:data", lambda data: webview.emit("parent:response", data))
 
     return webview
 
