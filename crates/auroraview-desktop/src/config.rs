@@ -71,6 +71,14 @@ pub struct DesktopConfig {
 
     /// CDP debugging port (0 = auto)
     pub debug_port: u16,
+
+    /// Whether to register the built-in wry file-drop handler.
+    ///
+    /// Default `false`: browser-native drag-drop is preserved. Set to `true`
+    /// to receive `file_drop_hover` / `file_drop` / `file_drop_cancelled`
+    /// events from the underlying webview.
+    #[serde(default)]
+    pub use_default_file_drop: bool,
 }
 
 impl Default for DesktopConfig {
@@ -98,6 +106,7 @@ impl Default for DesktopConfig {
             context_menu: true,
             hotkeys: true,
             debug_port: 0,
+            use_default_file_drop: false,
         }
     }
 }
@@ -170,6 +179,12 @@ impl DesktopConfig {
 
     pub fn debug_port(mut self, port: u16) -> Self {
         self.debug_port = port;
+        self
+    }
+
+    /// Toggle the built-in wry file-drop handler.
+    pub fn use_default_file_drop(mut self, enabled: bool) -> Self {
+        self.use_default_file_drop = enabled;
         self
     }
 }

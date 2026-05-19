@@ -187,6 +187,7 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
         allow_new_window: bool = False,
         new_window_mode: Optional[str] = None,
         remote_debugging_port: Optional[int] = None,
+        use_default_file_drop: Optional[bool] = None,
     ) -> None:
         """Initialize QtWebView.
 
@@ -214,6 +215,12 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
             allow_new_window: Allow opening new windows
             new_window_mode: How to handle new window requests
             remote_debugging_port: CDP remote debugging port
+            use_default_file_drop: Control wry's built-in file-drop handler
+                (RFC 0013 revised, **opt-out**).
+                ``None`` = backend default (``False`` = install the handler
+                and emit ``file_drop_*`` IPC events with full paths).
+                ``True`` = keep browser-native drag-and-drop and skip the
+                wry handler.
         """
         # Auto-prewarm on first instantiation
         if auto_prewarm and not QtWebView._auto_prewarm_triggered:
@@ -297,6 +304,7 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
             allow_new_window=allow_new_window,
             new_window_mode=new_window_mode,
             remote_debugging_port=remote_debugging_port,
+            use_default_file_drop=use_default_file_drop,
         )
 
         # Track cleanup state

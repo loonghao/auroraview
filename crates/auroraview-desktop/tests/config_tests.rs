@@ -277,3 +277,69 @@ fn test_desktop_config_builder_chaining_all_methods() {
     assert!(config.tray.is_some());
     assert_eq!(config.debug_port, 0);
 }
+
+// ============================================================================
+// RFC 0013: file-drop toggle
+// ============================================================================
+
+#[test]
+fn test_desktop_config_default_file_drop_disabled() {
+    let config = DesktopConfig::default();
+    assert!(
+        !config.use_default_file_drop,
+        "DesktopConfig must default to use_default_file_drop = false"
+    );
+}
+
+#[test]
+fn test_desktop_config_use_default_file_drop_setter() {
+    let on = DesktopConfig::new().use_default_file_drop(true);
+    assert!(on.use_default_file_drop);
+
+    let off = DesktopConfig::new().use_default_file_drop(false);
+    assert!(!off.use_default_file_drop);
+}
+
+#[test]
+fn test_desktop_config_file_drop_serde_roundtrip_enabled() {
+    let config = DesktopConfig::new().use_default_file_drop(true);
+    let json = serde_json::to_string(&config).unwrap();
+    let restored: DesktopConfig = serde_json::from_str(&json).unwrap();
+    assert!(restored.use_default_file_drop);
+}
+
+#[test]
+fn test_desktop_config_file_drop_serde_legacy_toml_defaults_false() {
+    // Older configs predate the RFC 0013 field. The struct uses
+    // `#[serde(default)]` on `use_default_file_drop`, so deserializing a
+    // payload that omits the field must yield `false` instead of erroring.
+    let legacy_json = r#"{
+        "title": "Legacy",
+        "width": 1024,
+        "height": 768,
+        "url": null,
+        "html": null,
+        "resizable": true,
+        "decorations": true,
+        "always_on_top": false,
+        "transparent": false,
+        "maximized": false,
+        "minimized": false,
+        "visible": true,
+        "fullscreen": false,
+        "devtools": false,
+        "data_dir": null,
+        "icon": null,
+        "tray": null,
+        "user_agent": null,
+        "proxy": null,
+        "context_menu": true,
+        "hotkeys": true,
+        "debug_port": 0
+    }"#;
+    let restored: DesktopConfig = serde_json::from_str(legacy_json).unwrap();
+    assert!(
+        !restored.use_default_file_drop,
+        "missing field must default to false (preserves legacy TOML configs)"
+    );
+}

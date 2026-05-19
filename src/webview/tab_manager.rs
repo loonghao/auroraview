@@ -239,6 +239,18 @@ pub enum TabManagerEvent {
     RemoveBookmark { url: String },
     /// Get all bookmarks (response via IPC)
     GetBookmarks,
+
+    /// File-drop event from a content tab's wry handler.
+    ///
+    /// Routed back to the per-tab IPC consumer (when one exists). Currently
+    /// content tabs do not own a dedicated `IpcHandler`, so the event is
+    /// logged for diagnostics only; the variant is wired through so future
+    /// per-tab IPC infrastructure can route it.
+    FileDrop {
+        tab_id: String,
+        event_name: &'static str,
+        data: serde_json::Value,
+    },
 }
 
 /// Tab Manager configuration
@@ -265,6 +277,12 @@ pub struct TabManagerConfig {
     pub restore_session: bool,
     /// Frameless window (no native title bar)
     pub frameless: bool,
+    /// Whether to register the built-in wry file-drop handler on each content tab.
+    ///
+    /// When `true`, OS drag-drop events on a content tab are forwarded as a
+    /// [`TabManagerEvent::FileDrop`] for downstream IPC routing. Default
+    /// `false`: browser-native drag-drop behavior is preserved.
+    pub use_default_file_drop: bool,
 }
 
 impl Default for TabManagerConfig {
@@ -279,6 +297,7 @@ impl Default for TabManagerConfig {
             initial_urls: vec![], // Empty = open home page
             restore_session: false,
             frameless: true, // Default to frameless for modern look
+            use_default_file_drop: false,
         }
     }
 }
@@ -318,6 +337,12 @@ impl TabManagerConfig {
     /// Enable/disable frameless window
     pub fn with_frameless(mut self, frameless: bool) -> Self {
         self.frameless = frameless;
+        self
+    }
+
+    /// Toggle the built-in wry file-drop handler for content tabs.
+    pub fn with_default_file_drop(mut self, enabled: bool) -> Self {
+        self.use_default_file_drop = enabled;
         self
     }
 }
@@ -471,6 +496,45 @@ impl TabManager {
             .with_devtools(debug)
             .with_visible(false) // Start hidden (Tab.cpp: initial state)
             .with_background_color(background_color);
+
+        // Optionally register the built-in wry file-drop handler. Events are
+        // routed back to the manager via the event loop proxy; the consumer
+        // side (`TabManagerEvent::FileDrop` arm) decides what to do with them.
+        //
+        // RFC 0013 revised: `use_default_file_drop` is opt-out. `false` (the
+        // default) installs the wry handler; `true` keeps the browser-native
+        // drag-drop. The flag is forwarded verbatim to the helper.
+        let proxy_for_drop = proxy.clone();
+        let tab_id_for_drop = tab_id.clone();
+        builder = auroraview_core::builder::install_default_file_drop_with(
+            builder,
+            self.config.use_default_file_drop,
+            "TabManager",
+            move |event_name, data| {
+                // Re-key the runtime &str onto a &'static slug so it can be
+                // sent across the event loop boundary.
+                let static_name: &'static str = match event_name {
+                    "file_drop_hover" => "file_drop_hover",
+                    "file_drop" => "file_drop",
+                    "file_drop_cancelled" => "file_drop_cancelled",
+                    other => {
+                        tracing::warn!("[TabManager] Unknown file-drop event name: {}", other);
+                        return;
+                    }
+                };
+                if let Err(e) = proxy_for_drop.send_event(TabManagerEvent::FileDrop {
+                    tab_id: tab_id_for_drop.clone(),
+                    event_name: static_name,
+                    data,
+                }) {
+                    tracing::error!(
+                        "[TabManager] Failed to dispatch FileDrop for tab {}: {}",
+                        tab_id_for_drop,
+                        e
+                    );
+                }
+            },
+        );
 
         // Add document title changed handler
         // Reference: Tab.cpp - Title updates from document.title changes
@@ -1217,6 +1281,24 @@ impl TabManager {
             TabManagerEvent::GetBookmarks => {
                 self.sync_bookmarks();
             }
+
+            // === File Drop (from content tab's wry handler) ===
+            TabManagerEvent::FileDrop {
+                tab_id,
+                event_name,
+                data,
+            } => {
+                // Current-state limitation: multi-tab content tabs do not yet own
+                // a per-tab IpcHandler, so events from `use_default_file_drop=True`
+                // have no consumer here. Log at warn so users who explicitly opted
+                // in can observe this gap instead of silently losing events.
+                tracing::warn!(
+                    "[TabManager] FileDrop tab={} event={} data={} (no per-tab IpcHandler yet; event dropped)",
+                    tab_id,
+                    event_name,
+                    data
+                );
+            }
         }
     }
 
@@ -1337,5 +1419,52 @@ mod tests {
         assert_eq!(manager.tab_count(), 0);
         assert!(manager.active_tab().is_none());
         assert!(manager.event_proxy().is_none());
+    }
+
+    // ====================================================================
+    // RFC 0013: file-drop toggle
+    // ====================================================================
+
+    #[test]
+    fn test_tab_manager_config_default_file_drop_off() {
+        let config = TabManagerConfig::default();
+        assert!(
+            !config.use_default_file_drop,
+            "TabManagerConfig must default to use_default_file_drop = false"
+        );
+    }
+
+    #[test]
+    fn test_tab_manager_config_with_default_file_drop_setter() {
+        let enabled = TabManagerConfig::default().with_default_file_drop(true);
+        assert!(enabled.use_default_file_drop);
+
+        let disabled = TabManagerConfig::default().with_default_file_drop(false);
+        assert!(!disabled.use_default_file_drop);
+    }
+
+    #[test]
+    fn test_tab_manager_event_file_drop_constructs() {
+        // Smoke check: TabManagerEvent::FileDrop carries a static event name
+        // (one of the three mapped slugs) and a JSON payload through the event
+        // loop boundary. Building one ensures the variant signature matches
+        // what the wry handler installs in create_tab().
+        let event = TabManagerEvent::FileDrop {
+            tab_id: "tab_1".to_string(),
+            event_name: "file_drop",
+            data: serde_json::json!({"paths": ["a.txt"]}),
+        };
+        match event {
+            TabManagerEvent::FileDrop {
+                tab_id,
+                event_name,
+                data,
+            } => {
+                assert_eq!(tab_id, "tab_1");
+                assert_eq!(event_name, "file_drop");
+                assert_eq!(data["paths"][0], "a.txt");
+            }
+            _ => panic!("Expected FileDrop variant"),
+        }
     }
 }

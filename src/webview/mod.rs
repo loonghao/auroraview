@@ -18,6 +18,7 @@ pub mod config; // Public for testing
 #[cfg(feature = "python-bindings")]
 pub(crate) mod desktop;
 pub mod devtools; // DevTools window management
+pub mod drag_drop_bridge; // Wry drag-drop -> IpcHandler bridge
 pub(crate) mod event_loop;
 pub mod features; // Feature integration (RFC 0007 Phase 4)
 pub mod js_assets; // JavaScript assets management

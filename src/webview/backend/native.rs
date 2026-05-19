@@ -1454,21 +1454,14 @@ impl NativeBackend {
             }
         });
 
-        // Add native file drag-drop handler using shared builder module
-        // This provides full file paths that browsers cannot access due to security restrictions
-        let ipc_handler_for_drop = ipc_handler.clone();
-        builder = builder.with_drag_drop_handler(
-            auroraview_core::builder::create_drag_drop_handler(move |event_name, data| {
-                let ipc_message = IpcMessage {
-                    event: event_name.to_string(),
-                    data,
-                    id: None,
-                };
-
-                if let Err(e) = ipc_handler_for_drop.handle_message(ipc_message) {
-                    tracing::error!("[NativeBackend] Error handling {}: {}", event_name, e);
-                }
-            }),
+        // Optionally register the built-in wry file-drop handler.
+        // RFC 0013 revised: `use_default_file_drop` is opt-out — `false` (the
+        // default) installs the wry handler; `true` keeps browser-native DnD.
+        builder = crate::webview::drag_drop_bridge::install_default_file_drop_to_ipc(
+            builder,
+            ipc_handler.clone(),
+            config.use_default_file_drop,
+            "NativeBackend",
         );
 
         // Build WebView - use standard build for desktop mode

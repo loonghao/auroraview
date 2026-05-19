@@ -9,7 +9,7 @@ keywords = ["webview", "desktop", "gui", "tauri", "electron"]
 categories = ["gui", "web-programming"]
 
 [dependencies]
-auroraview-core = { path = "../auroraview-core" }
+auroraview-core = { path = "../auroraview-core", features = ["wry-builder"] }
 auroraview-plugins = { path = "../auroraview-plugins" }
 
 # WebView

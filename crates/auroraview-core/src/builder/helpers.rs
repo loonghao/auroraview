@@ -19,10 +19,8 @@ use std::sync::Arc;
 /// A closure suitable for `WebViewBuilder::with_drag_drop_handler`
 pub fn create_drag_drop_handler<F>(callback: F) -> impl Fn(wry::DragDropEvent) -> bool + 'static
 where
-    F: Fn(&str, serde_json::Value) + Send + Sync + 'static,
+    F: Fn(&str, serde_json::Value) + Send + 'static,
 {
-    let callback = Arc::new(callback);
-
     DragDropHandler::new(move |data: DragDropEventData| {
         let event_name = data.event_type.as_event_name();
         let json_data = data.to_json();

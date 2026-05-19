@@ -295,3 +295,59 @@ fn tab_event_mute_then_unmute() {
     assert!(matches!(mute_ev, TabEvent::MuteTab { muted: true, .. }));
     assert!(matches!(unmute_ev, TabEvent::MuteTab { muted: false, .. }));
 }
+
+// ============================================================================
+// RFC 0013: TabEvent::FileDrop
+// ============================================================================
+
+#[rstest]
+#[case("file_drop_hover")]
+#[case("file_drop")]
+#[case("file_drop_cancelled")]
+fn tab_event_file_drop_construction(#[case] event_name: &'static str) {
+    let payload = serde_json::json!({"paths": ["a.txt"]});
+    let ev = TabEvent::FileDrop {
+        tab_id: "tab_1".into(),
+        event_name: event_name.to_string(),
+        data: payload.clone(),
+    };
+    match ev {
+        TabEvent::FileDrop {
+            tab_id,
+            event_name: name,
+            data,
+        } => {
+            assert_eq!(tab_id.to_string(), "tab_1");
+            assert_eq!(name, event_name);
+            assert_eq!(data, payload);
+        }
+        _ => panic!("Expected FileDrop variant"),
+    }
+}
+
+#[test]
+fn tab_event_file_drop_serde_roundtrip() {
+    let ev = TabEvent::FileDrop {
+        tab_id: "tab_42".into(),
+        event_name: "file_drop".to_string(),
+        data: serde_json::json!({
+            "paths": ["a.txt", "b.png"],
+            "position": {"x": 1, "y": 2},
+            "timestamp": 0
+        }),
+    };
+    let json = serde_json::to_string(&ev).unwrap();
+    let back: TabEvent = serde_json::from_str(&json).unwrap();
+    match back {
+        TabEvent::FileDrop {
+            tab_id,
+            event_name,
+            data,
+        } => {
+            assert_eq!(tab_id.to_string(), "tab_42");
+            assert_eq!(event_name, "file_drop");
+            assert_eq!(data["paths"].as_array().unwrap().len(), 2);
+        }
+        _ => panic!("Expected FileDrop variant after round-trip"),
+    }
+}

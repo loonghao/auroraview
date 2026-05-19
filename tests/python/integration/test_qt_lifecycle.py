@@ -248,3 +248,97 @@ class TestQtWebViewAppIntegration:
 
         # Cleanup
         webview.close()
+
+
+# ============================================================================
+# RFC 0013: use_default_file_drop forwarding
+# ============================================================================
+
+
+@pytest.mark.skipif(
+    _SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI or Rust core not available"
+)
+class TestQtWebViewFileDropToggle:
+    """RFC 0013: ``QtWebView(use_default_file_drop=...)`` must reach the core.
+
+    These tests stub ``WebView.create`` so that no real wry instance is created.
+    They prove the kwarg is plumbed verbatim from QtWebView through to the
+    Python ``WebView`` factory.
+    """
+
+    @pytest.fixture
+    def qapp(self):
+        from qtpy.QtWidgets import QApplication
+
+        app = QApplication.instance()
+        if app is None:
+            app = QApplication(sys.argv)
+        yield app
+
+    @pytest.fixture
+    def captured_create(self, monkeypatch):
+        """Stub ``WebView.create`` and return a list of captured kwargs."""
+        from auroraview.core.webview import WebView
+
+        captured = []
+
+        class _Stub:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+            def emit(self, *_a, **_kw):
+                pass
+
+            def close(self):
+                pass
+
+            def show(self):
+                pass
+
+            def get_handle(self):
+                return None
+
+            def on(self, *_a, **_kw):
+                pass
+
+        def fake_create(**kwargs):
+            captured.append(kwargs)
+            return _Stub(**kwargs)
+
+        monkeypatch.setattr(WebView, "create", staticmethod(fake_create))
+        yield captured
+
+    def test_qtwebview_default_kwarg_is_none(self, qapp, captured_create):
+        """No kwarg supplied => ``None`` flows down (Rust default = False)."""
+        from auroraview import QtWebView
+
+        QtWebView()
+        assert captured_create, "WebView.create was not called"
+        assert captured_create[0].get("use_default_file_drop") is None
+
+    def test_qtwebview_explicit_true_forwarded(self, qapp, captured_create):
+        from auroraview import QtWebView
+
+        QtWebView(use_default_file_drop=True)
+        assert captured_create[-1].get("use_default_file_drop") is True
+
+    def test_qtwebview_explicit_false_forwarded(self, qapp, captured_create):
+        from auroraview import QtWebView
+
+        QtWebView(use_default_file_drop=False)
+        assert captured_create[-1].get("use_default_file_drop") is False
+
+
+class TestQtWebViewFileDropSignature:
+    """Signature-only checks (run regardless of Rust core availability)."""
+
+    def test_qtwebview_init_kwarg_default(self):
+        import inspect
+
+        pytest.importorskip("qtpy")
+
+        from auroraview.integration.qt._core import QtWebView
+
+        params = inspect.signature(QtWebView.__init__).parameters
+        assert "use_default_file_drop" in params
+        assert params["use_default_file_drop"].default is None

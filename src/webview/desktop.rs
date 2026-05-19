@@ -713,21 +713,16 @@ pub fn create_desktop(
             });
     }
 
-    // Add native file drag-drop handler using shared builder module
-    // This provides full file paths that browsers cannot access due to security restrictions
-    let ipc_handler_for_drop = ipc_handler.clone();
-    webview_builder = webview_builder.with_drag_drop_handler(
-        auroraview_core::builder::create_drag_drop_handler(move |event_name, data| {
-            let ipc_message = IpcMessage {
-                event: event_name.to_string(),
-                data,
-                id: None,
-            };
-
-            if let Err(e) = ipc_handler_for_drop.handle_message(ipc_message) {
-                tracing::error!("[standalone] Error handling {}: {}", event_name, e);
-            }
-        }),
+    // Optionally register the built-in wry file-drop handler.
+    // RFC 0013 revised: `use_default_file_drop` is opt-out. The default
+    // (`false`) installs the wry handler and surfaces full file paths via
+    // `file_drop_*` IPC events (capabilities the browser otherwise hides for
+    // security reasons); pass `true` to keep the browser-native drag-drop.
+    webview_builder = crate::webview::drag_drop_bridge::install_default_file_drop_to_ipc(
+        webview_builder,
+        ipc_handler.clone(),
+        config.use_default_file_drop,
+        "standalone",
     );
 
     // Add IPC handler to capture events and calls from JavaScript

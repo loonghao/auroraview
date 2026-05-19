@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 """Tests for file drop events."""
 
+import inspect
+
+import pytest
+
 from auroraview.core.events import WindowEvent, WindowEventData
 
 
@@ -181,3 +185,112 @@ class TestFileDropEventData:
         assert data.files is not None
         assert data.files[0]["name"] == "clipboard_image.png"
         assert data.timestamp == 1234567890123
+
+
+# ============================================================================
+# RFC 0013: use_default_file_drop toggle
+# ============================================================================
+
+
+@pytest.fixture
+def webview_create_signature():
+    """Return ``inspect.Signature`` for ``WebView.create``."""
+    from auroraview.core.webview import WebView
+
+    return inspect.signature(WebView.create)
+
+
+@pytest.fixture
+def webview_init_signature():
+    """Return ``inspect.Signature`` for ``WebView.__init__``."""
+    from auroraview.core.webview import WebView
+
+    return inspect.signature(WebView.__init__)
+
+
+class TestFileDropToggleSignature:
+    """RFC 0013 (revised): ensure the kwarg is wired from Python to the Rust
+    layer.
+
+    These tests are signature-only so they run on every platform without
+    spawning a real WebView. They guard against:
+
+    - The kwarg disappearing from the public Python API.
+    - The default ever flipping away from ``None`` (which means "use the
+      Rust-side default", currently ``False`` = install the wry handler).
+    """
+
+    def test_create_kwarg_exposed(self, webview_create_signature):
+        params = webview_create_signature.parameters
+        assert "use_default_file_drop" in params
+
+    def test_create_kwarg_default_is_none(self, webview_create_signature):
+        param = webview_create_signature.parameters["use_default_file_drop"]
+        assert param.default is None
+
+    def test_init_kwarg_exposed(self, webview_init_signature):
+        params = webview_init_signature.parameters
+        assert "use_default_file_drop" in params
+
+    def test_init_kwarg_default_is_none(self, webview_init_signature):
+        param = webview_init_signature.parameters["use_default_file_drop"]
+        assert param.default is None
+
+
+class TestFileDropToggleExplicitTrue:
+    """Verify the kwarg is forwarded when an explicit ``True`` is provided."""
+
+    def test_create_explicit_true_passes_through(self, monkeypatch):
+        """``WebView.create(use_default_file_drop=True)`` reaches __init__."""
+        from auroraview.core import webview as webview_module
+
+        captured = {}
+
+        def fake_init(self, **kwargs):
+            captured.update(kwargs)
+            self._auto_timer = None
+
+        monkeypatch.setattr(webview_module.WebView, "__init__", fake_init)
+        monkeypatch.setattr(webview_module.WebView, "show", lambda self, *_a, **_kw: None)
+        # Avoid singleton pollution between tests.
+        webview_module.WebView._singleton_registry = {}
+
+        instance = webview_module.WebView.create(use_default_file_drop=True, auto_show=False)
+        assert isinstance(instance, webview_module.WebView)
+        assert captured.get("use_default_file_drop") is True
+
+    def test_create_explicit_false_passes_through(self, monkeypatch):
+        """``WebView.create(use_default_file_drop=False)`` reaches __init__."""
+        from auroraview.core import webview as webview_module
+
+        captured = {}
+
+        def fake_init(self, **kwargs):
+            captured.update(kwargs)
+            self._auto_timer = None
+
+        monkeypatch.setattr(webview_module.WebView, "__init__", fake_init)
+        monkeypatch.setattr(webview_module.WebView, "show", lambda self, *_a, **_kw: None)
+        webview_module.WebView._singleton_registry = {}
+
+        webview_module.WebView.create(use_default_file_drop=False, auto_show=False)
+        assert captured.get("use_default_file_drop") is False
+
+    def test_create_omitted_defaults_to_none(self, monkeypatch):
+        """Omitting the kwarg forwards ``None`` (Rust-side default = False,
+        which under the revised RFC 0013 semantics means "install the wry
+        handler and emit file_drop_* events")."""
+        from auroraview.core import webview as webview_module
+
+        captured = {}
+
+        def fake_init(self, **kwargs):
+            captured.update(kwargs)
+            self._auto_timer = None
+
+        monkeypatch.setattr(webview_module.WebView, "__init__", fake_init)
+        monkeypatch.setattr(webview_module.WebView, "show", lambda self, *_a, **_kw: None)
+        webview_module.WebView._singleton_registry = {}
+
+        webview_module.WebView.create(auto_show=False)
+        assert captured.get("use_default_file_drop") is None

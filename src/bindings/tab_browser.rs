@@ -75,7 +75,8 @@ use crate::webview::tab_manager::{TabManager, TabManagerConfig};
     height=900,
     home_url="https://www.google.com",
     debug=false,
-    initial_urls=None
+    initial_urls=None,
+    use_default_file_drop=None
 ))]
 fn run_browser(
     title: &str,
@@ -84,6 +85,7 @@ fn run_browser(
     home_url: &str,
     debug: bool,
     initial_urls: Option<Vec<String>>,
+    use_default_file_drop: Option<bool>,
 ) -> PyResult<()> {
     tracing::info!(
         "[run_browser] Starting multi-tab browser: {} ({}x{})",
@@ -101,6 +103,10 @@ fn run_browser(
 
     if let Some(urls) = initial_urls {
         config = config.with_initial_urls(urls);
+    }
+
+    if let Some(enabled) = use_default_file_drop {
+        config = config.with_default_file_drop(enabled);
     }
 
     // Create and run the tab manager
@@ -122,7 +128,8 @@ fn run_browser(
     height=900,
     home_url="https://www.google.com",
     debug=false,
-    initial_urls=None
+    initial_urls=None,
+    use_default_file_drop=None
 ))]
 fn run_tab_browser(
     title: &str,
@@ -131,8 +138,17 @@ fn run_tab_browser(
     home_url: &str,
     debug: bool,
     initial_urls: Option<Vec<String>>,
+    use_default_file_drop: Option<bool>,
 ) -> PyResult<()> {
-    run_browser(title, width, height, home_url, debug, initial_urls)
+    run_browser(
+        title,
+        width,
+        height,
+        home_url,
+        debug,
+        initial_urls,
+        use_default_file_drop,
+    )
 }
 
 /// Register tab browser functions with Python module

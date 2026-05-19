@@ -297,3 +297,39 @@ fn browser_config_debug_flag(#[case] debug: bool) {
     let config = BrowserConfig::builder().debug(debug).build();
     assert_eq!(config.debug, debug);
 }
+
+// -------------------------------------------------------------------------
+// RFC 0013: file-drop toggle
+// -------------------------------------------------------------------------
+
+#[test]
+fn browser_config_default_file_drop_disabled() {
+    let config = BrowserConfig::default();
+    assert!(
+        !config.use_default_file_drop,
+        "BrowserConfig must default to use_default_file_drop = false"
+    );
+}
+
+#[rstest]
+#[case(true)]
+#[case(false)]
+fn browser_config_use_default_file_drop_setter(#[case] enabled: bool) {
+    let config = BrowserConfig::builder()
+        .use_default_file_drop(enabled)
+        .build();
+    assert_eq!(config.use_default_file_drop, enabled);
+}
+
+#[test]
+fn browser_config_file_drop_chains_with_other_setters() {
+    let config = BrowserConfig::builder()
+        .title("Drop Browser")
+        .size(1024, 768)
+        .use_default_file_drop(true)
+        .build();
+    assert_eq!(config.title, "Drop Browser");
+    assert_eq!(config.width, 1024);
+    assert_eq!(config.height, 768);
+    assert!(config.use_default_file_drop);
+}

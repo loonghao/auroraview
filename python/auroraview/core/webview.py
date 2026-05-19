@@ -140,6 +140,10 @@ class WebView(
         dcc_mode: Union[bool, str] = "auto",
         # New structured config (takes precedence if provided)
         config: Optional["WebViewConfig"] = None,
+        # File-drop opt-out (RFC 0013 revised): None falls back to Rust default
+        # (False), which *installs* the wry file-drop handler and emits
+        # file_drop_* IPC events. Pass True to keep browser-native DnD.
+        use_default_file_drop: Optional[bool] = None,
     ) -> None:
         r"""Initialize the WebView.
 
@@ -442,6 +446,7 @@ class WebView(
                 download_directory=download_directory,  # Default download directory
                 proxy_url=proxy_url,  # Proxy server URL
                 user_agent=user_agent,  # Custom User-Agent string
+                use_default_file_drop=use_default_file_drop,  # RFC 0013: opt-in wry file-drop
             )
         else:
             self._core = None  # Packed mode: no Rust core needed
@@ -700,6 +705,8 @@ class WebView(
         new_window_mode: Optional[str] = None,
         # Remote debugging
         remote_debugging_port: Optional[int] = None,
+        # File drop (RFC 0013)
+        use_default_file_drop: Optional[bool] = None,
     ) -> "WebView":
         """Create WebView instance (recommended way).
 
@@ -734,6 +741,18 @@ class WebView(
             singleton: Singleton key. If provided, only one instance with this key
                       can exist at a time. Calling create() again with the same key
                       returns the existing instance.
+            use_default_file_drop: Control wry's built-in file-drop handler
+                (RFC 0013 revised, **opt-out**).
+                ``None`` (default) → use the Rust-side default, which is
+                ``False`` and means *install the handler* and surface
+                ``file_drop_hover`` / ``file_drop`` / ``file_drop_cancelled``
+                IPC events with full filesystem paths.
+                ``True`` → keep the browser-native drag-and-drop behavior
+                (``<input type="file">`` etc.) and **do not** emit those IPC
+                events.
+                Note: ``WebView.create_embedded()`` goes through a separate
+                PyO3 entry point and does not surface this flag in the
+                current iteration.
 
         Returns:
             WebView instance
@@ -824,6 +843,7 @@ class WebView(
             allow_new_window=allow_new_window,  # Allow window.open()
             new_window_mode=new_window_mode,  # New window behavior
             remote_debugging_port=remote_debugging_port,  # CDP debugging port
+            use_default_file_drop=use_default_file_drop,  # RFC 0013: opt-in wry file-drop
         )
 
         # Auto timer (embedded mode)

@@ -86,7 +86,10 @@ pub use window_style::{
 
 // Wry-specific exports
 #[cfg(feature = "wry-builder")]
-pub use drag_drop::{DragDropCallback, DragDropEventData, DragDropEventType, DragDropHandler};
+pub use drag_drop::{
+    install_default_file_drop_with, DragDropCallback, DragDropEventData, DragDropEventType,
+    DragDropHandler,
+};
 #[cfg(feature = "wry-builder")]
 pub use helpers::{create_drag_drop_handler, create_ipc_handler, create_simple_ipc_handler};
 #[cfg(feature = "wry-builder")]

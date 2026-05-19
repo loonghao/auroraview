@@ -22,7 +22,7 @@ impl AuroraView {
     /// Create a new WebView instance
     #[new]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (title="DCC WebView", width=800, height=600, url=None, html=None, dev_tools=true, context_menu=true, resizable=true, decorations=true, parent_hwnd=None, parent_mode=None, asset_root=None, data_directory=None, allow_file_protocol=false, always_on_top=false, transparent=false, background_color=None, auto_show=true, headless=false, remote_debugging_port=None, ipc_batch_size=0, icon=None, tool_window=false, undecorated_shadow=true, allow_new_window=false, new_window_mode=None, splash_overlay=false, allow_downloads=true, download_prompt=false, download_directory=None, proxy_url=None, user_agent=None))]
+    #[pyo3(signature = (title="DCC WebView", width=800, height=600, url=None, html=None, dev_tools=true, context_menu=true, resizable=true, decorations=true, parent_hwnd=None, parent_mode=None, asset_root=None, data_directory=None, allow_file_protocol=false, always_on_top=false, transparent=false, background_color=None, auto_show=true, headless=false, remote_debugging_port=None, ipc_batch_size=0, icon=None, tool_window=false, undecorated_shadow=true, allow_new_window=false, new_window_mode=None, splash_overlay=false, allow_downloads=true, download_prompt=false, download_directory=None, proxy_url=None, user_agent=None, use_default_file_drop=None))]
     fn new(
         title: &str,
         width: u32,
@@ -56,6 +56,7 @@ impl AuroraView {
         download_directory: Option<&str>,
         proxy_url: Option<&str>,
         user_agent: Option<&str>,
+        use_default_file_drop: Option<bool>,
     ) -> PyResult<Self> {
         tracing::info!(
             "AuroraView::new() called with title: {}, transparent={}, tool_window={}, decorations={}",
@@ -117,6 +118,7 @@ impl AuroraView {
             download_directory: download_directory.map(std::path::PathBuf::from),
             proxy_url: proxy_url.map(|s| s.to_string()),
             user_agent: user_agent.map(|s| s.to_string()),
+            use_default_file_drop: use_default_file_drop.unwrap_or(false),
             ..Default::default()
         };
 

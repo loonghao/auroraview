@@ -64,6 +64,8 @@ pub struct BrowserConfig {
     pub remote_debugging_port: u16,
     /// Frameless window (no native title bar)
     pub frameless: bool,
+    /// Whether to register the built-in wry file-drop handler on each tab.
+    pub use_default_file_drop: bool,
 }
 
 impl Default for BrowserConfig {
@@ -81,6 +83,7 @@ impl Default for BrowserConfig {
             devtools: DevToolsConfig::default(),
             remote_debugging_port: 0,
             frameless: true,
+            use_default_file_drop: false,
         }
     }
 }
@@ -204,6 +207,12 @@ impl BrowserConfigBuilder {
     /// Enable/disable frameless window (no native title bar)
     pub fn frameless(mut self, frameless: bool) -> Self {
         self.config.frameless = frameless;
+        self
+    }
+
+    /// Toggle the built-in wry file-drop handler.
+    pub fn use_default_file_drop(mut self, enabled: bool) -> Self {
+        self.config.use_default_file_drop = enabled;
         self
     }
 

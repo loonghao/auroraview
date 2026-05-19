@@ -119,10 +119,49 @@ impl TabManager {
         let content_height = size.height.saturating_sub(header_height);
 
         // Build WebView
-        let builder = WebViewBuilder::new()
+        let mut builder = WebViewBuilder::new()
             .with_url(&actual_url)
             .with_devtools(self.config.debug || self.config.features.dev_tools)
             .with_visible(false);
+
+        // Optionally register the built-in wry file-drop handler. Events are
+        // forwarded as `TabEvent::FileDrop` so downstream consumers can route
+        // them through their own IPC stack.
+        //
+        // RFC 0013 revised: `use_default_file_drop` is opt-out — `false` (the
+        // default) means "let auroraview install the wry handler and surface
+        // file_drop_* IPC events"; `true` means "keep the browser-native
+        // drag-drop and don't install anything".
+        if !self.config.use_default_file_drop {
+            if let Some(proxy) = self.event_proxy.read().clone() {
+                let tab_id_for_drop = tab_id.clone();
+                builder = auroraview_core::builder::install_default_file_drop_with(
+                    builder,
+                    // The outer `if` already decided we want the handler
+                    // installed; pass `false` so the helper proceeds.
+                    false,
+                    "BrowserTab",
+                    move |event_name, data| {
+                        if let Err(e) = proxy.send_event(TabEvent::FileDrop {
+                            tab_id: tab_id_for_drop.clone(),
+                            event_name: event_name.to_string(),
+                            data,
+                        }) {
+                            tracing::error!(
+                                "[BrowserTab] Failed to dispatch FileDrop for tab {}: {}",
+                                tab_id_for_drop,
+                                e
+                            );
+                        }
+                    },
+                );
+            } else {
+                tracing::warn!(
+                    "[BrowserTab] use_default_file_drop=false but no event proxy is set; \
+                     file_drop_* events will not be delivered"
+                );
+            }
+        }
 
         // Set position within parent window (Windows-specific bounds)
         #[cfg(target_os = "windows")]

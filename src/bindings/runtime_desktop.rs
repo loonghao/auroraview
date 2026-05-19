@@ -29,7 +29,8 @@ impl PyDesktopConfig {
         always_on_top = false,
         transparent = false,
         devtools = true,
-        debug_port = 0
+        debug_port = 0,
+        use_default_file_drop = None
     ))]
     #[allow(clippy::too_many_arguments)]
     fn new(
@@ -44,6 +45,7 @@ impl PyDesktopConfig {
         transparent: bool,
         devtools: bool,
         debug_port: u16,
+        use_default_file_drop: Option<bool>,
     ) -> Self {
         Self {
             inner: auroraview_desktop::DesktopConfig {
@@ -58,6 +60,7 @@ impl PyDesktopConfig {
                 transparent,
                 devtools,
                 debug_port,
+                use_default_file_drop: use_default_file_drop.unwrap_or(false),
                 ..Default::default()
             },
         }
@@ -133,6 +136,12 @@ impl PyDesktopConfig {
     /// Builder-style: set debug port
     fn debug_port(&mut self, port: u16) -> Self {
         self.inner.debug_port = port;
+        self.clone()
+    }
+
+    /// Builder-style: toggle the built-in wry file-drop handler.
+    fn use_default_file_drop(&mut self, enabled: bool) -> Self {
+        self.inner.use_default_file_drop = enabled;
         self.clone()
     }
 

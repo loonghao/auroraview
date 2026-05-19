@@ -437,6 +437,20 @@ pub struct WebViewConfig {
     /// WARNING: Enabling this bypasses WebView's default security restrictions
     pub allow_file_protocol: bool,
 
+    /// Whether to register the built-in wry file-drop handler.
+    ///
+    /// When `true`, OS drag-drop events are bridged into 3 IPC events:
+    /// `file_drop_hover` / `file_drop` / `file_drop_cancelled`
+    /// (`file_drop_over` is dropped inside the helper because its frequency
+    /// would flood the IPC channel).
+    ///
+    /// Default `false`: the browser's native drag-drop (e.g.
+    /// `<input type="file">`) keeps working. Set to `true` to obtain full
+    /// file paths, which the browser otherwise hides for security reasons.
+    ///
+    /// **Builder-time only**: must be set before the WebView is created.
+    pub use_default_file_drop: bool,
+
     /// Automatically show window after creation
     /// Default: true (show window after loading screen is ready)
     /// Set to false for DCC embedding where window visibility is controlled externally
@@ -639,6 +653,7 @@ impl Default for WebViewConfig {
             allow_new_window: false, // Block new windows by default (deprecated)
             new_window_mode: NewWindowMode::Deny, // Block new windows by default
             allow_file_protocol: false, // Block file:// protocol by default for security
+            use_default_file_drop: false, // Default: do not register wry file-drop handler
             auto_show: true,         // Show window after loading screen is ready
             headless: false,         // Show window by default
             remote_debugging_port: None, // CDP debugging disabled by default
@@ -812,6 +827,16 @@ impl WebViewBuilder {
     /// WARNING: Enabling this bypasses WebView's default security restrictions
     pub fn allow_file_protocol(mut self, allow: bool) -> Self {
         self.config.allow_file_protocol = allow;
+        self
+    }
+
+    /// Register the built-in wry file-drop handler.
+    ///
+    /// When enabled, OS drag-drop events are bridged into 3 IPC events
+    /// (`file_drop_hover` / `file_drop` / `file_drop_cancelled`). Default
+    /// is `false` so the browser's native drag-drop behavior is preserved.
+    pub fn with_default_file_drop(mut self, enabled: bool) -> Self {
+        self.config.use_default_file_drop = enabled;
         self
     }
 
@@ -1109,5 +1134,38 @@ mod tests {
         assert!(!cfg.decorations);
         assert!(!cfg.undecorated_shadow);
         assert!(cfg.tool_window);
+    }
+
+    // ============================================================
+    // RFC 0013: file-drop toggle
+    // ============================================================
+
+    #[rstest]
+    fn test_default_file_drop_disabled_by_default(default_config: WebViewConfig) {
+        assert!(
+            !default_config.use_default_file_drop,
+            "use_default_file_drop must default to false to keep browser drag-drop intact"
+        );
+    }
+
+    #[rstest]
+    #[case(true)]
+    #[case(false)]
+    fn test_with_default_file_drop_setter(builder: WebViewBuilder, #[case] enabled: bool) {
+        let cfg = builder.with_default_file_drop(enabled).build();
+        assert_eq!(cfg.use_default_file_drop, enabled);
+    }
+
+    #[rstest]
+    fn test_with_default_file_drop_chain_preserves_other_fields(builder: WebViewBuilder) {
+        let cfg = builder
+            .title("Drop Test")
+            .size(640, 480)
+            .with_default_file_drop(true)
+            .build();
+        assert_eq!(cfg.title, "Drop Test");
+        assert_eq!(cfg.width, 640);
+        assert_eq!(cfg.height, 480);
+        assert!(cfg.use_default_file_drop);
     }
 }

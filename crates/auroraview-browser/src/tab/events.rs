@@ -77,6 +77,19 @@ pub enum TabEvent {
     OpenDevTools { tab_id: Option<TabId> },
     /// Close DevTools for a tab
     CloseDevTools { tab_id: Option<TabId> },
+
+    // === File Drop ===
+    /// File-drop event from a tab's wry handler.
+    ///
+    /// Forwarded from the underlying webview when
+    /// [`crate::config::BrowserConfig::use_default_file_drop`] is enabled.
+    /// `event_name` is one of `file_drop_hover`, `file_drop`,
+    /// `file_drop_cancelled`.
+    FileDrop {
+        tab_id: TabId,
+        event_name: String,
+        data: serde_json::Value,
+    },
 }
 
 impl TabEvent {

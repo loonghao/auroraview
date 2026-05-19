@@ -126,7 +126,8 @@ use crate::webview::desktop;
     download_prompt=false,
     download_directory=None,
     proxy_url=None,
-    user_agent=None
+    user_agent=None,
+    use_default_file_drop=None
 ))]
 #[allow(clippy::too_many_arguments)]
 fn run_desktop(
@@ -161,6 +162,7 @@ fn run_desktop(
     download_directory: Option<String>,
     proxy_url: Option<String>,
     user_agent: Option<String>,
+    use_default_file_drop: Option<bool>,
 ) -> PyResult<()> {
     tracing::info!("[run_desktop] Creating desktop WebView: {}", title);
 
@@ -252,6 +254,7 @@ fn run_desktop(
         download_directory: download_directory.map(PathBuf::from),
         proxy_url,  // Proxy server URL
         user_agent, // Custom User-Agent
+        use_default_file_drop: use_default_file_drop.unwrap_or(false),
         #[cfg(target_os = "windows")]
         tool_window,
         #[cfg(target_os = "windows")]
@@ -324,7 +327,8 @@ fn run_desktop(
     download_prompt=false,
     download_directory=None,
     proxy_url=None,
-    user_agent=None
+    user_agent=None,
+    use_default_file_drop=None
 ))]
 #[allow(clippy::too_many_arguments)]
 fn run_standalone(
@@ -359,6 +363,7 @@ fn run_standalone(
     download_directory: Option<String>,
     proxy_url: Option<String>,
     user_agent: Option<String>,
+    use_default_file_drop: Option<bool>,
 ) -> PyResult<()> {
     run_desktop(
         title,
@@ -392,6 +397,7 @@ fn run_standalone(
         download_directory,
         proxy_url,
         user_agent,
+        use_default_file_drop,
     )
 }
 

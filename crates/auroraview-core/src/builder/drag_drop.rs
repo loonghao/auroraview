@@ -7,7 +7,7 @@ use std::sync::Arc;
 use wry::DragDropEvent;
 
 /// Callback type for handling drag-drop events
-pub type DragDropCallback = Arc<dyn Fn(DragDropEventData) + Send + Sync>;
+pub type DragDropCallback = Arc<dyn Fn(DragDropEventData) + Send>;
 
 /// Drag-drop event data
 #[derive(Debug, Clone)]
@@ -59,7 +59,7 @@ impl DragDropHandler {
     /// Create a new drag-drop handler with a callback
     pub fn new<F>(callback: F) -> Self
     where
-        F: Fn(DragDropEventData) + Send + Sync + 'static,
+        F: Fn(DragDropEventData) + Send + 'static,
     {
         Self {
             callback: Arc::new(callback),
@@ -189,4 +189,51 @@ impl DragDropEventData {
             }
         }
     }
+}
+
+/// Conditionally install the default wry file-drop handler on a builder.
+///
+/// The flag uses the **opt-out** convention `use_default_file_drop`, mirroring
+/// the public Python kwarg (RFC 0013, revised semantics):
+///
+/// - `use_default_file_drop = true`  → returns the builder untouched, i.e. the
+///   browser's native drag-and-drop is preserved (e.g. `<input type="file">`
+///   keeps working) and **no** `file_drop_*` IPC events are emitted.
+/// - `use_default_file_drop = false` (the default for callers that didn't set
+///   the kwarg) → registers a wry drag-drop handler that translates OS
+///   drag-drop events into 3 IPC-shaped events (`file_drop_hover`, `file_drop`,
+///   `file_drop_cancelled`) and forwards them to `on_event`.
+///
+/// `Over` events are dropped inside [`super::helpers::create_drag_drop_handler`]
+/// because their frequency would flood the IPC channel.
+///
+/// This helper is intentionally decoupled from any IPC / event-loop abstraction
+/// so it can be reused by `tab_manager`, `auroraview-desktop`, etc.
+///
+/// The callback only requires `Send + 'static` (no `Sync`). This is needed so
+/// that callers can capture types like `tao::EventLoopProxy<UserEvent>` which
+/// are `Send` but not `Sync` on every platform.
+pub fn install_default_file_drop_with<'a, F>(
+    builder: wry::WebViewBuilder<'a>,
+    use_default_file_drop: bool,
+    log_tag: &'static str,
+    on_event: F,
+) -> wry::WebViewBuilder<'a>
+where
+    F: Fn(&str, serde_json::Value) + Send + 'static,
+{
+    if use_default_file_drop {
+        tracing::debug!(
+            "[{}] use_default_file_drop=true → keeping browser-native drag-drop, \
+             skipping wry file-drop handler",
+            log_tag
+        );
+        return builder;
+    }
+    tracing::debug!(
+        "[{}] use_default_file_drop=false → installing wry file-drop handler \
+         (emits file_drop_hover / file_drop / file_drop_cancelled)",
+        log_tag
+    );
+    builder.with_drag_drop_handler(super::helpers::create_drag_drop_handler(on_event))
 }
