@@ -1841,7 +1841,11 @@ class WebView(
         should be closed.
 
         Returns:
-            True if the window should close, False otherwise
+            True if the window should close, False otherwise. Also returns
+            False when no backing core is currently available (packed mode,
+            pre-init, post-dispose, or a transient ``_async_core_lock``
+            contention) — in those cases there is nothing to drain and
+            synthesizing a close request would be wrong.
 
         Example:
             >>> # In Maya, use a scriptJob to process events
@@ -1852,7 +1856,16 @@ class WebView(
             ...
             >>> job_id = cmds.scriptJob(event=["idle", process_webview_events])
         """
-        return self._core.process_events()
+        # Route through ``_peek_active_core`` so this stays in lock-step
+        # with :attr:`is_ready` / :meth:`is_window_valid`. Without this,
+        # packed mode (``_core is None`` but ``_async_core`` wired up by
+        # the show-thread) would have ``is_ready`` report True while
+        # ``self._core.process_events()`` raises ``AttributeError`` on
+        # every 16 ms timer tick.
+        core = self._peek_active_core()
+        if core is None or core is WebView._CORE_LOCK_CONTENDED:
+            return False
+        return core.process_events()
 
     def process_events_ipc_only(self) -> bool:
         """Process only internal AuroraView IPC without touching host event loop.
@@ -1861,8 +1874,18 @@ class WebView(
         where the native window message pump is owned by the host application.
         It only drains the internal WebView message queue and respects
         lifecycle close requests.
+
+        Returns:
+            True if the window should close, False otherwise. Also returns
+            False when no backing core is currently available — see
+            :meth:`process_events` for the full enumeration.
         """
-        return self._core.process_ipc_only()
+        # Same active-core probe as :meth:`process_events`; see that method
+        # for the rationale on aligning with :attr:`is_ready` semantics.
+        core = self._peek_active_core()
+        if core is None or core is WebView._CORE_LOCK_CONTENDED:
+            return False
+        return core.process_ipc_only()
 
     def is_alive(self) -> bool:
         """Check if WebView is still running.
