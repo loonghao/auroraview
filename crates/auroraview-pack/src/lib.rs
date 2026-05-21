@@ -132,7 +132,7 @@ pub use manifest::{
     DownloadStage, ExtensionRemoteManifestEntry, ExtensionsManifestConfig, FrontendConfig,
     HealthCheckConfig, HooksManifestConfig, IsolationManifestConfig, Manifest,
     ManifestWindowConfig, PackageConfig, ProcessManifestConfig, ProtectionManifestConfig,
-    PyOxidizerManifestConfig, StartPosition, VxConfig,
+    PyOxidizerManifestConfig, SecurityManifestConfig, StartPosition, VxConfig,
 };
 
 // Backward compatibility aliases for manifest platform types

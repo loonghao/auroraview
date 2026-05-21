@@ -50,6 +50,29 @@ pub trait DragDropIpcSink: Send + Sync + 'static {
     ) -> Result<(), DispatchError>;
 }
 
+/// No-op [`DragDropIpcSink`] used at call sites that pass `capture=false`
+/// unconditionally (RFC 0016 Browser-mode controller and business tabs).
+///
+/// Because [`attach_drag_drop_handler`] short-circuits on `capture=false`
+/// and never calls `dispatch`, a single shared no-op type keeps every
+/// "never-attached" sink generic-arg consistent and avoids duplicated
+/// type definitions across crates.
+///
+/// For test-only sinks that need to count or fail dispatches, define a
+/// dedicated test helper instead.
+#[derive(Debug, Default)]
+pub struct NoopDragDropSink;
+
+impl DragDropIpcSink for NoopDragDropSink {
+    fn dispatch(
+        &self,
+        _event_name: &str,
+        _data: serde_json::Value,
+    ) -> Result<(), DispatchError> {
+        Ok(())
+    }
+}
+
 /// Conditionally attach the drag-drop proxy handler to a `wry::WebViewBuilder`.
 ///
 /// - `capture == false` — the builder is returned unchanged. The helper
