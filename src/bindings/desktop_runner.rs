@@ -107,6 +107,7 @@ use crate::webview::desktop;
     transparent=false,
     allow_new_window=false,
     allow_file_protocol=false,
+    capture_file_drop=None,
     always_on_top=false,
     headless=false,
     remote_debugging_port=None,
@@ -141,6 +142,7 @@ fn run_desktop(
     transparent: bool,
     allow_new_window: bool,
     allow_file_protocol: bool,
+    capture_file_drop: Option<bool>,
     always_on_top: bool,
     headless: bool,
     remote_debugging_port: Option<u16>,
@@ -234,6 +236,11 @@ fn run_desktop(
         auto_show: !headless, // Don't auto-show in headless mode
         headless,
         remote_debugging_port,
+        // RFC 0017 tri-state contract: Python passes Option<bool>; the Rust
+        // WebViewConfig field is bool, so we land the tri-state with
+        // unwrap_or(false). This is the SOLE permitted flatten point in the
+        // entire Python -> Rust call chain.
+        capture_file_drop: capture_file_drop.unwrap_or(false),
         // Security defaults
         content_security_policy: None,
         cors_allowed_origins: Vec::new(),
@@ -305,6 +312,7 @@ fn run_desktop(
     transparent=false,
     allow_new_window=false,
     allow_file_protocol=false,
+    capture_file_drop=None,
     always_on_top=false,
     headless=false,
     remote_debugging_port=None,
@@ -339,6 +347,7 @@ fn run_standalone(
     transparent: bool,
     allow_new_window: bool,
     allow_file_protocol: bool,
+    capture_file_drop: Option<bool>,
     always_on_top: bool,
     headless: bool,
     remote_debugging_port: Option<u16>,
@@ -372,6 +381,7 @@ fn run_standalone(
         transparent,
         allow_new_window,
         allow_file_protocol,
+        capture_file_drop,
         always_on_top,
         headless,
         remote_debugging_port,
