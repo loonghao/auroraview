@@ -299,11 +299,11 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
     // Drag-drop sink (RFC 0015) — single Arc shared across both PackMode
     // arms. Default `capture_file_drop = false` means the helper short-
     // circuits and the sink is never invoked.
-    let dragdrop_sink = Arc::new(ipc::PackedDragDropSink {
-        python_backend: python_backend_state.clone(),
-        plugin_router: plugin_router.clone(),
-        proxy: proxy.clone(),
-    });
+    let dragdrop_sink = Arc::new(ipc::PackedDragDropSink::new(
+        python_backend_state.clone(),
+        plugin_router.clone(),
+        proxy.clone(),
+    ));
     let capture_file_drop = resolve_packed_capture_file_drop(config.capture_file_drop);
 
     // Create WebView
