@@ -382,8 +382,19 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
         config.windows_resource.console = false;
     }
 
-    // RFC 0015: CLI flags take precedence over manifest. Both flags absent
-    // → keep whatever `from_manifest` produced. Either flag set → override.
+    // RFC 0015 §4.2 merge rule: CLI tri-state takes precedence over the
+    // manifest. Both flags absent → CLI returns `None` → keep whatever
+    // `PackConfig::from_manifest` already collapsed into `bool` (manifest
+    // value, defaulting to `false` when absent). Either flag set → the
+    // CLI override unconditionally wins, including over a manifest `true`
+    // when the user passes `--no-capture-file-drop`.
+    //
+    // Note: `PackConfig::from_manifest` already applies `unwrap_or(false)`
+    // to the manifest `Option<bool>`, so the "manifest set false" vs
+    // "manifest absent" distinction is already lost when we get here.
+    // That is acceptable for the current code default (`false`) but a
+    // future change of default would need `PackConfig.capture_file_drop`
+    // to become `Option<bool>` itself; tracked as follow-up.
     if let Some(value) = capture_file_drop_override {
         config.capture_file_drop = value;
     }
