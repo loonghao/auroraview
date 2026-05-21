@@ -154,6 +154,7 @@ fn main() -> Result<()> {
                 debug: cli.debug,
                 allow_new_window: cli.allow_new_window,
                 allow_file_protocol: cli.allow_file_protocol,
+                capture_file_drop: false,
                 always_on_top: cli.always_on_top,
                 watch: false,
                 poll_interval_ms: 1500,

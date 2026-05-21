@@ -125,6 +125,14 @@ pub fn configure_webview_builder(
         );
     }
 
+    // Conditionally attach drag-drop proxy (RFC 0015). Must run before
+    // `add_ipc_handler` consumes `ipc_handler`.
+    webview_builder = auroraview_core::builder::attach_drag_drop_handler(
+        webview_builder,
+        config.capture_file_drop,
+        &ipc_handler,
+    );
+
     // Add IPC handler
     webview_builder = add_ipc_handler(webview_builder, ipc_handler, message_queue);
 

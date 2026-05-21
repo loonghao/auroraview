@@ -159,3 +159,18 @@ impl Default for IpcRouter {
         Self::new()
     }
 }
+
+impl auroraview_core::builder::DragDropIpcSink for IpcRouter {
+    fn dispatch(
+        &self,
+        event_name: &str,
+        data: serde_json::Value,
+    ) -> Result<(), auroraview_core::builder::DispatchError> {
+        if let Some(handlers) = self.event_listeners.get(event_name) {
+            for handler in handlers.value() {
+                handler(data.clone());
+            }
+        }
+        Ok(())
+    }
+}

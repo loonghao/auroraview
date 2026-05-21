@@ -71,6 +71,13 @@ pub struct DesktopConfig {
 
     /// CDP debugging port (0 = auto)
     pub debug_port: u16,
+
+    /// Capture file drop events as IPC `file_drop_*` events.
+    ///
+    /// Default: `false`. See RFC 0015 §2 — enabling this disables HTML5
+    /// `dragover`/`drop` inside the WebView (upstream wry/WebView2
+    /// limitation).
+    pub capture_file_drop: bool,
 }
 
 impl Default for DesktopConfig {
@@ -98,6 +105,7 @@ impl Default for DesktopConfig {
             context_menu: true,
             hotkeys: true,
             debug_port: 0,
+            capture_file_drop: false,
         }
     }
 }
@@ -170,6 +178,14 @@ impl DesktopConfig {
 
     pub fn debug_port(mut self, port: u16) -> Self {
         self.debug_port = port;
+        self
+    }
+
+    /// Capture file drops as IPC `file_drop_*` events instead of native
+    /// HTML5 drag-drop. See [`DesktopConfig::capture_file_drop`] and
+    /// RFC 0015 §2 for the trade-offs.
+    pub fn capture_file_drop(mut self, capture: bool) -> Self {
+        self.capture_file_drop = capture;
         self
     }
 }

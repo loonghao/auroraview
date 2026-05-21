@@ -437,6 +437,19 @@ pub struct WebViewConfig {
     /// WARNING: Enabling this bypasses WebView's default security restrictions
     pub allow_file_protocol: bool,
 
+    /// Capture file drop events as IPC `file_drop_*` events.
+    ///
+    /// Default: `false`. When `false`, the WebView falls back to the
+    /// browser-native HTML5 `dragenter` / `dragover` / `drop` events.
+    /// When `true`, AuroraView registers `wry::with_drag_drop_handler`
+    /// and forwards drag-drop events as IPC `file_drop_hover` /
+    /// `file_drop` / `file_drop_cancelled` (giving access to absolute
+    /// file paths that browsers cannot expose).
+    ///
+    /// WARNING: Enabling this disables HTML5 dragover/drop inside the
+    /// WebView (upstream wry/WebView2 limitation). See RFC 0015 §2.
+    pub capture_file_drop: bool,
+
     /// Automatically show window after creation
     /// Default: true (show window after loading screen is ready)
     /// Set to false for DCC embedding where window visibility is controlled externally
@@ -639,6 +652,7 @@ impl Default for WebViewConfig {
             allow_new_window: false, // Block new windows by default (deprecated)
             new_window_mode: NewWindowMode::Deny, // Block new windows by default
             allow_file_protocol: false, // Block file:// protocol by default for security
+            capture_file_drop: false, // Use browser-native HTML5 drag-drop by default (RFC 0015)
             auto_show: true,         // Show window after loading screen is ready
             headless: false,         // Show window by default
             remote_debugging_port: None, // CDP debugging disabled by default
@@ -812,6 +826,14 @@ impl WebViewBuilder {
     /// WARNING: Enabling this bypasses WebView's default security restrictions
     pub fn allow_file_protocol(mut self, allow: bool) -> Self {
         self.config.allow_file_protocol = allow;
+        self
+    }
+
+    /// Capture file drops as IPC `file_drop_*` events instead of native
+    /// HTML5 drag-drop. See [`WebViewConfig::capture_file_drop`] and
+    /// RFC 0015 §2 for the trade-offs.
+    pub fn capture_file_drop(mut self, capture: bool) -> Self {
+        self.config.capture_file_drop = capture;
         self
     }
 

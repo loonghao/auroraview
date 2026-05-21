@@ -53,6 +53,15 @@ pub struct RunArgs {
     #[arg(long)]
     pub allow_file_protocol: bool,
 
+    /// Capture file drops as `file_drop` IPC events instead of native HTML5 drag-drop.
+    ///
+    /// WARNING: enabling this disables HTML5 dragover/drop inside the WebView
+    /// (upstream wry/WebView2 limitation, see RFC 0015 §2). The standalone
+    /// `run` command has no IPC backend wired up, so dispatched events are
+    /// dropped silently — this flag is mostly useful for parity testing.
+    #[arg(long)]
+    pub capture_file_drop: bool,
+
     /// Keep window always on top
     #[arg(long)]
     pub always_on_top: bool,
@@ -66,6 +75,35 @@ pub struct RunArgs {
     /// Poll interval in milliseconds for URL-mode hot reload (default: 1500)
     #[arg(long, default_value = "1500", requires = "watch")]
     pub poll_interval_ms: u64,
+}
+
+/// Drag-drop sink for the standalone `run` command.
+///
+/// The standalone CLI has no Python backend or IPC pipeline, so dispatched
+/// events are simply dropped. The sink only exists so that
+/// `attach_drag_drop_handler` can register the wry handler when the user
+/// passes `--capture-file-drop` (mostly useful for behavior parity tests).
+struct RunDragDropSink;
+
+impl auroraview_core::builder::DragDropIpcSink for RunDragDropSink {
+    fn dispatch(
+        &self,
+        event_name: &str,
+        _data: serde_json::Value,
+    ) -> Result<(), auroraview_core::builder::DispatchError> {
+        tracing::debug!("[CLI] drag-drop event {} dropped (no IPC backend)", event_name);
+        Ok(())
+    }
+}
+
+/// Conditionally attach the drag-drop proxy to a WebView builder for the
+/// standalone `run` command.
+fn attach_drag_drop_for_run(
+    builder: wry::WebViewBuilder<'_>,
+    capture: bool,
+) -> wry::WebViewBuilder<'_> {
+    let sink = std::sync::Arc::new(RunDragDropSink);
+    auroraview_core::builder::attach_drag_drop_handler(builder, capture, &sink)
 }
 
 /// User event sent from the file watcher thread to the event loop
@@ -411,15 +449,15 @@ pub fn run_webview(args: RunArgs) -> Result<()> {
     // Load HTML content or URL
     let webview = if let Some(html) = html_content {
         tracing::info!("[CLI] Loading HTML content via with_html()");
-        webview_builder
-            .with_html(html)
+        let builder = webview_builder.with_html(html);
+        attach_drag_drop_for_run(builder, args.capture_file_drop)
             .build(&window)
             .context("Failed to create WebView with HTML content")?
     } else if let Some(url_str) = &args.url {
         let url = normalize_url(url_str)?;
         tracing::info!("[CLI] Loading URL: {}", url);
-        webview_builder
-            .with_url(&url)
+        let builder = webview_builder.with_url(&url);
+        attach_drag_drop_for_run(builder, args.capture_file_drop)
             .build(&window)
             .context("Failed to create WebView with URL")?
     } else {

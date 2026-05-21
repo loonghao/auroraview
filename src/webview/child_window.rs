@@ -2,6 +2,14 @@
 //!
 //! This module handles creating independent child WebView windows.
 //! Child windows are created on the main thread to avoid WebView2's threading restrictions.
+//!
+//! # Drag-drop behavior (RFC 0015)
+//!
+//! Child windows do not currently support the `capture_file_drop` IPC
+//! proxy. Pages loaded in a child window can use the browser-native
+//! HTML5 drag-drop API (`dragenter` / `dragover` / `drop`) directly.
+//! If your tool needs absolute file paths via IPC, open a top-level
+//! `AuroraView` instead, where `capture_file_drop=True` is supported.
 
 #[cfg(target_os = "windows")]
 use std::sync::{Arc, Mutex};
