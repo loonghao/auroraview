@@ -1,7 +1,7 @@
 //! IPC handler and router
 
 use super::message::{IpcMessage, IpcResponse};
-use dashmap::DashMap;
+use dashmap::{DashMap, DashSet};
 use std::sync::Arc;
 use tracing::{debug, warn};
 
@@ -18,6 +18,14 @@ pub struct IpcRouter {
     /// Event listeners
     #[allow(clippy::type_complexity)]
     event_listeners: DashMap<String, Vec<Arc<dyn Fn(serde_json::Value) + Send + Sync>>>,
+
+    /// Drag-drop event names already warned about. Drag-drop events
+    /// (`file_drop_hover` / `file_drop` / `file_drop_cancelled`) are
+    /// dispatched per OS-level cursor transition — without rate-limiting
+    /// a single drag-and-drop session would emit 2-3 identical warnings,
+    /// and a stuck "no listener" misconfiguration would spam the log.
+    /// We warn at most once per event name per `IpcRouter` lifetime.
+    drag_drop_warned: DashSet<String>,
 }
 
 impl IpcRouter {
@@ -26,6 +34,7 @@ impl IpcRouter {
         Self {
             handlers: DashMap::new(),
             event_listeners: DashMap::new(),
+            drag_drop_warned: DashSet::new(),
         }
     }
 
@@ -166,10 +175,27 @@ impl auroraview_core::builder::DragDropIpcSink for IpcRouter {
         event_name: &str,
         data: serde_json::Value,
     ) -> Result<(), auroraview_core::builder::DispatchError> {
+        // Forward to every subscribed listener. If none are registered we
+        // emit a single `tracing::warn!` per event name and then silently
+        // drop subsequent occurrences — drag-drop events fire per OS
+        // cursor transition, so an unconditional log would flood the
+        // tracing subscriber. Returning `Ok(())` (instead of `Err`) keeps
+        // the helper from logging an additional `error!` on every event:
+        // the warning here is the canonical "you forgot router.on(...)"
+        // breadcrumb.
         if let Some(handlers) = self.event_listeners.get(event_name) {
             for handler in handlers.value() {
                 handler(data.clone());
             }
+        } else if self.drag_drop_warned.insert(event_name.to_string()) {
+            warn!(
+                target: "auroraview::drag_drop",
+                "[IpcRouter] no listener registered for `{}`; \
+                 dropping payload (subsequent occurrences will be silent). \
+                 Did you call `router.on(\"{}\", ...)`?",
+                event_name,
+                event_name
+            );
         }
         Ok(())
     }
