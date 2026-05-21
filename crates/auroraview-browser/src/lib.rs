@@ -134,3 +134,20 @@ pub mod events {
     pub use crate::browser::BrowserEvent;
     pub use crate::tab::TabEvent;
 }
+
+/// No-op drag-drop sink used at Browser-mode `attach_drag_drop_handler` call
+/// sites (RFC 0016). Browser controller and business tabs always pass
+/// `capture=false`, so the helper short-circuits and never invokes
+/// `dispatch`. The sink only exists to satisfy the helper's generic
+/// `S: DragDropIpcSink` bound.
+pub(crate) struct NoopDragDropSink;
+
+impl auroraview_core::builder::DragDropIpcSink for NoopDragDropSink {
+    fn dispatch(
+        &self,
+        _event_name: &str,
+        _data: serde_json::Value,
+    ) -> std::result::Result<(), auroraview_core::builder::DispatchError> {
+        Ok(())
+    }
+}

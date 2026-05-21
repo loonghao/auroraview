@@ -134,6 +134,18 @@ impl TabManager {
             size: wry::dpi::Size::Physical(wry::dpi::PhysicalSize::new(size.width, content_height)),
         });
 
+        // Browser mode (controller + all business tabs) never registers
+        // with_drag_drop_handler. Multi-webview overlays cannot maintain a
+        // coherent drop state machine across pixel boundaries (RFC 0016
+        // §2.1). Pages needing absolute paths via IPC should use a top-level
+        // AuroraView instance with capture_file_drop=True instead.
+        let drag_drop_sink = std::sync::Arc::new(crate::NoopDragDropSink);
+        let builder = auroraview_core::builder::attach_drag_drop_handler(
+            builder,
+            false,
+            &drag_drop_sink,
+        );
+
         let webview = builder
             .build_as_child(window)
             .map_err(|e| BrowserError::WebViewCreation(e.to_string()))?;
