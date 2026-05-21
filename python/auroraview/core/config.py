@@ -178,20 +178,20 @@ class DebugConfig:
 class NewWindowConfig:
     """New window (window.open) configuration.
 
+    Note (RFC 0015 — drag-drop scope):
+        Child windows opened via ``window.open`` (i.e.,
+        ``new_window_mode="child_webview"``) run on independent event
+        loops and **never** register ``with_drag_drop_handler``,
+        regardless of any ``capture_file_drop`` setting on the parent.
+        The parent webview itself receives ``file_drop*`` IPC events
+        normally; pages loaded in a child window can use the
+        browser-native HTML5 drag-drop API directly.
+
     Attributes:
         allow_new_window: Allow window.open() to create windows (default: False)
-        new_window_mode: Behavior - "deny", "system_browser", "child_webview" (optional)
-
-    Note (RFC 0015):
-        When ``new_window_mode="child_webview"`` is combined with
-        ``capture_file_drop=True`` on the parent ``AuroraView``,
-        the parent webview will receive ``file_drop*`` IPC events
-        normally. The child windows opened via ``window.open``,
-        however, run on independent event loops without an IPC
-        channel back to the parent and **never** register
-        ``with_drag_drop_handler`` regardless of any setting on
-        the parent. Pages loaded in a child window can still use
-        the browser-native HTML5 drag-drop API directly.
+        new_window_mode: Behavior - "deny", "system_browser", "child_webview" (optional).
+            See the RFC 0015 note above for drag-drop interactions when
+            this is set to ``"child_webview"``.
     """
 
     allow_new_window: bool = False

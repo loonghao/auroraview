@@ -64,9 +64,9 @@ def main():
         "--capture-file-drop",
         action="store_true",
         help=(
-            "Forward OS file drops as IPC file_drop events. CLI is a binary "
-            "switch (set or omitted); the underlying API uses an "
-            "Optional[bool] tri-state (RFC 0017) where omitted == None."
+            "Forward OS file drops as IPC `file_drop` events instead of "
+            "browser-native HTML5 drag-drop. Note: enabling this disables "
+            "HTML5 dragover/drop inside the WebView."
         ),
     )
     parser.add_argument(
