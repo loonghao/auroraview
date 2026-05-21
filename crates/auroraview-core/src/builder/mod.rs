@@ -10,6 +10,8 @@
 //!
 //! - `DragDropHandler`: Shared file drag-drop event handling
 //! - `IpcMessageHandler`: Shared IPC message parsing and routing
+//! - `attach_drag_drop_handler`: Conditional drag-drop proxy attachment
+//! - `NoopDragDropSink`: Shared no-op sink for `capture=false` call sites
 //! - `create_drag_drop_handler`: High-level helper for drag-drop
 //! - `create_ipc_handler`: High-level helper for IPC
 //! - `apply_child_window_style`: Windows child window style manipulation
@@ -90,7 +92,7 @@ pub use drag_drop::{DragDropCallback, DragDropEventData, DragDropEventType, Drag
 #[cfg(feature = "wry-builder")]
 pub use helpers::{
     attach_drag_drop_handler, create_drag_drop_handler, create_ipc_handler,
-    create_simple_ipc_handler, DispatchError, DragDropIpcSink,
+    create_simple_ipc_handler, DispatchError, DragDropIpcSink, NoopDragDropSink,
 };
 #[cfg(feature = "wry-builder")]
 pub use ipc::{IpcCallback, IpcMessageHandler, IpcMessageType, ParsedIpcMessage};

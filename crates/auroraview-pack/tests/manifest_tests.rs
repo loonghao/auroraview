@@ -839,6 +839,81 @@ url = "https://example.com"
     assert!(manifest.security.is_none());
 }
 
+// ----------------------------------------------------------------------------
+// RFC 0015 §4.1: [security].capture_file_drop tri-state parsing
+//
+// `Option<bool>` semantics:
+//   - omitted   → None (defer to code default `false`)
+//   - explicit `true`  → Some(true)
+//   - explicit `false` → Some(false)
+//
+// The CLI flag merge rule (`pack_args.capture_file_drop` overrides manifest)
+// is exercised in `auroraview-cli/tests/pack_args_tests.rs`.
+// ----------------------------------------------------------------------------
+
+#[test]
+fn security_capture_file_drop_omitted_is_none() {
+    let toml = r#"
+[package]
+name = "test"
+title = "Test"
+
+[frontend]
+url = "https://example.com"
+
+[security]
+content_security_policy = "default-src 'self'"
+"#;
+    let manifest = Manifest::parse(toml).unwrap();
+    let sec = manifest
+        .security
+        .as_ref()
+        .expect("security section missing");
+    assert_eq!(sec.capture_file_drop, None);
+}
+
+#[test]
+fn security_capture_file_drop_explicit_true() {
+    let toml = r#"
+[package]
+name = "test"
+title = "Test"
+
+[frontend]
+url = "https://example.com"
+
+[security]
+capture_file_drop = true
+"#;
+    let manifest = Manifest::parse(toml).unwrap();
+    let sec = manifest
+        .security
+        .as_ref()
+        .expect("security section missing");
+    assert_eq!(sec.capture_file_drop, Some(true));
+}
+
+#[test]
+fn security_capture_file_drop_explicit_false() {
+    let toml = r#"
+[package]
+name = "test"
+title = "Test"
+
+[frontend]
+url = "https://example.com"
+
+[security]
+capture_file_drop = false
+"#;
+    let manifest = Manifest::parse(toml).unwrap();
+    let sec = manifest
+        .security
+        .as_ref()
+        .expect("security section missing");
+    assert_eq!(sec.capture_file_drop, Some(false));
+}
+
 // ============================================================================
 // Extensions Configuration Tests
 // ============================================================================

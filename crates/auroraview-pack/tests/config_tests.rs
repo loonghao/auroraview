@@ -1079,3 +1079,95 @@ content_security_policy = "default-src 'self'"
         Some("default-src 'self'")
     );
 }
+
+// ============================================================================
+// RFC 0015 §4.1: PackConfig.capture_file_drop manifest mapping
+//
+// `from_manifest` collapses `Option<bool>` to `bool` by `unwrap_or(false)`:
+//
+//   - manifest absent            → `false`
+//   - `[security]` without flag  → `false`
+//   - `capture_file_drop = false`→ `false`
+//   - `capture_file_drop = true` → `true`
+//
+// CLI override (`PackArgs --capture-file-drop` / `--no-capture-file-drop`)
+// is applied later in `cli/pack.rs::run_pack` after `from_manifest`, and is
+// exercised by `auroraview-cli/tests/pack_args_tests.rs`.
+// ============================================================================
+
+#[test]
+fn test_from_manifest_capture_file_drop_default_false_no_security() {
+    use auroraview_pack::Manifest;
+
+    let toml = r#"
+[package]
+name = "drop-default"
+title = "Default"
+
+[frontend]
+url = "https://example.com"
+"#;
+    let manifest = Manifest::parse(toml).unwrap();
+    let config = PackConfig::from_manifest(&manifest, Path::new(".")).unwrap();
+    assert!(!config.capture_file_drop);
+}
+
+#[test]
+fn test_from_manifest_capture_file_drop_default_false_security_without_flag() {
+    use auroraview_pack::Manifest;
+
+    let toml = r#"
+[package]
+name = "drop-default-sec"
+title = "Default"
+
+[frontend]
+url = "https://example.com"
+
+[security]
+content_security_policy = "default-src 'self'"
+"#;
+    let manifest = Manifest::parse(toml).unwrap();
+    let config = PackConfig::from_manifest(&manifest, Path::new(".")).unwrap();
+    assert!(!config.capture_file_drop);
+}
+
+#[test]
+fn test_from_manifest_capture_file_drop_explicit_true() {
+    use auroraview_pack::Manifest;
+
+    let toml = r#"
+[package]
+name = "drop-true"
+title = "True"
+
+[frontend]
+url = "https://example.com"
+
+[security]
+capture_file_drop = true
+"#;
+    let manifest = Manifest::parse(toml).unwrap();
+    let config = PackConfig::from_manifest(&manifest, Path::new(".")).unwrap();
+    assert!(config.capture_file_drop);
+}
+
+#[test]
+fn test_from_manifest_capture_file_drop_explicit_false() {
+    use auroraview_pack::Manifest;
+
+    let toml = r#"
+[package]
+name = "drop-false"
+title = "False"
+
+[frontend]
+url = "https://example.com"
+
+[security]
+capture_file_drop = false
+"#;
+    let manifest = Manifest::parse(toml).unwrap();
+    let config = PackConfig::from_manifest(&manifest, Path::new(".")).unwrap();
+    assert!(!config.capture_file_drop);
+}

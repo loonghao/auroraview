@@ -83,7 +83,7 @@
 use std::collections::HashMap;
 
 use auroraview_core::assets::get_browser_controller_html;
-use auroraview_core::builder::{get_background_color, log_background_color};
+use auroraview_core::builder::{get_background_color, log_background_color, NoopDragDropSink};
 use serde::{Deserialize, Serialize};
 use tao::dpi::LogicalSize;
 use tao::event::{Event, WindowEvent};
@@ -94,23 +94,6 @@ use wry::WebView as WryWebView;
 use wry::WebViewBuilder;
 #[cfg(target_os = "windows")]
 use wry::WebViewExtWindows;
-
-/// No-op drag-drop sink used at Browser-mode `attach_drag_drop_handler` call
-/// sites (RFC 0016). Browser controller and business tabs always pass
-/// `capture=false`, so the helper short-circuits and never invokes
-/// `dispatch`. The sink only exists to satisfy the helper's generic
-/// `S: DragDropIpcSink` bound.
-struct NoopDragDropSink;
-
-impl auroraview_core::builder::DragDropIpcSink for NoopDragDropSink {
-    fn dispatch(
-        &self,
-        _event_name: &str,
-        _data: serde_json::Value,
-    ) -> Result<(), auroraview_core::builder::DispatchError> {
-        Ok(())
-    }
-}
 
 /// Tab state - tracks the current state of a browser tab
 ///

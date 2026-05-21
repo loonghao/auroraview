@@ -405,10 +405,36 @@ fn run_standalone(
     )
 }
 
+/// Test-only hook: round-trip the `Optional[bool] capture_file_drop`
+/// kwarg through the same flatten point used by `run_desktop` and return
+/// the Rust-side `WebViewConfig.capture_file_drop` (always concrete `bool`).
+///
+/// This exists so RFC 0017 §4.2 integration tests can assert that the
+/// Python passthrough never collapses `None` to `False` before reaching
+/// the binding layer:
+///
+///   - `None` (omitted) ............... → `False` (Rust default)
+///   - explicit `True`  ............... → `True`
+///   - explicit `False` ............... → `False`
+///
+/// The function is exposed unconditionally because PyO3 modules cannot
+/// gate functions on `cfg(test)` in the same way Rust unit tests do.
+/// Keep the surface minimal — only the field under test is observable.
+#[pyfunction]
+#[pyo3(signature = (capture_file_drop=None))]
+fn _dump_capture_file_drop(capture_file_drop: Option<bool>) -> PyResult<bool> {
+    // RFC 0017 §3.5 step 6: PyO3 binding is the SOLE flatten point.
+    // Mirror desktop_runner::run_desktop's `unwrap_or(false)` exactly so
+    // any future change here is caught by the integration tests.
+    Ok(capture_file_drop.unwrap_or(false))
+}
+
 /// Register desktop runner functions with Python module
 pub fn register_desktop_runner(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(run_desktop, m)?)?;
     m.add_function(wrap_pyfunction!(run_standalone, m)?)?; // Legacy alias
+    // RFC 0017 §4.2: passthrough integration test hook.
+    m.add_function(wrap_pyfunction!(_dump_capture_file_drop, m)?)?;
     Ok(())
 }
 
