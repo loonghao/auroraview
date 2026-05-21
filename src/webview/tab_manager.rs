@@ -95,6 +95,23 @@ use wry::WebViewBuilder;
 #[cfg(target_os = "windows")]
 use wry::WebViewExtWindows;
 
+/// No-op drag-drop sink used at Browser-mode `attach_drag_drop_handler` call
+/// sites (RFC 0016). Browser controller and business tabs always pass
+/// `capture=false`, so the helper short-circuits and never invokes
+/// `dispatch`. The sink only exists to satisfy the helper's generic
+/// `S: DragDropIpcSink` bound.
+struct NoopDragDropSink;
+
+impl auroraview_core::builder::DragDropIpcSink for NoopDragDropSink {
+    fn dispatch(
+        &self,
+        _event_name: &str,
+        _data: serde_json::Value,
+    ) -> Result<(), auroraview_core::builder::DispatchError> {
+        Ok(())
+    }
+}
+
 /// Tab state - tracks the current state of a browser tab
 ///
 /// This struct mirrors the state tracking in Microsoft's Tab.cpp/Tab.h:
@@ -526,6 +543,18 @@ impl TabManager {
             )),
             size: wry::dpi::Size::Physical(wry::dpi::PhysicalSize::new(size.width, content_height)),
         });
+
+        // Browser mode (controller + all business tabs) never registers
+        // with_drag_drop_handler. Multi-webview overlays cannot maintain a
+        // coherent drop state machine across pixel boundaries (RFC 0016
+        // §2.1). Pages needing absolute paths via IPC should use a top-level
+        // AuroraView instance with capture_file_drop=True instead.
+        let drag_drop_sink = std::sync::Arc::new(NoopDragDropSink);
+        let builder = auroraview_core::builder::attach_drag_drop_handler(
+            builder,
+            false,
+            &drag_drop_sink,
+        );
 
         // Use build_as_child() to ensure bounds are respected
         match builder.build_as_child(window) {
@@ -999,6 +1028,18 @@ impl TabManager {
                 header_height,
             )),
         });
+
+        // Browser mode (controller + all business tabs) never registers
+        // with_drag_drop_handler. Multi-webview overlays cannot maintain a
+        // coherent drop state machine across pixel boundaries (RFC 0016
+        // §2.1). Pages needing absolute paths via IPC should use a top-level
+        // AuroraView instance with capture_file_drop=True instead.
+        let drag_drop_sink = std::sync::Arc::new(NoopDragDropSink);
+        let controller_builder = auroraview_core::builder::attach_drag_drop_handler(
+            controller_builder,
+            false,
+            &drag_drop_sink,
+        );
 
         // Use build_as_child() to ensure bounds are respected
         let controller = controller_builder
