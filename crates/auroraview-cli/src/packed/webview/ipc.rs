@@ -292,6 +292,39 @@ fn handle_plugin_message(
     let _ = proxy.send_event(UserEvent::PythonResponse(result.to_string()));
 }
 
+/// IPC sink that forwards drag-drop events from `attach_drag_drop_handler`
+/// into the packed mode's IPC pipeline.
+///
+/// This wraps [`handle_ipc_message`] by re-encoding the drag-drop event as
+/// the same `{ "type": "event", "event": ..., ... }` envelope the WebView
+/// would have produced.
+pub struct PackedDragDropSink {
+    pub python_backend: Arc<RwLock<Option<Arc<PythonBackend>>>>,
+    pub plugin_router: Arc<RwLock<PluginRouter>>,
+    pub proxy: EventLoopProxy<UserEvent>,
+}
+
+impl auroraview_core::builder::DragDropIpcSink for PackedDragDropSink {
+    fn dispatch(
+        &self,
+        event_name: &str,
+        data: serde_json::Value,
+    ) -> Result<(), auroraview_core::builder::DispatchError> {
+        let envelope = serde_json::json!({
+            "type": "event",
+            "event": event_name,
+            "data": data,
+        });
+        handle_ipc_message(
+            &envelope.to_string(),
+            &self.python_backend,
+            &self.plugin_router,
+            &self.proxy,
+        );
+        Ok(())
+    }
+}
+
 /// Handle "event" message type
 fn handle_event_message(msg: &Value, proxy: &EventLoopProxy<UserEvent>) {
     let event = msg.get("event").and_then(|v| v.as_str()).unwrap_or("");

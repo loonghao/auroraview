@@ -87,6 +87,46 @@ pub struct PackArgs {
     /// Hide console window (default behavior, can be used to override manifest)
     #[arg(long, conflicts_with = "console")]
     pub no_console: bool,
+
+    /// Force-enable `[security].capture_file_drop` in the packed overlay
+    /// (RFC 0015). See `--no-capture-file-drop` for the inverse.
+    #[arg(
+        long = "capture-file-drop",
+        action = clap::ArgAction::SetTrue,
+        overrides_with = "no_capture_file_drop"
+    )]
+    pub capture_file_drop: bool,
+
+    /// Force-disable `[security].capture_file_drop` in the packed overlay,
+    /// even when the manifest sets it to `true` (RFC 0015).
+    ///
+    /// Both flags use `SetTrue`. Although the action label is "set true",
+    /// it stores `true` for `no_capture_file_drop` and is interpreted by
+    /// `resolve_capture_file_drop` as "user asked for false". Using
+    /// `SetFalse` here would be wrong: clap's `SetFalse` defaults to
+    /// `true` when the flag is *absent*, which inverts the entire
+    /// resolver. See RFC 0015 §4.2.1 erratum.
+    #[arg(
+        long = "no-capture-file-drop",
+        action = clap::ArgAction::SetTrue,
+        overrides_with = "capture_file_drop"
+    )]
+    pub no_capture_file_drop: bool,
+}
+
+/// Resolve the user's `--capture-file-drop` / `--no-capture-file-drop`
+/// choice into a tri-state value used during the pack-time merge:
+///
+/// - both flags absent → `None` (defer to manifest / code default)
+/// - `--capture-file-drop` only → `Some(true)`
+/// - `--no-capture-file-drop` only → `Some(false)`
+pub fn resolve_capture_file_drop(args: &PackArgs) -> Option<bool> {
+    match (args.capture_file_drop, args.no_capture_file_drop) {
+        (false, false) => None,
+        (true, false) => Some(true),
+        (false, true) => Some(false),
+        (true, true) => unreachable!("clap overrides_with should make this impossible"),
+    }
 }
 
 fn format_path(path: &Path) -> String {
@@ -96,6 +136,10 @@ fn format_path(path: &Path) -> String {
 /// Run the pack command
 pub fn run_pack(args: PackArgs) -> Result<()> {
     use auroraview_pack::{Manifest, PackConfig, PackManager};
+
+    // Resolve drag-drop tri-state up-front so we don't borrow `args` after
+    // it has been partially moved during config construction.
+    let capture_file_drop_override = resolve_capture_file_drop(&args);
 
     let progress = PackProgress::new();
     let spinner = progress.spinner("Loading configuration...");
@@ -336,6 +380,12 @@ pub fn run_pack(args: PackArgs) -> Result<()> {
     }
     if args.no_console {
         config.windows_resource.console = false;
+    }
+
+    // RFC 0015: CLI flags take precedence over manifest. Both flags absent
+    // → keep whatever `from_manifest` produced. Either flag set → override.
+    if let Some(value) = capture_file_drop_override {
+        config.capture_file_drop = value;
     }
 
     let output_dir = config.output_dir.clone();

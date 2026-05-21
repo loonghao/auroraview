@@ -392,6 +392,15 @@ pub struct PackConfig {
     /// Set to `None` (default) to disable CSP injection.
     #[serde(default)]
     pub content_security_policy: Option<String>,
+
+    /// Capture file drop events as IPC `file_drop_*` events.
+    ///
+    /// `false` (default) → use browser-native HTML5 drag-drop.
+    /// `true` → register `with_drag_drop_handler` and forward events
+    /// through the IPC pipeline. See RFC 0015 §2 for the wry/WebView2
+    /// trade-off.
+    #[serde(default)]
+    pub capture_file_drop: bool,
 }
 
 /// Default compression level (19 = high compression, good for releases)
@@ -465,6 +474,7 @@ impl PackConfig {
             compression_level: default_compression_level(),
             extensions: ExtensionsRuntimeConfig::default(),
             content_security_policy: None,
+            capture_file_drop: false,
         }
     }
     pub fn frontend(path: impl Into<PathBuf>) -> Self {
@@ -498,6 +508,7 @@ impl PackConfig {
             compression_level: default_compression_level(),
             extensions: ExtensionsRuntimeConfig::default(),
             content_security_policy: None,
+            capture_file_drop: false,
         }
     }
 
@@ -536,6 +547,7 @@ impl PackConfig {
             compression_level: default_compression_level(),
             extensions: ExtensionsRuntimeConfig::default(),
             content_security_policy: None,
+            capture_file_drop: false,
         }
     }
 
@@ -577,6 +589,7 @@ impl PackConfig {
             compression_level: default_compression_level(),
             extensions: ExtensionsRuntimeConfig::default(),
             content_security_policy: None,
+            capture_file_drop: false,
         }
     }
 
@@ -821,6 +834,11 @@ impl PackConfig {
                 .security
                 .as_ref()
                 .and_then(|s| s.content_security_policy.clone()),
+            capture_file_drop: manifest
+                .security
+                .as_ref()
+                .and_then(|s| s.capture_file_drop)
+                .unwrap_or(false),
         };
 
         Ok(config)

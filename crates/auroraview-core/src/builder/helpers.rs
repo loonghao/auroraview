@@ -7,6 +7,115 @@ use super::drag_drop::{DragDropEventData, DragDropEventType, DragDropHandler};
 use super::ipc::{IpcMessageHandler, IpcMessageType, ParsedIpcMessage};
 use std::sync::Arc;
 
+/// Errors that may occur while dispatching a drag-drop event into the IPC pipeline.
+///
+/// Currently a single variant. The underlying `IpcHandler::handle_message`
+/// error type is `String`, which cannot be split into semantic variants
+/// (`Disconnected` / `Serialization`). Once the IPC error type is enum-ified
+/// (a separate refactor across the IPC subsystem, decoupled from this RFC),
+/// new variants can be appended here.
+///
+/// `#[non_exhaustive]` guarantees that adding new variants is not a breaking
+/// change.
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
+pub enum DispatchError {
+    /// Backend-specific dispatch failure.
+    #[error(transparent)]
+    Backend(Box<dyn std::error::Error + Send + Sync + 'static>),
+}
+
+impl DispatchError {
+    /// Wrap any `Send + Sync + 'static` error as a `Backend` variant.
+    pub fn backend<E>(err: E) -> Self
+    where
+        E: std::error::Error + Send + Sync + 'static,
+    {
+        Self::Backend(Box::new(err))
+    }
+}
+
+/// Trait abstraction over the IPC entry point expected by
+/// [`attach_drag_drop_handler`].
+///
+/// Implementations are responsible for forwarding events into the IPC
+/// pipeline. They do not log on failure: the helper logs through a single
+/// `tracing::error!` call so all sinks share a uniform log format.
+pub trait DragDropIpcSink: Send + Sync + 'static {
+    /// Forward a single drag-drop event into the IPC pipeline.
+    fn dispatch(
+        &self,
+        event_name: &str,
+        data: serde_json::Value,
+    ) -> Result<(), DispatchError>;
+}
+
+/// Conditionally attach the drag-drop proxy handler to a `wry::WebViewBuilder`.
+///
+/// - `capture == false` — the builder is returned unchanged. The helper
+///   does **not** call `with_drag_drop_handler`. The WebView falls back to
+///   the browser-native HTML5 drag-drop semantics. `ipc_sink` is borrowed,
+///   not cloned: the caller's `Arc::strong_count` stays exactly the same.
+/// - `capture == true` — the helper performs exactly one `Arc::clone` of
+///   `ipc_sink`, builds a `Send + Sync + 'static` closure, and registers it
+///   via `with_drag_drop_handler`. Events are filtered through
+///   `DragDropHandler::into_handler` (`Over` events are dropped) and
+///   forwarded as `file_drop_hover` / `file_drop` / `file_drop_cancelled`
+///   into `sink.dispatch(...)`. If `dispatch` returns an error, the helper
+///   logs a single `tracing::error!` and discards the event (drag-drop
+///   must never block the WebView).
+///
+/// # Borrow form
+///
+/// `ipc_sink: &Arc<S>` (not `Arc<S>`) so that:
+/// - the `capture == false` path performs zero atomic operations on the Arc;
+/// - the `capture == true` path performs exactly one `Arc::clone`.
+///
+/// # Lifetime parameter `'a`
+///
+/// `wry::WebViewBuilder<'a>` is `'static` when constructed with
+/// `WebViewBuilder::new()` but borrows the `WebContext` lifetime when built
+/// with `WebViewBuilder::new_with_web_context(&mut web_context)`. The
+/// generic lifetime keeps the helper usable in both forms.
+///
+/// # Static dispatch
+///
+/// `where S: DragDropIpcSink` (no `?Sized`). Each call site instantiates a
+/// separate monomorphized copy.
+///
+/// # Note on upstream behavior
+///
+/// Due to a wry/WebView2 limitation, registering `with_drag_drop_handler`
+/// (regardless of its return value) suppresses HTML5 `dragover` / `drop`
+/// events inside the WebView. See RFC 0015 §2 and
+/// <https://github.com/tauri-apps/wry/issues/157>.
+pub fn attach_drag_drop_handler<'a, S>(
+    builder: wry::WebViewBuilder<'a>,
+    capture: bool,
+    ipc_sink: &Arc<S>,
+) -> wry::WebViewBuilder<'a>
+where
+    S: DragDropIpcSink,
+{
+    if !capture {
+        // ipc_sink is only borrowed; strong_count is unaffected.
+        return builder;
+    }
+
+    let sink = Arc::clone(ipc_sink);
+
+    builder.with_drag_drop_handler(create_drag_drop_handler(move |event_name, data| {
+        if let Err(err) = sink.dispatch(event_name, data) {
+            tracing::error!(
+                target: "auroraview::drag_drop",
+                "Failed to dispatch {} via DragDropIpcSink: {}",
+                event_name,
+                err
+            );
+        }
+    }))
+}
+
 /// Create a drag-drop handler that sends events to an IPC callback
 ///
 /// This is a convenience function that creates a `DragDropHandler` which

@@ -48,6 +48,66 @@ use super::utils::{
 #[cfg(target_os = "windows")]
 use super::utils::{get_extensions_dir, has_extensions_in_dir, prepare_active_extensions_dir};
 
+/// Environment variable for runtime override of `capture_file_drop` in
+/// packed apps (RFC 0015 §4.3).
+const CAPTURE_FILE_DROP_ENV: &str = "AURORAVIEW_CAPTURE_FILE_DROP";
+
+/// Parse a truthy/falsy literal (case-insensitive, trimmed).
+///
+/// Recognizes the union of common boolean spellings used by the runtimes
+/// AuroraView interoperates with: `1/true/on/yes/enabled` and
+/// `0/false/off/no/disabled`. Anything else returns `None`.
+fn parse_truthy(s: &str) -> Option<bool> {
+    let s = s.trim();
+    const TRUE_LITERALS: &[&str] = &["1", "true", "on", "yes", "enabled"];
+    const FALSE_LITERALS: &[&str] = &["0", "false", "off", "no", "disabled"];
+
+    if TRUE_LITERALS.iter().any(|v| s.eq_ignore_ascii_case(v)) {
+        Some(true)
+    } else if FALSE_LITERALS.iter().any(|v| s.eq_ignore_ascii_case(v)) {
+        Some(false)
+    } else {
+        None
+    }
+}
+
+/// Resolve the effective `capture_file_drop` value at packed runtime,
+/// honoring the [`CAPTURE_FILE_DROP_ENV`] override.
+///
+/// Falls back to `overlay_value` when the env var is unset or holds an
+/// unrecognized literal (in which case a `tracing::warn!` is emitted).
+pub fn resolve_packed_capture_file_drop(overlay_value: bool) -> bool {
+    let raw = match std::env::var(CAPTURE_FILE_DROP_ENV) {
+        Ok(v) => v,
+        Err(_) => return overlay_value,
+    };
+
+    match parse_truthy(&raw) {
+        Some(value) => {
+            tracing::info!(
+                target: "auroraview::capture_file_drop",
+                "capture_file_drop overridden by {}={:?} -> {}",
+                CAPTURE_FILE_DROP_ENV,
+                raw,
+                value
+            );
+            value
+        }
+        None => {
+            tracing::warn!(
+                target: "auroraview::capture_file_drop",
+                "{}={:?} is not a recognized boolean literal (expected one of: \
+                 1/true/on/yes/enabled / 0/false/off/no/disabled, case-insensitive). \
+                 Falling back to overlay value: {}",
+                CAPTURE_FILE_DROP_ENV,
+                raw,
+                overlay_value
+            );
+            overlay_value
+        }
+    }
+}
+
 /// Run WebView from overlay data
 ///
 /// Note: This function uses event_loop.run() which never returns.
@@ -236,13 +296,23 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
     let plugin_router_for_ipc = plugin_router.clone();
     let proxy_for_ipc = proxy.clone();
 
+    // Drag-drop sink (RFC 0015) — single Arc shared across both PackMode
+    // arms. Default `capture_file_drop = false` means the helper short-
+    // circuits and the sink is never invoked.
+    let dragdrop_sink = Arc::new(ipc::PackedDragDropSink {
+        python_backend: python_backend_state.clone(),
+        plugin_router: plugin_router.clone(),
+        proxy: proxy.clone(),
+    });
+    let capture_file_drop = resolve_packed_capture_file_drop(config.capture_file_drop);
+
     // Create WebView
     let webview = match &config.mode {
         PackMode::Url { url } => {
             let normalized_url = normalize_url(url)?;
             tracing::info!("Loading URL: {}", normalized_url);
 
-            WryWebViewBuilder::new_with_web_context(&mut web_context)
+            let mut builder = WryWebViewBuilder::new_with_web_context(&mut web_context)
                 .with_url(&normalized_url)
                 .with_initialization_script(&init_script)
                 .with_ipc_handler(move |request| {
@@ -253,7 +323,15 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                         &proxy_for_ipc,
                     );
                 })
-                .with_devtools(config.debug)
+                .with_devtools(config.debug);
+
+            builder = auroraview_core::builder::attach_drag_drop_handler(
+                builder,
+                capture_file_drop,
+                &dragdrop_sink,
+            );
+
+            builder
                 .build(&window)
                 .with_context(|| "Failed to create WebView")?
         }
@@ -354,7 +432,7 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                 builder
             };
 
-            builder
+            let builder = builder
                 .with_custom_protocol("auroraview".to_string(), move |_webview_id, request| {
                     let uri = request.uri();
                     let path = uri.path().trim_start_matches('/');
@@ -396,7 +474,15 @@ pub fn run_packed_webview(overlay: OverlayData, mut metrics: PackedMetrics) -> R
                     );
                 })
                 .with_url(initial_url)
-                .with_devtools(config.debug)
+                .with_devtools(config.debug);
+
+            let builder = auroraview_core::builder::attach_drag_drop_handler(
+                builder,
+                capture_file_drop,
+                &dragdrop_sink,
+            );
+
+            builder
                 .build(&window)
                 .with_context(|| "Failed to create WebView")?
         }

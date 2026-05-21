@@ -305,6 +305,28 @@ impl Default for IpcHandler {
     }
 }
 
+/// Wrap the `String`-typed `IpcHandler::handle_message` error so it can be
+/// boxed into [`auroraview_core::builder::DispatchError::Backend`].
+#[derive(Debug, thiserror::Error)]
+#[error("{0}")]
+struct IpcStringError(String);
+
+impl auroraview_core::builder::DragDropIpcSink for IpcHandler {
+    fn dispatch(
+        &self,
+        event_name: &str,
+        data: serde_json::Value,
+    ) -> Result<(), auroraview_core::builder::DispatchError> {
+        self.handle_message(IpcMessage {
+            event: event_name.to_string(),
+            data,
+            id: None,
+        })
+        .map(|_| ())
+        .map_err(|s| auroraview_core::builder::DispatchError::backend(IpcStringError(s)))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -149,6 +149,13 @@ pub fn create_window_with_router(
         }
     });
 
+    // Conditionally attach drag-drop proxy (RFC 0015).
+    webview_builder = auroraview_core::builder::attach_drag_drop_handler(
+        webview_builder,
+        config.capture_file_drop,
+        &ipc_router,
+    );
+
     // Build WebView
     let webview = webview_builder
         .build(&window)

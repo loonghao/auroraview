@@ -1687,4 +1687,10 @@ pub struct SecurityManifestConfig {
     /// Set to `null` / omit to disable CSP injection (default).
     #[serde(default)]
     pub content_security_policy: Option<String>,
+
+    /// Capture file drops as IPC `file_drop_*` events.
+    ///
+    /// `None` (omitted) → use code default (`false`). See RFC 0015 §2.
+    #[serde(default)]
+    pub capture_file_drop: Option<bool>,
 }
