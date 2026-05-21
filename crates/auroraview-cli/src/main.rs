@@ -154,7 +154,12 @@ fn main() -> Result<()> {
                 debug: cli.debug,
                 allow_new_window: cli.allow_new_window,
                 allow_file_protocol: cli.allow_file_protocol,
+                // Legacy top-level entry path has no `--capture-file-drop` /
+                // `--no-capture-file-drop` flags. Both default to `false`,
+                // so `resolve_capture_file_drop` returns `None` and the
+                // run command falls back to the code default (`false`).
                 capture_file_drop: false,
+                no_capture_file_drop: false,
                 always_on_top: cli.always_on_top,
                 watch: false,
                 poll_interval_ms: 1500,

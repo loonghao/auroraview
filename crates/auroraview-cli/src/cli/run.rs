@@ -53,14 +53,33 @@ pub struct RunArgs {
     #[arg(long)]
     pub allow_file_protocol: bool,
 
-    /// Capture file drops as `file_drop` IPC events instead of native HTML5 drag-drop.
+    /// Force-enable IPC `file_drop_*` events instead of native HTML5 drag-drop.
     ///
-    /// WARNING: enabling this disables HTML5 dragover/drop inside the WebView
-    /// (upstream wry/WebView2 limitation, see RFC 0015 §2). The standalone
-    /// `run` command has no IPC backend wired up, so dispatched events are
-    /// dropped silently — this flag is mostly useful for parity testing.
-    #[arg(long)]
+    /// Note: enabling this disables HTML5 dragover/drop inside the WebView
+    /// due to a wry/WebView2 upstream limitation. The standalone `run`
+    /// command has no IPC backend wired up, so dispatched events are
+    /// logged but otherwise dropped — this flag is mostly useful for
+    /// parity testing.
+    #[arg(
+        long = "capture-file-drop",
+        action = clap::ArgAction::SetTrue,
+        overrides_with = "no_capture_file_drop"
+    )]
     pub capture_file_drop: bool,
+
+    /// Force-disable IPC `file_drop_*` events.
+    ///
+    /// Both flags use `SetTrue`. `--no-capture-file-drop` stores `true`
+    /// in `no_capture_file_drop` and `resolve_capture_file_drop` reads
+    /// it as "user asked for false". Using `SetFalse` here would invert
+    /// the resolver because clap's `SetFalse` defaults to `true` when
+    /// the flag is absent.
+    #[arg(
+        long = "no-capture-file-drop",
+        action = clap::ArgAction::SetTrue,
+        overrides_with = "capture_file_drop"
+    )]
+    pub no_capture_file_drop: bool,
 
     /// Keep window always on top
     #[arg(long)]
@@ -77,33 +96,69 @@ pub struct RunArgs {
     pub poll_interval_ms: u64,
 }
 
+/// Resolve the user's `--capture-file-drop` / `--no-capture-file-drop`
+/// choice into a tri-state value.
+///
+/// Mirrors `pack::resolve_capture_file_drop` so both CLI entry points
+/// share the same `Optional[bool]` semantics:
+///
+/// - both flags absent → `None` (defer to lower layer / code default).
+/// - `--capture-file-drop` only → `Some(true)`.
+/// - `--no-capture-file-drop` only → `Some(false)`.
+///
+/// `clap` `overrides_with` ensures the `(true, true)` combination is
+/// resolved to whichever flag came last on the command line.
+pub fn resolve_capture_file_drop(args: &RunArgs) -> Option<bool> {
+    match (args.capture_file_drop, args.no_capture_file_drop) {
+        (false, false) => None,
+        (true, false) => Some(true),
+        (false, true) => Some(false),
+        (true, true) => unreachable!("clap overrides_with should make this impossible"),
+    }
+}
+
 /// Drag-drop sink for the standalone `run` command.
 ///
-/// The standalone CLI has no Python backend or IPC pipeline, so dispatched
-/// events are simply dropped. The sink only exists so that
-/// `attach_drag_drop_handler` can register the wry handler when the user
-/// passes `--capture-file-drop` (mostly useful for behavior parity tests).
+/// The `run` command renders a single WebView for visual / parity smoke
+/// testing. It does **not** register an IPC handler with the WebView
+/// (unlike `packed` / `embedded` paths), so any event we successfully
+/// dispatch has no consumer on the JavaScript side. We still log each
+/// event at `info` level so users who pass `--capture-file-drop` for
+/// behavior verification can confirm wry actually delivered the event.
 struct RunDragDropSink;
 
 impl auroraview_core::builder::DragDropIpcSink for RunDragDropSink {
     fn dispatch(
         &self,
         event_name: &str,
-        _data: serde_json::Value,
+        data: serde_json::Value,
     ) -> Result<(), auroraview_core::builder::DispatchError> {
-        tracing::debug!("[CLI] drag-drop event {} dropped (no IPC backend)", event_name);
+        // `info!` (not `debug!`) so the default tracing filter shows it.
+        // RunArgs::capture_file_drop is documented as a parity-testing
+        // affordance; silently swallowing the events at `debug` would
+        // make the flag indistinguishable from a no-op.
+        tracing::info!(
+            target: "auroraview::drag_drop",
+            "[run] {} (no IPC handler registered; payload preview: {})",
+            event_name,
+            data
+        );
         Ok(())
     }
 }
 
 /// Conditionally attach the drag-drop proxy to a WebView builder for the
 /// standalone `run` command.
-fn attach_drag_drop_for_run(
-    builder: wry::WebViewBuilder<'_>,
+///
+/// The caller owns the `Arc<RunDragDropSink>`; we only borrow it. This
+/// matches the helper's `&Arc<S>` design (RFC 0015 §3.3): with
+/// `capture=false` the helper short-circuits without cloning.
+fn attach_drag_drop_for_run<'a>(
+    builder: wry::WebViewBuilder<'a>,
     capture: bool,
-) -> wry::WebViewBuilder<'_> {
-    let sink = std::sync::Arc::new(RunDragDropSink);
-    auroraview_core::builder::attach_drag_drop_handler(builder, capture, &sink)
+    sink: &Arc<RunDragDropSink>,
+) -> wry::WebViewBuilder<'a> {
+    auroraview_core::builder::attach_drag_drop_handler(builder, capture, sink)
 }
 
 /// User event sent from the file watcher thread to the event loop
@@ -325,6 +380,13 @@ pub fn run_webview(args: RunArgs) -> Result<()> {
         anyhow::bail!("Either --url or --html must be provided. Use --help for more information.");
     }
 
+    // Resolve --capture-file-drop / --no-capture-file-drop into the actual
+    // boolean to apply. The `run` command has no manifest / env-var
+    // override layer, so a tri-state `None` collapses straight to `false`
+    // (the documented code default).
+    let capture_file_drop = resolve_capture_file_drop(&args).unwrap_or(false);
+
+
     // Determine the content to load and assets root
     let (html_content, assets_root) = if let Some(url_str) = &args.url {
         // For URLs, just normalize and no assets root
@@ -446,18 +508,23 @@ pub fn run_webview(args: RunArgs) -> Result<()> {
         });
     }
 
+    // Construct the drag-drop sink once and share it across both branches
+    // (URL / HTML). With `capture=false` the helper does not clone the
+    // Arc; with `capture=true` it clones exactly once.
+    let drag_drop_sink: Arc<RunDragDropSink> = Arc::new(RunDragDropSink);
+
     // Load HTML content or URL
     let webview = if let Some(html) = html_content {
         tracing::info!("[CLI] Loading HTML content via with_html()");
         let builder = webview_builder.with_html(html);
-        attach_drag_drop_for_run(builder, args.capture_file_drop)
+        attach_drag_drop_for_run(builder, capture_file_drop, &drag_drop_sink)
             .build(&window)
             .context("Failed to create WebView with HTML content")?
     } else if let Some(url_str) = &args.url {
         let url = normalize_url(url_str)?;
         tracing::info!("[CLI] Loading URL: {}", url);
         let builder = webview_builder.with_url(&url);
-        attach_drag_drop_for_run(builder, args.capture_file_drop)
+        attach_drag_drop_for_run(builder, capture_file_drop, &drag_drop_sink)
             .build(&window)
             .context("Failed to create WebView with URL")?
     } else {

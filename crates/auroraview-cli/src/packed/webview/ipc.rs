@@ -458,3 +458,28 @@ fn handle_invoke_plugin(
         let _ = proxy.send_event(UserEvent::PythonResponse(error_response.to_string()));
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::PackedDragDropSink;
+
+    /// `PackedDragDropSink` is passed to `attach_drag_drop_handler` as the
+    /// generic `S: DragDropIpcSink` parameter, which requires
+    /// `Send + Sync + 'static`. That bound currently holds because every
+    /// field (`Arc<RwLock<...>>`, `EventLoopProxy<UserEvent>`) implements
+    /// both traits on the supported platforms.
+    ///
+    /// `tao::EventLoopProxy<T>` is the only field whose `Sync` impl is
+    /// not part of `std`. If a future `tao` upgrade ever removes its
+    /// `Sync` impl, the helper call site would fail with a confusing
+    /// "S does not implement Sync" error that points at user code rather
+    /// than at the upstream regression. These compile-time checks force
+    /// the build to fail at the type definition itself instead.
+    #[allow(dead_code)]
+    fn assert_send_sync() {
+        fn assert_send<T: Send>() {}
+        fn assert_sync<T: Sync>() {}
+        assert_send::<PackedDragDropSink>();
+        assert_sync::<PackedDragDropSink>();
+    }
+}

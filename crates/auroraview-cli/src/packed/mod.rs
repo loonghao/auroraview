@@ -40,6 +40,9 @@ pub use utils::{
     get_runtime_cache_dir_with_hash, get_webview_data_dir, inject_environment_variables,
 };
 
+// RFC 0015 §4.3: env-var override for `capture_file_drop` in packed apps.
+pub use webview::resolve_packed_capture_file_drop;
+
 // Re-export from auroraview-core
 pub use auroraview_core::assets::build_packed_init_script_with_csp;
 

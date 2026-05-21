@@ -26,3 +26,20 @@ fn pack_args_capture_file_drop_explicit_disable() {
     let args = parse(&["--no-capture-file-drop"]);
     assert_eq!(resolve_capture_file_drop(&args), Some(false));
 }
+
+/// `clap` `overrides_with` semantic: when both flags appear on the same
+/// command line, the LAST occurrence wins. This is the only thing that
+/// keeps the `(true, true)` arm of `resolve_capture_file_drop` from
+/// hitting `unreachable!()` and crashing the process.
+///
+/// If a future clap upgrade changes this behavior the `unreachable!()`
+/// would silently start panicking in production CLI runs. This regression
+/// guard makes any such drift fail in CI first.
+#[test]
+fn pack_args_capture_file_drop_overrides_with_last_wins() {
+    let args = parse(&["--capture-file-drop", "--no-capture-file-drop"]);
+    assert_eq!(resolve_capture_file_drop(&args), Some(false));
+
+    let args = parse(&["--no-capture-file-drop", "--capture-file-drop"]);
+    assert_eq!(resolve_capture_file_drop(&args), Some(true));
+}
