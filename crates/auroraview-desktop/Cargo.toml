@@ -9,12 +9,12 @@ keywords = ["webview", "desktop", "gui", "tauri", "electron"]
 categories = ["gui", "web-programming"]
 
 [dependencies]
-auroraview-core = { path = "../auroraview-core" }
+auroraview-core = { path = "../auroraview-core", features = ["wry-builder"] }
 auroraview-plugins = { path = "../auroraview-plugins" }
 
 # WebView
-wry = "0.54.4"
-tao = "0.34.6"
+wry = { workspace = true }
+tao = { workspace = true }
 
 # System tray
 tray-icon = "0.21"
