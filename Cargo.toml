@@ -51,6 +51,10 @@ authors = ["Hal Long <hal.long@outlook.com>"]
 license = "MIT"
 repository = "https://github.com/loonghao/auroraview"
 
+[workspace.dependencies]
+wry = "0.54.4"
+tao = "0.34.6"
+
 # Root package - Core library with optional Python bindings
 [package]
 name = "auroraview"
@@ -105,8 +109,8 @@ pyo3 = { version = "0.27.2", features = ["multiple-pymethods"], optional = true 
 pythonize = { version = "0.27", optional = true }
 
 # Wry for WebView
-wry = "0.54.4"
-tao = "0.34.6"
+wry = { workspace = true }
+tao = { workspace = true }
 
 # Window handle for DCC integration
 raw-window-handle = "0.6"

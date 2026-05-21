@@ -21,7 +21,7 @@ path = "src/main.rs"
 
 [dependencies]
 # Core utilities and assets
-auroraview-core = { path = "../auroraview-core" }
+auroraview-core = { path = "../auroraview-core", features = ["wry-builder"] }
 auroraview-telemetry = { path = "../auroraview-telemetry", features = ["sentry"] }
 
 # Frontend assets (loading, error, browser pages)
@@ -34,8 +34,8 @@ auroraview-plugins = { path = "../auroraview-plugins" }
 auroraview-pack = { path = "../auroraview-pack", features = ["code-protection"] }
 
 # Wry for WebView (direct dependency for CLI)
-wry = "0.54.4"
-tao = "0.34.6"
+wry = { workspace = true }
+tao = { workspace = true }
 
 # CLI framework
 clap = { version = "4.5", features = ["derive", "env"] }
