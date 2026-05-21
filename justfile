@@ -181,9 +181,28 @@ build-all: assets-build sdk-build-all
     $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
     @echo "[OK] All crates built successfully!"
 
+# Run CI grep guards (RFC 0016 §5 / RFC 0017 §5).
+#
+# These scripts enforce two invariants that cannot be expressed at the
+# Rust type level:
+#
+#   - RFC 0016: Browser-mode `attach_drag_drop_handler` second arg must
+#     be the literal `false`; `BrowserConfig` / `TabManagerConfig` must
+#     not expose a `capture_file_drop` field.
+#   - RFC 0017: Python passthrough must keep `capture_file_drop` as
+#     `Optional[bool]` (no `setdefault` / `or False` / `dict.get(..., False)`)
+#     all the way to the Rust PyO3 boundary.
+ci-grep:
+    @echo "[ci-grep] RFC 0017 capture_file_drop tri-state guard..."
+    vx python scripts/ci/check_capture_file_drop_defaults.py
+    @echo "[ci-grep] RFC 0016 Browser-mode capture_file_drop guard..."
+    vx python scripts/ci/check_browser_no_drag_drop_capture.py
+
 # Run all tests
 [unix]
 test:
+    @echo "Running CI grep guards (RFC 0016 §5 / RFC 0017 §5)..."
+    vx just ci-grep
     @echo "Running workspace crate tests..."
     vx cargo test -p auroraview-core
     vx cargo test -p auroraview-pack
@@ -210,6 +229,8 @@ test:
 
 [windows]
 test:
+    @echo "Running CI grep guards (RFC 0016 §5 / RFC 0017 §5)..."
+    vx just ci-grep
     @echo "Running workspace crate tests..."
     vx cargo test -p auroraview-core
     vx cargo test -p auroraview-pack

@@ -109,6 +109,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ⚠ BREAKING CHANGES
+
+* **DCC：默认 `capture_file_drop` 从 `True` 改为 `False`**（RFCs 0013 / 0015 / 0017）。
+  之前在 Maya / Houdini / Nuke / Blender 等 DCC 宿主中嵌入的 `AuroraView` 会自动
+  接管 OS 拖放并转发为 `file_drop` IPC 事件；现在默认与 standalone / CLI / packed
+  模式一致——不接管，前端可正常使用 HTML5 `dragover` / `drop`。
+  - **影响**：依赖 `auroraview.on('file_drop', ...)` 的 DCC 工具会停止收到事件。
+  - **迁移**：构造 `AuroraView` 时显式传入 `capture_file_drop=True`：
+    ```python
+    super().__init__(parent=parent, capture_file_drop=True, ...)
+    ```
+  - **说明**：详见 [`docs/zh/guide/file-drop.md`](./docs/zh/guide/file-drop.md)。
+
+### Features
+
+* **drag-drop**：新增 `auroraview_core::builder::attach_drag_drop_handler` helper
+  + `DragDropIpcSink` trait + `DispatchError`，统一 5 处 builder 接入点
+  （RFC 0015 §3.3）。`capture=false` 路径不发生 `Arc::clone`；`capture=true`
+  路径恰好一次 clone。
+* **drag-drop**：新增共享 `auroraview_core::builder::NoopDragDropSink`，消除
+  `auroraview-browser` 与 `webview/tab_manager.rs` 中的重复定义。
+* **CLI**：`auroraview run` 新增 `--capture-file-drop` 单向 flag；
+  `auroraview pack` 新增对偶 flag `--capture-file-drop` / `--no-capture-file-drop`
+  （RFC 0015 §4.2）。
+* **packed runtime**：新增 `AURORAVIEW_CAPTURE_FILE_DROP` 环境变量逃生口，
+  支持大小写不敏感的 `1/true/on/yes/enabled` × `0/false/off/no/disabled` 字面量
+  （RFC 0015 §4.3）。
+* **manifest**：新增 `[security].capture_file_drop: Optional[bool]`
+  （RFC 0015 §4.1，`#[serde(default)]` 保证 overlay 二进制兼容，**无需 bump version**）。
+* **Python**：`AuroraView(capture_file_drop=Optional[bool])` 三态契约
+  （RFC 0017）。`None` / `True` / `False` 一路保留到 PyO3 binding；Rust 侧
+  `unwrap_or(false)` 是唯一允许的 flatten 点。
+
+### Documentation
+
+* 新增 [`docs/zh/guide/file-drop.md`](./docs/zh/guide/file-drop.md) 用户向导（含
+  HTML5 ↔ IPC 互斥说明、DCC 迁移指南、CLI/manifest/env-var 合并优先级、故障排查）。
+
+### Tests / CI
+
+* `crates/auroraview-core/tests/builder_helpers_tests.rs`：6 个 `attach_drag_drop_handler`
+  契约测试（RFC 0015 §6.1：smoke / clone-not-once / clone-exactly-once-dual /
+  dispatch + Over filter / error swallowed / `Send + Sync` blanket）。
+* `crates/auroraview-pack/tests/manifest_tests.rs` + `config_tests.rs`：
+  `[security].capture_file_drop` 三态解析 + `from_manifest` 映射。
+* `crates/auroraview-cli/tests/{pack_args_tests,pack_merge_rule_tests,packed_env_var_tests}.rs`：
+  CLI flag 解析、合并规则真值表、env-var 4 类取值（unset / truthy / falsy /
+  invalid）。
+* `tests/python/unit/test_capture_file_drop_tristate.py` +
+  `test_child_window_isolation.py` + 新增的
+  `tests/python/integration/test_capture_file_drop_passthrough.py` + PyO3
+  `_dump_capture_file_drop` 测试钩子（RFC 0017 §4）。
+* `scripts/ci/check_capture_file_drop_defaults.py` +
+  `check_browser_no_drag_drop_capture.py`：两份 CI 静态绊索，由
+  `vx just ci-grep` 接入 `vx just test`。
 ### Added
 
 * **windows**: `AURORAVIEW_WEBVIEW2_TIMEOUT_SECS` environment variable to

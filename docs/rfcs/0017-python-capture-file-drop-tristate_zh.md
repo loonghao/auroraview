@@ -17,7 +17,7 @@
   - `python/auroraview/integration/qt/_core.py`
   - `python/auroraview/__main__.py`（CLI 入口透传）
   - `src/bindings/desktop_runner.rs`（PyO3 binding 层 `unwrap_or(false)` 兜底）
-  - `scripts/ci/check_capture_file_drop_defaults.sh`（新增 CI grep）
+  - `scripts/ci/check_capture_file_drop_defaults.py`（新增 CI grep）
   - `tests/python/unit/test_file_drop_events.py`
   - `tests/python/integration/test_capture_file_drop_passthrough.py`（新增）
   - `tests/python/unit/test_child_window_isolation.py`（新增）
@@ -188,7 +188,7 @@ content = ContentConfig(
 
 ## 5. CI 防回归 grep
 
-`scripts/ci/check_capture_file_drop_defaults.sh`（接入 `vx just test`）：
+`scripts/ci/check_capture_file_drop_defaults.py`（接入 `vx just test`）：
 
 ```bash
 #!/usr/bin/env bash
@@ -228,7 +228,7 @@ echo "OK: capture_file_drop passthrough rules satisfied."
 2. **Step 2 — `from_kwargs` / `to_kwargs`**：改用 `kwargs.get("capture_file_drop")` 无默认值 + `to_kwargs` 透传 + 注释锚点。
 3. **Step 3 — 透传链各层**：`factory.py` / `mixins/factory.py` / `mixins/content.py` / `integration/qt/_core.py` / `__main__.py` 同步透传，禁止 `setdefault` / `or False`。
 4. **Step 4 — PyO3 binding**：`src/bindings/desktop_runner.rs` 接收 `Option<bool>`、`unwrap_or(false)` 落地 Rust `WebViewConfig.capture_file_drop`。
-5. **Step 5 — CI grep**：新增 `scripts/ci/check_capture_file_drop_defaults.sh`，接入 `vx just test`。
+5. **Step 5 — CI grep**：新增 `scripts/ci/check_capture_file_drop_defaults.py`，接入 `vx just test`。
 6. **Step 6 — 测试**：§4 三类测试全部新增；通过 PyO3 expose `_dump_config` 测试钩子（仅 `cfg(test)` 启用）让集成测试可观察 Rust 侧值。
 7. **Step 7 — DCC 迁移指南**：CHANGELOG / docs/zh/guide 显著标注：
 

@@ -358,17 +358,34 @@ pack_config.capture_file_drop = manifest
 
 #### `RunArgs`（`crates/auroraview-cli/src/cli/run.rs`）
 
-单向 flag：
+> **修订（post-implementation）**：原方案为单向 `--capture-file-drop`
+> bool flag，与 `PackArgs` 形态不一致。后续 review 指出未来给
+> `auroraview run` 接 manifest / env var 时单向 flag 会强制把"用户没传"
+> 解读成"显式 false"覆盖下层值。已对齐 `PackArgs`：双向 flag +
+> `resolve_capture_file_drop` 还原 `Option<bool>`，`run` 入口在没有下层
+> 来源时调用 `unwrap_or(false)` 落地，与原代码默认等价。
 
 ```rust
 #[arg(
     long = "capture-file-drop",
-    help = "Capture file drops as `file_drop` IPC events. \
-            WARNING: enabling this disables HTML5 dragover/drop inside \
-            the WebView (upstream wry/WebView2 limitation, see RFC 0015 §2)."
+    action = clap::ArgAction::SetTrue,
+    overrides_with = "no_capture_file_drop"
 )]
 pub capture_file_drop: bool,
+
+#[arg(
+    long = "no-capture-file-drop",
+    action = clap::ArgAction::SetTrue,
+    overrides_with = "capture_file_drop"
+)]
+pub no_capture_file_drop: bool,
 ```
+
+`pub fn resolve_capture_file_drop(args: &RunArgs) -> Option<bool>` 与
+`pack.rs` 的同名函数语义完全一致；当前 `run` 入口直接调用
+`.unwrap_or(false)` 落地，未来若接入 manifest / env var 即可平滑切到
+`.or(manifest...).or(env...).unwrap_or(false)` 的合并链而不破坏
+现有 CLI 表面。
 
 #### `PackArgs`（`crates/auroraview-cli/src/cli/pack.rs`）
 
@@ -571,15 +588,14 @@ pub fn resolve_packed_capture_file_drop(overlay_value: bool) -> bool {
 
 `crates/auroraview-pack/tests/config_tests.rs` 新增 manifest 解析用例（`[security].capture_file_drop = true / false / 缺省`）。
 
-`crates/auroraview-cli/tests/args_tests.rs` 新增：
+`crates/auroraview-cli/tests/run_args_tests.rs` + `crates/auroraview-cli/tests/pack_args_tests.rs` 新增（`RunArgs` 与 `PackArgs` 现在共享 `Optional[bool]` 形态，测试矩阵也镜像）：
 
-- `RunArgs` 解析：`--capture-file-drop` 出现/不出现两种情况下字段值。
-- `PackArgs` 解析（与 RunArgs 形态不同）：
-  - 都不传 → `resolve_capture_file_drop(&args) == None`
-  - `--capture-file-drop` 单独传 → `Some(true)`
-  - `--no-capture-file-drop` 单独传 → `Some(false)`
-  - `--capture-file-drop --no-capture-file-drop` → `Some(false)`（`overrides_with` 后传覆盖前传）
-- `pack_merge_rule` 单元测试：覆盖 §4.4 取值表中 pack 入口的所有有效组合。
+- 都不传 → `resolve_capture_file_drop(&args) == None`
+- `--capture-file-drop` 单独传 → `Some(true)`
+- `--no-capture-file-drop` 单独传 → `Some(false)`
+- `--capture-file-drop --no-capture-file-drop` → `Some(false)`（`overrides_with` 后传覆盖前传）
+- `--no-capture-file-drop --capture-file-drop` → `Some(true)`（同上、相反顺序，钉死 clap `overrides_with` 语义）
+- `pack_merge_rule` 单元测试（仅 `pack_merge_rule_tests.rs`）：覆盖 §4.4 取值表中 pack 入口的所有有效组合。
 - `packed_env_var_override`：mock `AURORAVIEW_CAPTURE_FILE_DROP=1/0/未设置/无效值` 4 种情况，断言行为符合 §4.3，识别命中时有 `tracing::info!`、无效时有 `tracing::warn!`。
 
 ### 6.2 测试 helper
