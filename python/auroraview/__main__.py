@@ -61,6 +61,15 @@ def main():
         help="Enable file:// protocol support (allows loading local files from HTML)",
     )
     parser.add_argument(
+        "--capture-file-drop",
+        action="store_true",
+        help=(
+            "Forward OS file drops as IPC file_drop events. CLI is a binary "
+            "switch (set or omitted); the underlying API uses an "
+            "Optional[bool] tri-state (RFC 0017) where omitted == None."
+        ),
+    )
+    parser.add_argument(
         "--always-on-top",
         action="store_true",
         help="Keep window always on top",
@@ -100,6 +109,10 @@ def main():
 
         # Run standalone WebView (blocking until window closes)
         # This uses the same event_loop.run_return() approach as the Rust CLI
+        # RFC 0017: --capture-file-drop is a binary CLI switch. Translate to
+        # Optional[bool]: True when set, None when omitted (the underlying
+        # API tri-state). Rust applies unwrap_or(false) to land on bool.
+        capture_file_drop = True if args.capture_file_drop else None
         run_standalone(
             title=args.title,
             width=args.width,
@@ -109,6 +122,7 @@ def main():
             dev_tools=args.debug,
             allow_new_window=args.allow_new_window,
             allow_file_protocol=args.allow_file_protocol,
+            capture_file_drop=capture_file_drop,
             always_on_top=args.always_on_top,
             asset_root=asset_root,
             html_path=html_path,

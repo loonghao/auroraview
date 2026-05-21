@@ -175,6 +175,7 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
         asset_root: Optional[str] = None,
         data_directory: Optional[str] = None,
         allow_file_protocol: bool = False,
+        capture_file_drop: Optional[bool] = None,
         always_on_top: bool = False,
         frameless: bool = False,
         transparent: bool = False,
@@ -286,6 +287,10 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
             asset_root=asset_root,
             data_directory=data_directory,
             allow_file_protocol=allow_file_protocol,
+            # RFC 0017: pass tri-state Optional[bool] through unchanged. The
+            # DCC/Qt path does not provide a default; the value flows to
+            # Rust unwrap_or(false) just like every other entry point.
+            capture_file_drop=capture_file_drop,
             always_on_top=always_on_top,
             auto_show=False,
             auto_timer=True,

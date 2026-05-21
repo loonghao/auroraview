@@ -60,6 +60,7 @@ class WebViewFactoryMixin:
         asset_root: Optional[str] = None,
         data_directory: Optional[str] = None,
         allow_file_protocol: bool = False,
+        capture_file_drop: Optional[bool] = None,
         # Automation
         auto_show: bool = False,
         auto_timer: bool = True,
@@ -193,6 +194,8 @@ class WebViewFactoryMixin:
             asset_root=asset_root,
             data_directory=data_directory,
             allow_file_protocol=allow_file_protocol,
+            # RFC 0017: pass tri-state Optional[bool] through unchanged.
+            capture_file_drop=capture_file_drop,
             auto_show=rust_auto_show,  # Pass to Rust layer
             ipc_batch_size=ipc_batch_size,  # Max messages per tick (0=unlimited)
             icon=icon,  # Custom window icon path

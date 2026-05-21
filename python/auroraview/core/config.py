@@ -60,19 +60,31 @@ class WindowConfig:
 
 @dataclass
 class ContentConfig:
-    """Initial content configuration.
+    """Initial content configuration and content-side capability gates.
 
     Attributes:
         url: URL to load (optional)
         html: HTML content to load (optional)
         asset_root: Root directory for auroraview:// protocol (optional)
         allow_file_protocol: Enable file:// protocol (default: False, security risk)
+        capture_file_drop: Forward OS file drops as IPC ``file_drop`` events.
+            Tri-state with ``Optional[bool]``:
+
+            - ``None`` (default) -- inherit lower-layer default (currently ``False``).
+            - ``True`` -- force enable; HTML5 ``dragover``/``drop`` inside the
+              WebView become inert (upstream wry/WebView2 limitation, see RFC 0015 §2).
+            - ``False`` -- force disable.
+
+            Note: ``capture_file_drop`` is ignored in multi-tab Browser mode
+            (RFC 0016). For absolute file paths via IPC, use a top-level
+            ``AuroraView`` instance.
     """
 
     url: Optional[str] = None
     html: Optional[str] = None
     asset_root: Optional[str] = None
     allow_file_protocol: bool = False
+    capture_file_drop: Optional[bool] = None
 
 
 @dataclass
@@ -283,6 +295,11 @@ class WebViewConfig:
             html=kwargs.get("html"),
             asset_root=kwargs.get("asset_root"),
             allow_file_protocol=kwargs.get("allow_file_protocol", False),
+            # RFC 0017 tri-state contract: no default value -- preserve
+            # ``None`` / ``True`` / ``False`` all the way through to the Rust
+            # PyO3 binding (src/bindings/desktop_runner.rs), which applies
+            # ``unwrap_or(false)``.
+            capture_file_drop=kwargs.get("capture_file_drop"),
         )
 
         # Extract embedding config
@@ -370,6 +387,13 @@ class WebViewConfig:
             "html": self.content.html,
             "asset_root": self.content.asset_root,
             "allow_file_protocol": self.content.allow_file_protocol,
+            # RFC 0017 tri-state contract: capture_file_drop must remain
+            # Optional[bool] all the way through to the Rust PyO3 binding
+            # (src/bindings/desktop_runner.rs), which applies unwrap_or(false).
+            # Adding a default here or in any downstream glue (or False /
+            # setdefault / bool(...)) collapses "unspecified" and "explicit
+            # False" into a single state and breaks the tri-state semantics.
+            "capture_file_drop": self.content.capture_file_drop,
             # Embedding
             "parent_hwnd": self.embedding.parent,
             "parent_mode": self.embedding.mode if self.embedding.parent else None,
