@@ -128,7 +128,7 @@ pub enum DispatchError {
 2. **`capture` 通过"是否调用 `with_drag_drop_handler`"来切换**，而非"挂上后返回 `false`"——后者受 wry/WebView2 上游 Bug 影响在 Windows 不可行。详见 RFC 0015 §2。
 3. **helper 接受 `&Arc<S>` 借用形态**（D15 修订），`!capture` 时 `Arc::strong_count` 真实保持原值、契约可独立测试。详见 RFC 0015 §3.3。
 4. **helper 签名泛型生命周期 `'a`**（D1 修订），同时兼容 `WebViewBuilder::new()` 与 `WebViewBuilder::new_with_web_context(&mut web_context)`。详见 RFC 0015 §3.3。
-5. **CLI flag**：`auroraview run` 单向 flag、`auroraview pack` 一对显式 flag (`--capture-file-drop` / `--no-capture-file-drop`) + `resolve_capture_file_drop` 还原 `Option<bool>`（D2 修订）。详见 RFC 0015 §4。
+5. **CLI flag**：`auroraview run` 与 `auroraview pack` 均使用一对显式 flag (`--capture-file-drop` / `--no-capture-file-drop`) + `resolve_capture_file_drop` 还原 `Option<bool>`（D2 修订）。详见 RFC 0015 §4。
 6. **Packed app env var 逃生口** `AURORAVIEW_CAPTURE_FILE_DROP`，`parse_truthy` 大小写不敏感识别 `1/true/on/yes/enabled` × `0/false/off/no/disabled`，无效值打 warn 不静默回落（D4 修订）。详见 RFC 0015 §4.3。
 7. **Python 三态契约**（`Optional[bool]`）+ §7.5 CI grep 防回归。详见 RFC 0017。
 8. **`#[serde(default)]` 已保证 manifest / overlay 二进制兼容**，无需 bump overlay version。详见 RFC 0015 §4.4。

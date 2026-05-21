@@ -57,6 +57,7 @@ export default defineConfig({
                 { text: 'Qt 集成', link: '/zh/guide/qt-integration' },
                 { text: '本地资源加载', link: '/zh/guide/local-resources' },
                 { text: '自定义右键菜单', link: '/zh/guide/context-menu' },
+                { text: '文件拖放', link: '/zh/guide/file-drop' },
                 { text: 'Headless 测试', link: '/zh/guide/headless-testing' },
                 { text: 'AI Agent 与 CDP', link: '/zh/guide/ai-agent-cdp' },
                 { text: '系统托盘', link: '/zh/guide/system-tray' },

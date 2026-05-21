@@ -142,7 +142,7 @@ RFC 0015 §5 末尾"作用域限定"段已声明：
 
 ## 5. CI 防回归 grep
 
-`scripts/ci/check_browser_no_drag_drop_capture.sh`（或 `just check-browser-no-capture`）：
+`scripts/ci/check_browser_no_drag_drop_capture.py`（或 `just check-browser-no-capture`）：
 
 ```bash
 # 禁止 BrowserConfig / TabManagerConfig 中出现 capture_file_drop 字段
@@ -172,7 +172,7 @@ echo "OK: Browser mode never attaches drag-drop handler."
 1. **Step 1 — Browser controller**：`crates/auroraview-browser/src/browser.rs:545` controller builder 调用点加 `attach_drag_drop_handler(builder, false, &ipc_handler)` + 注释。
 2. **Step 2 — Browser 业务 tab**：`crates/auroraview-browser/src/tab/manager.rs:122` 业务 tab builder 调用点同上。
 3. **Step 3 — 旧路径 tab_manager**：`src/webview/tab_manager.rs` 两处（业务 tab :469 + controller :984）镜像处理。
-4. **Step 4 — CI grep**：新增 `scripts/ci/check_browser_no_drag_drop_capture.sh`，接入 `vx just test` 流程。
+4. **Step 4 — CI grep**：新增 `scripts/ci/check_browser_no_drag_drop_capture.py`，接入 `vx just test` 流程。
 5. **Step 5 — 文档**：`docs/zh/guide/file-drop.md` / multi-tab 章节明确"Browser 模式不支持 `capture_file_drop`，请使用顶层 AuroraView 实例"的迁移路径；CHANGELOG 在 multi-tab 段标注。
 
 每步通过 `vx just test` 验证。
