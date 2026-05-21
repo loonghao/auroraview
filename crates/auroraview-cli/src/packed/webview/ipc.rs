@@ -298,10 +298,35 @@ fn handle_plugin_message(
 /// This wraps [`handle_ipc_message`] by re-encoding the drag-drop event as
 /// the same `{ "type": "event", "event": ..., ... }` envelope the WebView
 /// would have produced.
+///
+/// Fields are private; construct via [`PackedDragDropSink::new`] so the
+/// internal dependency shape (e.g. swapping `Arc<RwLock<PluginRouter>>`
+/// for a different concurrency primitive in the future) is not part of
+/// the source-level API.
 pub struct PackedDragDropSink {
-    pub python_backend: Arc<RwLock<Option<Arc<PythonBackend>>>>,
-    pub plugin_router: Arc<RwLock<PluginRouter>>,
-    pub proxy: EventLoopProxy<UserEvent>,
+    python_backend: Arc<RwLock<Option<Arc<PythonBackend>>>>,
+    plugin_router: Arc<RwLock<PluginRouter>>,
+    proxy: EventLoopProxy<UserEvent>,
+}
+
+impl PackedDragDropSink {
+    /// Construct a new [`PackedDragDropSink`].
+    ///
+    /// All three handles are cloned by the caller (typically `Arc::clone`
+    /// for the first two and `EventLoopProxy::clone` for the third) so
+    /// the sink owns an independent set; callers retain their own copies
+    /// for the rest of the IPC pipeline.
+    pub fn new(
+        python_backend: Arc<RwLock<Option<Arc<PythonBackend>>>>,
+        plugin_router: Arc<RwLock<PluginRouter>>,
+        proxy: EventLoopProxy<UserEvent>,
+    ) -> Self {
+        Self {
+            python_backend,
+            plugin_router,
+            proxy,
+        }
+    }
 }
 
 impl auroraview_core::builder::DragDropIpcSink for PackedDragDropSink {

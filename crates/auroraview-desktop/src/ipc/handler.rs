@@ -1,7 +1,8 @@
 //! IPC handler and router
 
 use super::message::{IpcMessage, IpcResponse};
-use dashmap::{DashMap, DashSet};
+use dashmap::DashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tracing::{debug, warn};
 
@@ -18,14 +19,6 @@ pub struct IpcRouter {
     /// Event listeners
     #[allow(clippy::type_complexity)]
     event_listeners: DashMap<String, Vec<Arc<dyn Fn(serde_json::Value) + Send + Sync>>>,
-
-    /// Drag-drop event names already warned about. Drag-drop events
-    /// (`file_drop_hover` / `file_drop` / `file_drop_cancelled`) are
-    /// dispatched per OS-level cursor transition — without rate-limiting
-    /// a single drag-and-drop session would emit 2-3 identical warnings,
-    /// and a stuck "no listener" misconfiguration would spam the log.
-    /// We warn at most once per event name per `IpcRouter` lifetime.
-    drag_drop_warned: DashSet<String>,
 }
 
 impl IpcRouter {
@@ -34,7 +27,6 @@ impl IpcRouter {
         Self {
             handlers: DashMap::new(),
             event_listeners: DashMap::new(),
-            drag_drop_warned: DashSet::new(),
         }
     }
 
@@ -169,6 +161,53 @@ impl Default for IpcRouter {
     }
 }
 
+/// Per-process "warn once" guards for drag-drop events without a listener.
+///
+/// Drag-drop events (`file_drop_hover` / `file_drop` / `file_drop_cancelled`)
+/// fire per OS-level cursor transition — without rate-limiting a single
+/// drag-and-drop session would emit 2-3 identical warnings, and a stuck
+/// "no listener" misconfiguration would spam the tracing subscriber.
+///
+/// The set of event names is closed (RFC 0015 §5), so a fixed-size array
+/// of `AtomicBool` keyed by `&'static str` is both lock-free and zero-
+/// allocation on the hot path. Unknown event names (should not happen at
+/// runtime, but is the only way to add a new variant without touching
+/// this file) fall through to [`UNKNOWN_DRAG_DROP_WARNED`].
+///
+/// Scope is process-global rather than per-`IpcRouter`: in production a
+/// single process owns at most one router, and "warn once across the
+/// whole process" matches operator expectations better than "warn once
+/// per router instance" (which would be silently affected by reload /
+/// hot-restart paths).
+static DRAG_DROP_WARN_GUARDS: [(&str, AtomicBool); 3] = [
+    ("file_drop_hover", AtomicBool::new(false)),
+    ("file_drop", AtomicBool::new(false)),
+    ("file_drop_cancelled", AtomicBool::new(false)),
+];
+
+/// Catch-all guard for any drag-drop event name not in
+/// [`DRAG_DROP_WARN_GUARDS`]. See the array's docstring for rationale.
+static UNKNOWN_DRAG_DROP_WARNED: AtomicBool = AtomicBool::new(false);
+
+/// Try to flip the warn-once guard for `event_name`.
+///
+/// Returns `true` exactly once per process per event name, `false` on
+/// every subsequent call. Lock-free; no allocation regardless of
+/// `event_name`.
+fn should_warn_drag_drop_listener_missing(event_name: &str) -> bool {
+    for (name, guard) in &DRAG_DROP_WARN_GUARDS {
+        if *name == event_name {
+            // Relaxed is sufficient: the warn is purely diagnostic and
+            // we accept that two threads racing on the same first event
+            // could both produce a single warn line — the cost of an
+            // extra memory fence on every drag-drop event is not worth
+            // ruling that out.
+            return !guard.swap(true, Ordering::Relaxed);
+        }
+    }
+    !UNKNOWN_DRAG_DROP_WARNED.swap(true, Ordering::Relaxed)
+}
+
 impl auroraview_core::builder::DragDropIpcSink for IpcRouter {
     fn dispatch(
         &self,
@@ -187,7 +226,7 @@ impl auroraview_core::builder::DragDropIpcSink for IpcRouter {
             for handler in handlers.value() {
                 handler(data.clone());
             }
-        } else if self.drag_drop_warned.insert(event_name.to_string()) {
+        } else if should_warn_drag_drop_listener_missing(event_name) {
             warn!(
                 target: "auroraview::drag_drop",
                 "[IpcRouter] no listener registered for `{}`; \
