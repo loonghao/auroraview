@@ -39,6 +39,7 @@ class DCCWebViewPanel:
         width: int = 800,
         height: int = 600,
         timer_interval: int = 16,  # ~60 FPS
+        capture_file_drop: bool = False,
     ):
         """Initialize the DCC WebView panel.
 
@@ -47,11 +48,25 @@ class DCCWebViewPanel:
             width: Initial window width
             height: Initial window height
             timer_interval: Event processing interval in milliseconds
+            capture_file_drop: Forward OS file drops as IPC ``file_drop`` events
+                (default: ``False``).
+
+                Since v0.6 (RFCs 0013 / 0015 / 0017) DCC hosts no longer enable
+                this implicitly — the default is aligned with standalone / CLI /
+                packed modes. Set to ``True`` if your DCC tool needs absolute
+                OS paths (e.g. importing scenes, loading assets via drag-and-drop).
+
+                Mutually exclusive with HTML5 ``dragover`` / ``drop`` due to a
+                wry/WebView2 upstream limitation: enabling this disables the
+                browser-native drop events inside the WebView. See
+                ``examples/desktop_app_capture_file_drop.py`` for the IPC drop
+                wiring and ``docs/zh/guide/file-drop.md`` for the full guide.
         """
         self.title = title
         self.width = width
         self.height = height
         self.timer_interval = timer_interval
+        self.capture_file_drop = capture_file_drop
 
         self._webview: Optional[WebView] = None
         self._timer: Optional[EventTimer] = None
@@ -66,11 +81,19 @@ class DCCWebViewPanel:
             url: URL to load (optional, used if html_content is None)
         """
         # Create WebView
+        #
+        # ``capture_file_drop`` opt-in (RFC 0015 / 0017): default ``False`` so
+        # DCC tools behave the same as standalone / packed builds — the page
+        # gets HTML5 ``dragover`` / ``drop`` and the IPC ``file_drop`` event
+        # is NOT delivered. Flip ``capture_file_drop=True`` on the panel
+        # constructor when your tool needs absolute OS paths from a drop.
+        # See ``examples/desktop_app_capture_file_drop.py`` for the IPC variant.
         self._webview = WebView(
             title=self.title,
             width=self.width,
             height=self.height,
             resizable=True,
+            capture_file_drop=self.capture_file_drop,
         )
 
         # Register window event handlers

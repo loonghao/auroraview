@@ -587,6 +587,14 @@ def main():
         height=900,
         html=create_demo_html(),
         debug=True,
+        # RFC 0015 / 0017: keep IPC file_drop forwarding disabled so the page
+        # can use the browser-native HTML5 ``dragover`` / ``drop`` API. With
+        # ``capture_file_drop=False`` (the v0.6+ default), this demo's file
+        # operations panel stays compatible with web-stack drag-and-drop
+        # uploads. Flip to ``True`` only when you need OS absolute paths via
+        # ``auroraview.on('file_drop', ...)`` -- see
+        # ``examples/desktop_app_capture_file_drop.py`` for the IPC variant.
+        capture_file_drop=False,
     )
 
     print("Desktop App Demo")

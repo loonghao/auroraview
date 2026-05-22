@@ -160,6 +160,7 @@ def create_webview(
     asset_root: Optional[str] = None,
     data_directory: Optional[str] = None,
     allow_file_protocol: bool = False,
+    capture_file_drop: Optional[bool] = None,
     always_on_top: bool = False,
     mode: Optional[str] = None,
     ipc_batch_size: int = 0,
@@ -249,6 +250,8 @@ def create_webview(
             asset_root=asset_root,
             data_directory=data_directory,
             allow_file_protocol=allow_file_protocol,
+            # RFC 0017: pass tri-state Optional[bool] through unchanged.
+            capture_file_drop=capture_file_drop,
             always_on_top=always_on_top,
             embed_mode=resolved_mode,
             ipc_batch_size=ipc_batch_size,
@@ -292,6 +295,8 @@ def create_webview(
             asset_root=asset_root,
             data_directory=data_directory,
             allow_file_protocol=allow_file_protocol,
+            # RFC 0017: pass tri-state Optional[bool] through unchanged.
+            capture_file_drop=capture_file_drop,
             always_on_top=always_on_top,
             transparent=transparent,
             background_color=background_color,
