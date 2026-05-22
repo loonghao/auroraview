@@ -29,7 +29,8 @@ impl PyDesktopConfig {
         always_on_top = false,
         transparent = false,
         devtools = true,
-        debug_port = 0
+        debug_port = 0,
+        capture_file_drop = None
     ))]
     #[allow(clippy::too_many_arguments)]
     fn new(
@@ -44,6 +45,7 @@ impl PyDesktopConfig {
         transparent: bool,
         devtools: bool,
         debug_port: u16,
+        capture_file_drop: Option<bool>,
     ) -> Self {
         Self {
             inner: auroraview_desktop::DesktopConfig {
@@ -58,6 +60,10 @@ impl PyDesktopConfig {
                 transparent,
                 devtools,
                 debug_port,
+                // RFC 0017: PyO3 binding is the SOLE permitted flatten point.
+                // Mirrors `desktop_runner::run_desktop` and
+                // `webview::core::main::AuroraView::new`.
+                capture_file_drop: capture_file_drop.unwrap_or(false),
                 ..Default::default()
             },
         }
@@ -133,6 +139,13 @@ impl PyDesktopConfig {
     /// Builder-style: set debug port
     fn debug_port(&mut self, port: u16) -> Self {
         self.inner.debug_port = port;
+        self.clone()
+    }
+
+    /// Builder-style: forward OS file drops as IPC `file_drop_*` events.
+    /// See `DesktopConfig::capture_file_drop` and RFC 0015 §2.
+    fn capture_file_drop(&mut self, enable: bool) -> Self {
+        self.inner.capture_file_drop = enable;
         self.clone()
     }
 
