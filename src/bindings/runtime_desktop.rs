@@ -396,6 +396,7 @@ mod tests {
             false,
             true,
             0,
+            None,
         );
 
         assert_eq!(config.inner.title, "Test Window");
@@ -407,7 +408,7 @@ mod tests {
     #[test]
     fn test_desktop_config_builder_style() {
         let mut config = PyDesktopConfig::new(
-            "Default", 100, 100, None, None, true, true, false, false, true, 0,
+            "Default", 100, 100, None, None, true, true, false, false, true, 0, None,
         );
 
         config = config.title("New Title");
