@@ -120,6 +120,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     ```python
     super().__init__(parent=parent, capture_file_drop=True, ...)
     ```
+  - **示例**：见 [`examples/desktop_app_capture_file_drop.py`](./examples/desktop_app_capture_file_drop.py)。
   - **说明**：详见 [`docs/zh/guide/file-drop.md`](./docs/zh/guide/file-drop.md)。
 
 ### Features
@@ -128,11 +129,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   + `DragDropIpcSink` trait + `DispatchError`，统一 5 处 builder 接入点
   （RFC 0015 §3.3）。`capture=false` 路径不发生 `Arc::clone`；`capture=true`
   路径恰好一次 clone。
-* **drag-drop**：新增共享 `auroraview_core::builder::NoopDragDropSink`，消除
-  `auroraview-browser` 与 `webview/tab_manager.rs` 中的重复定义。
+* **drag-drop**：新增共享 `auroraview_core::builder::NoopDragDropSink` 与
+  `attach_drag_drop_handler` helper，消除 `auroraview-browser` 与
+  `webview/tab_manager.rs` 中的重复定义。
+* **browser**：多 Tab Browser 模式硬关闭 `capture_file_drop`（RFC 0016）——
+  controller 与所有业务 tab 永远不挂 `with_drag_drop_handler`，规避多 WebView
+  叠加场景下 OS 拖放状态机无法收敛的问题。
 * **CLI**：`auroraview run` 新增 `--capture-file-drop` 单向 flag；
-  `auroraview pack` 新增对偶 flag `--capture-file-drop` / `--no-capture-file-drop`
-  （RFC 0015 §4.2）。
+  `auroraview pack` 新增对偶 flag `--capture-file-drop` /
+  `--no-capture-file-drop`（RFC 0015 §4.2）。
 * **packed runtime**：新增 `AURORAVIEW_CAPTURE_FILE_DROP` 环境变量逃生口，
   支持大小写不敏感的 `1/true/on/yes/enabled` × `0/false/off/no/disabled` 字面量
   （RFC 0015 §4.3）。
@@ -142,16 +147,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   （RFC 0017）。`None` / `True` / `False` 一路保留到 PyO3 binding；Rust 侧
   `unwrap_or(false)` 是唯一允许的 flatten 点。
 
+### Refactors
+
+* **workspace**：`wry` (0.54.4) / `tao` (0.34.6) 版本固定从 5 处 crate 的
+  `Cargo.toml` 集中到根 `[workspace.dependencies]`（RFC 0014），消除升级 wry
+  时的版本漂移风险。
+* **ipc**：`PackedDragDropSink` 收紧封装（pub 字段 → `new()` 构造器）；
+  `IpcRouter::dispatch` 的 warn-once 实现从 `DashSet<String>` 改为固定大小
+  `(&'static str, AtomicBool)` 数组 + 命名 static 上的 exhaustive `match`，
+  hot-path lock-free 零分配。
+* **desktop**：缺失 drag-drop sink 时改为 warn-once，避免日志刷屏。
+
 ### Documentation
 
 * 新增 [`docs/zh/guide/file-drop.md`](./docs/zh/guide/file-drop.md) 用户向导（含
-  HTML5 ↔ IPC 互斥说明、DCC 迁移指南、CLI/manifest/env-var 合并优先级、故障排查）。
+  HTML5 ↔ IPC 互斥说明、DCC 迁移指南、CLI / manifest / env-var 合并优先级、
+  故障排查）。
+* 新增 RFC 0013 / 0014 / 0015 / 0016 / 0017 文件拖放系列设计文档。
+* 新增 [`examples/desktop_app_capture_file_drop.py`](./examples/desktop_app_capture_file_drop.py)
+  桌面端 IPC 文件拖放演示。
 
 ### Tests / CI
 
-* `crates/auroraview-core/tests/builder_helpers_tests.rs`：6 个 `attach_drag_drop_handler`
-  契约测试（RFC 0015 §6.1：smoke / clone-not-once / clone-exactly-once-dual /
-  dispatch + Over filter / error swallowed / `Send + Sync` blanket）。
+* `crates/auroraview-core/tests/builder_helpers_tests.rs`：6 个
+  `attach_drag_drop_handler` 契约测试（smoke / clone-not-once /
+  clone-exactly-once-dual / dispatch + Over filter / error swallowed /
+  `Send + Sync` blanket）。
 * `crates/auroraview-pack/tests/manifest_tests.rs` + `config_tests.rs`：
   `[security].capture_file_drop` 三态解析 + `from_manifest` 映射。
 * `crates/auroraview-cli/tests/{pack_args_tests,pack_merge_rule_tests,packed_env_var_tests}.rs`：
@@ -200,6 +221,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   before installing the new `WndProc`, fixing a deadlock where
   `SetWindowPos(SWP_FRAMECHANGED)` re-entered the same non-reentrant mutex
   via the synchronous `WM_NCCALCSIZE` dispatch.
+
+
 
 ## [0.5.2](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.1...auroraview-v0.5.2) (2026-04-25)
 

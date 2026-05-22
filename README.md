@@ -155,7 +155,7 @@ server.stop()
 - [OK] **Message Dialogs**: confirm, alert, error, ok_cancel dialogs
 - [OK] **Navigation Control**: go_back, go_forward, reload, stop, can_go_back/forward
 - [OK] **Window Events**: on_window_show/hide/focus/blur/resize, on_fullscreen_changed
-- [OK] **File Drop Events**: Native drag-and-drop with full file paths (file_drop, file_drop_hover, file_paste)
+- [OK] **File Drop Events**: Native drag-and-drop with full file paths (`file_drop`, `file_drop_hover`, `file_drop_cancelled`, `file_paste`). Off by default since v0.6 (`capture_file_drop=False`); opt-in via `AuroraView(capture_file_drop=True)` when you need OS absolute paths. Mutually exclusive with HTML5 `dragover`/`drop` due to a wry/WebView2 upstream limitation — see [`docs/zh/guide/file-drop.md`](./docs/zh/guide/file-drop.md) and [`examples/desktop_app_capture_file_drop.py`](./examples/desktop_app_capture_file_drop.py).
 - [OK] **Cancellable Events**: Event handlers can cancel events (e.g., prevent window closing)
 - [OK] **Event Utilities**: Debounce/throttle helpers for high-frequency events
 
