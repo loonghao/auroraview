@@ -80,9 +80,7 @@ def acquire_flag(host: Any, name: str) -> Iterator[bool]:
 
 
 @contextmanager
-def acquire_exclusive(
-    host: Any, own_flag: str, *peer_flags: str
-) -> Iterator[bool]:
+def acquire_exclusive(host: Any, own_flag: str, *peer_flags: str) -> Iterator[bool]:
     """Acquire ``own_flag`` only if all ``peer_flags`` are currently free.
 
     This generalises the "two-task mutual exclusion" pattern used between

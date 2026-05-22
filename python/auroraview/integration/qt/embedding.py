@@ -140,8 +140,8 @@ class EmbeddingMixin:
             else:
                 self._create_container_qt(webview_hwnd)
 
-        except Exception as e:
-            logger.exception(f"[EmbeddingMixin] Failed to create container: {e}")
+        except Exception:
+            logger.exception("[EmbeddingMixin] Failed to create container")
             self._webview_container = None
 
     def _create_container_direct(self, webview_hwnd: int) -> None:
@@ -283,9 +283,7 @@ class EmbeddingMixin:
                     if hasattr(backend, "_fix_all_child_windows_recursive"):
                         count = backend._fix_all_child_windows_recursive(webview_hwnd)
                         if count > 0:
-                            logger.info(
-                                f"[EmbeddingMixin] Fixed {count} WebView2 child windows"
-                            )
+                            logger.info(f"[EmbeddingMixin] Fixed {count} WebView2 child windows")
                 except Exception as e:
                     if _VERBOSE_LOGGING:
                         logger.debug(f"[EmbeddingMixin] fix_children failed: {e}")
