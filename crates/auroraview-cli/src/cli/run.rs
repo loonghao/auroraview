@@ -99,22 +99,11 @@ pub struct RunArgs {
 /// Resolve the user's `--capture-file-drop` / `--no-capture-file-drop`
 /// choice into a tri-state value.
 ///
-/// Mirrors `pack::resolve_capture_file_drop` so both CLI entry points
-/// share the same `Optional[bool]` semantics:
-///
 /// - both flags absent → `None` (defer to lower layer / code default).
 /// - `--capture-file-drop` only → `Some(true)`.
 /// - `--no-capture-file-drop` only → `Some(false)`.
-///
-/// `clap` `overrides_with` ensures the `(true, true)` combination is
-/// resolved to whichever flag came last on the command line.
 pub fn resolve_capture_file_drop(args: &RunArgs) -> Option<bool> {
-    match (args.capture_file_drop, args.no_capture_file_drop) {
-        (false, false) => None,
-        (true, false) => Some(true),
-        (false, true) => Some(false),
-        (true, true) => unreachable!("clap overrides_with should make this impossible"),
-    }
+    super::resolve_flag_pair(args.capture_file_drop, args.no_capture_file_drop)
 }
 
 /// Drag-drop sink for the standalone `run` command.
@@ -145,20 +134,6 @@ impl auroraview_core::builder::DragDropIpcSink for RunDragDropSink {
         );
         Ok(())
     }
-}
-
-/// Conditionally attach the drag-drop proxy to a WebView builder for the
-/// standalone `run` command.
-///
-/// The caller owns the `Arc<RunDragDropSink>`; we only borrow it. This
-/// matches the helper's `&Arc<S>` design (RFC 0015 §3.3): with
-/// `capture=false` the helper short-circuits without cloning.
-fn attach_drag_drop_for_run<'a>(
-    builder: wry::WebViewBuilder<'a>,
-    capture: bool,
-    sink: &Arc<RunDragDropSink>,
-) -> wry::WebViewBuilder<'a> {
-    auroraview_core::builder::attach_drag_drop_handler(builder, capture, sink)
 }
 
 /// User event sent from the file watcher thread to the event loop
@@ -516,16 +491,24 @@ pub fn run_webview(args: RunArgs) -> Result<()> {
     let webview = if let Some(html) = html_content {
         tracing::info!("[CLI] Loading HTML content via with_html()");
         let builder = webview_builder.with_html(html);
-        attach_drag_drop_for_run(builder, capture_file_drop, &drag_drop_sink)
-            .build(&window)
-            .context("Failed to create WebView with HTML content")?
+        auroraview_core::builder::attach_drag_drop_handler(
+            builder,
+            capture_file_drop,
+            &drag_drop_sink,
+        )
+        .build(&window)
+        .context("Failed to create WebView with HTML content")?
     } else if let Some(url_str) = &args.url {
         let url = normalize_url(url_str)?;
         tracing::info!("[CLI] Loading URL: {}", url);
         let builder = webview_builder.with_url(&url);
-        attach_drag_drop_for_run(builder, capture_file_drop, &drag_drop_sink)
-            .build(&window)
-            .context("Failed to create WebView with URL")?
+        auroraview_core::builder::attach_drag_drop_handler(
+            builder,
+            capture_file_drop,
+            &drag_drop_sink,
+        )
+        .build(&window)
+        .context("Failed to create WebView with URL")?
     } else {
         anyhow::bail!("Either html_content or url must be set");
     };
