@@ -127,9 +127,7 @@ class TestEntryPointSignatures:
     def test_webview_run_embedded_accepts_capture_file_drop(self):
         from auroraview.core.mixins.factory import WebViewFactoryMixin
 
-        assert self._accepts(
-            WebViewFactoryMixin.run_embedded, "capture_file_drop"
-        )
+        assert self._accepts(WebViewFactoryMixin.run_embedded, "capture_file_drop")
 
     def test_webviewfactory_create_accepts_capture_file_drop(self):
         from auroraview.core.factory import WebViewFactory
@@ -157,4 +155,3 @@ class TestEntryPointSignatures:
             pytest.skip("Qt/PySide not available in this environment")
 
         assert self._accepts(QtWebView.__init__, "capture_file_drop")
-

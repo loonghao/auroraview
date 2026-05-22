@@ -140,11 +140,8 @@ impl TabManager {
         // §2.1). Pages needing absolute paths via IPC should use a top-level
         // AuroraView instance with capture_file_drop=True instead.
         let drag_drop_sink = std::sync::Arc::new(crate::NoopDragDropSink);
-        let builder = auroraview_core::builder::attach_drag_drop_handler(
-            builder,
-            false,
-            &drag_drop_sink,
-        );
+        let builder =
+            auroraview_core::builder::attach_drag_drop_handler(builder, false, &drag_drop_sink);
 
         let webview = builder
             .build_as_child(window)

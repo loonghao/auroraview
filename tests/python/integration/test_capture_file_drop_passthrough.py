@@ -83,13 +83,9 @@ def test_passthrough_via_webview_config_round_trip():
     assert _dump(kwargs["capture_file_drop"]) is False
 
     # Case 2: explicit True
-    kwargs = config_module.WebViewConfig.from_kwargs(
-        capture_file_drop=True
-    ).to_kwargs()
+    kwargs = config_module.WebViewConfig.from_kwargs(capture_file_drop=True).to_kwargs()
     assert _dump(kwargs["capture_file_drop"]) is True
 
     # Case 3: explicit False
-    kwargs = config_module.WebViewConfig.from_kwargs(
-        capture_file_drop=False
-    ).to_kwargs()
+    kwargs = config_module.WebViewConfig.from_kwargs(capture_file_drop=False).to_kwargs()
     assert _dump(kwargs["capture_file_drop"]) is False

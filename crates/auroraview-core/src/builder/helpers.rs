@@ -43,11 +43,7 @@ impl DispatchError {
 /// `tracing::error!` call so all sinks share a uniform log format.
 pub trait DragDropIpcSink: Send + Sync + 'static {
     /// Forward a single drag-drop event into the IPC pipeline.
-    fn dispatch(
-        &self,
-        event_name: &str,
-        data: serde_json::Value,
-    ) -> Result<(), DispatchError>;
+    fn dispatch(&self, event_name: &str, data: serde_json::Value) -> Result<(), DispatchError>;
 }
 
 /// No-op [`DragDropIpcSink`] used at call sites that pass `capture=false`
@@ -64,11 +60,7 @@ pub trait DragDropIpcSink: Send + Sync + 'static {
 pub struct NoopDragDropSink;
 
 impl DragDropIpcSink for NoopDragDropSink {
-    fn dispatch(
-        &self,
-        _event_name: &str,
-        _data: serde_json::Value,
-    ) -> Result<(), DispatchError> {
+    fn dispatch(&self, _event_name: &str, _data: serde_json::Value) -> Result<(), DispatchError> {
         Ok(())
     }
 }

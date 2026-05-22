@@ -41,11 +41,7 @@ impl CountingSink {
 }
 
 impl DragDropIpcSink for CountingSink {
-    fn dispatch(
-        &self,
-        event_name: &str,
-        data: serde_json::Value,
-    ) -> Result<(), DispatchError> {
+    fn dispatch(&self, event_name: &str, data: serde_json::Value) -> Result<(), DispatchError> {
         self.count.fetch_add(1, Ordering::SeqCst);
         self.events
             .lock()
@@ -67,11 +63,7 @@ struct ErrorSink {
 struct SyntheticBackendError;
 
 impl DragDropIpcSink for ErrorSink {
-    fn dispatch(
-        &self,
-        _event_name: &str,
-        _data: serde_json::Value,
-    ) -> Result<(), DispatchError> {
+    fn dispatch(&self, _event_name: &str, _data: serde_json::Value) -> Result<(), DispatchError> {
         self.count.fetch_add(1, Ordering::SeqCst);
         Err(DispatchError::backend(SyntheticBackendError))
     }
@@ -149,9 +141,7 @@ fn attach_drag_drop_handler_dispatches_to_sink_when_capture_true() {
         paths: vec![std::path::PathBuf::from("/tmp/a.txt")],
         position: (10, 20),
     };
-    let over = wry::DragDropEvent::Over {
-        position: (15, 25),
-    };
+    let over = wry::DragDropEvent::Over { position: (15, 25) };
     let drop_evt = wry::DragDropEvent::Drop {
         paths: vec![std::path::PathBuf::from("/tmp/b.png")],
         position: (30, 40),

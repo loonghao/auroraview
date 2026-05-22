@@ -102,10 +102,7 @@ fn merge_full(args: &PackArgs, manifest: &Manifest) -> bool {
     let cli = resolve_capture_file_drop(args);
     // PackConfig.from_manifest already collapses Option<bool> -> bool, but
     // for the override step `run_pack` reads the raw manifest tri-state.
-    let manifest_value = manifest
-        .security
-        .as_ref()
-        .and_then(|s| s.capture_file_drop);
+    let manifest_value = manifest.security.as_ref().and_then(|s| s.capture_file_drop);
     cli.or(manifest_value).unwrap_or(false)
 }
 

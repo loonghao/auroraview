@@ -433,7 +433,7 @@ fn _dump_capture_file_drop(capture_file_drop: Option<bool>) -> PyResult<bool> {
 pub fn register_desktop_runner(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(run_desktop, m)?)?;
     m.add_function(wrap_pyfunction!(run_standalone, m)?)?; // Legacy alias
-    // RFC 0017 §4.2: passthrough integration test hook.
+                                                           // RFC 0017 §4.2: passthrough integration test hook.
     m.add_function(wrap_pyfunction!(_dump_capture_file_drop, m)?)?;
     Ok(())
 }
