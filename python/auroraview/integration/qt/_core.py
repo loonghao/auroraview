@@ -45,7 +45,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Tuple
 
 try:
     from qtpy.QtCore import QCoreApplication, QEvent, Qt, QTimer, Signal
@@ -306,6 +306,15 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
 
         # Track cleanup state
         self._is_closing = False
+
+        # Cross-task mutex flags + last-synced bounds memo shared by
+        # EmbeddingMixin (child-window fixer) and LifecycleMixin
+        # (delayed geometry sync).  See auroraview.integration.qt._locks
+        # for the rationale; _last_synced_bounds backs the idempotency
+        # guard inside _sync_webview2_controller_bounds.
+        self._geometry_sync_in_progress = False
+        self._child_window_fix_in_progress = False
+        self._last_synced_bounds: Optional[Tuple[int, int]] = None
 
         # Set up Qt event processor
         self._event_processor = QtEventProcessor(self._webview)
