@@ -74,6 +74,13 @@ impl DragDropHandler {
 
         move |event: DragDropEvent| {
             let data = match event {
+                DragDropEvent::Over { position } => {
+                    let (x, y) = position;
+                    tracing::trace!("[DragDropHandler] Over at ({}, {})", x, y);
+                    // Hot path — Over fires per pixel during drag; skip struct
+                    // construction and callback invocation entirely.
+                    return true;
+                }
                 DragDropEvent::Enter { paths, position } => {
                     let paths_str: Vec<String> = paths
                         .iter()
@@ -91,17 +98,6 @@ impl DragDropHandler {
                     DragDropEventData {
                         event_type: DragDropEventType::Enter,
                         paths: paths_str,
-                        position: Some((x as f64, y as f64)),
-                        timestamp: None,
-                    }
-                }
-                DragDropEvent::Over { position } => {
-                    let (x, y) = position;
-                    tracing::trace!("[DragDropHandler] Over at ({}, {})", x, y);
-
-                    DragDropEventData {
-                        event_type: DragDropEventType::Over,
-                        paths: Vec::new(),
                         position: Some((x as f64, y as f64)),
                         timestamp: None,
                     }
