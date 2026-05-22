@@ -209,6 +209,7 @@ class WebViewFactory:
         bridge: Union["Bridge", bool, None] = None,
         debug: bool = True,
         context_menu: bool = True,
+        capture_file_drop: Optional[bool] = None,
         auto_timer: bool = True,
     ) -> "WebView":
         """Create and show an embedded WebView with auto timer (non-blocking).
@@ -233,6 +234,8 @@ class WebViewFactory:
             bridge=bridge,
             debug=debug,
             context_menu=context_menu,
+            # RFC 0017: pass tri-state Optional[bool] through unchanged.
+            capture_file_drop=capture_file_drop,
             auto_show=True,
             auto_timer=auto_timer,
         )

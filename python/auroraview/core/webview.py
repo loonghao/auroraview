@@ -123,6 +123,7 @@ class WebView(
         asset_root: Optional[str] = None,
         data_directory: Optional[str] = None,
         allow_file_protocol: bool = False,
+        capture_file_drop: Optional[bool] = None,
         always_on_top: bool = False,
         transparent: bool = False,
         background_color: Optional[str] = None,
@@ -368,6 +369,7 @@ class WebView(
             html = config.content.html
             asset_root = config.content.asset_root
             allow_file_protocol = config.content.allow_file_protocol
+            capture_file_drop = config.content.capture_file_drop
             parent = config.embedding.parent
             mode = config.embedding.mode if config.embedding.parent else None
             dcc_mode = config.embedding.dcc_mode
@@ -432,6 +434,9 @@ class WebView(
                 asset_root=asset_root,  # Custom protocol asset root
                 data_directory=data_directory,  # User data directory (cookies, cache, etc.)
                 allow_file_protocol=allow_file_protocol,  # Enable file:// protocol
+                # RFC 0017: pass tri-state Optional[bool] through unchanged.
+                # Rust binding applies unwrap_or(false); do not collapse here.
+                capture_file_drop=capture_file_drop,
                 always_on_top=always_on_top,  # Keep window always on top
                 transparent=transparent,  # Enable transparent window
                 background_color=background_color,  # Window background color
