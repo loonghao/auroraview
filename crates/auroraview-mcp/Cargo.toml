@@ -63,7 +63,7 @@ axum = "0.8.9"
 tokio-stream = { version = "0.1.18", features = ["sync"] }
 futures = "0.3.32"
 chrono = "0.4.44"
-bcrypt = "0.19.0"
+bcrypt = "0.19.1"
 pyo3 = { version = "0.27", optional = true }
 
 [features]
