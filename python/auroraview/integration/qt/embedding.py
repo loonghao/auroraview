@@ -33,7 +33,11 @@ from auroraview.integration.qt._compat import (
     supports_direct_embedding,
     update_embedded_window_geometry,
 )
-from auroraview.integration.qt._locks import acquire_exclusive
+from auroraview.integration.qt._locks import (
+    FLAG_CHILD_WINDOW_FIX,
+    FLAG_GEOMETRY_SYNC,
+    acquire_exclusive,
+)
 
 if TYPE_CHECKING:
     from auroraview.core.webview import WebView
@@ -273,8 +277,8 @@ class EmbeddingMixin:
             # hosts.  See _locks.acquire_exclusive for the rationale.
             with acquire_exclusive(
                 self,
-                "_child_window_fix_in_progress",
-                "_geometry_sync_in_progress",
+                FLAG_CHILD_WINDOW_FIX,
+                FLAG_GEOMETRY_SYNC,
             ) as got:
                 if not got:
                     return
@@ -285,8 +289,7 @@ class EmbeddingMixin:
                         if count > 0:
                             logger.info(f"[EmbeddingMixin] Fixed {count} WebView2 child windows")
                 except Exception as e:
-                    if _VERBOSE_LOGGING:
-                        logger.debug(f"[EmbeddingMixin] fix_children failed: {e}")
+                    logger.debug(f"[EmbeddingMixin] fix_children failed: {e}")
 
         # Fix immediately (synchronously, before any timer fires)
         fix_children()
@@ -546,7 +549,6 @@ class EmbeddingMixin:
 
             # Force container to fill our size
             container.setGeometry(0, 0, width, height)
-            container.resize(width, height)
 
             # Also resize the QWindow if available
             qwindow = getattr(self, "_webview_qwindow", None)
@@ -565,8 +567,7 @@ class EmbeddingMixin:
                 logger.debug(f"[EmbeddingMixin] Forced container geometry: {width}x{height}")
 
         except Exception as e:
-            if _VERBOSE_LOGGING:
-                logger.debug(f"[EmbeddingMixin] _force_container_geometry failed: {e}")
+            logger.debug(f"[EmbeddingMixin] _force_container_geometry failed: {e!r}")
 
     def _handle_resize_for_embedding(self, width: int, height: int) -> None:
         """Handle resize event for embedded WebView.
