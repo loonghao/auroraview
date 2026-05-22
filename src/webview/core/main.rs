@@ -22,7 +22,7 @@ impl AuroraView {
     /// Create a new WebView instance
     #[new]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (title="DCC WebView", width=800, height=600, url=None, html=None, dev_tools=true, context_menu=true, resizable=true, decorations=true, parent_hwnd=None, parent_mode=None, asset_root=None, data_directory=None, allow_file_protocol=false, always_on_top=false, transparent=false, background_color=None, auto_show=true, headless=false, remote_debugging_port=None, ipc_batch_size=0, icon=None, tool_window=false, undecorated_shadow=true, allow_new_window=false, new_window_mode=None, splash_overlay=false, allow_downloads=true, download_prompt=false, download_directory=None, proxy_url=None, user_agent=None))]
+    #[pyo3(signature = (title="DCC WebView", width=800, height=600, url=None, html=None, dev_tools=true, context_menu=true, resizable=true, decorations=true, parent_hwnd=None, parent_mode=None, asset_root=None, data_directory=None, allow_file_protocol=false, capture_file_drop=None, always_on_top=false, transparent=false, background_color=None, auto_show=true, headless=false, remote_debugging_port=None, ipc_batch_size=0, icon=None, tool_window=false, undecorated_shadow=true, allow_new_window=false, new_window_mode=None, splash_overlay=false, allow_downloads=true, download_prompt=false, download_directory=None, proxy_url=None, user_agent=None))]
     fn new(
         title: &str,
         width: u32,
@@ -38,6 +38,7 @@ impl AuroraView {
         asset_root: Option<&str>,
         data_directory: Option<&str>,
         allow_file_protocol: bool,
+        capture_file_drop: Option<bool>,
         always_on_top: bool,
         transparent: bool,
         background_color: Option<&str>,
@@ -85,6 +86,10 @@ impl AuroraView {
             asset_root: asset_root.map(std::path::PathBuf::from),
             data_directory: data_directory.map(std::path::PathBuf::from),
             allow_file_protocol,
+            // RFC 0017 §3 final flatten point: this PyO3 binding is the ONLY
+            // place where the Python tri-state `Optional[bool]` collapses
+            // into a concrete `bool`. Mirrors `desktop_runner::run_desktop`.
+            capture_file_drop: capture_file_drop.unwrap_or(false),
             always_on_top,
             transparent,
             background_color: background_color.map(|s| s.to_string()),
