@@ -23,7 +23,11 @@ from auroraview.integration.qt._compat import (
     hide_window_for_init,
     show_window_after_init,
 )
-from auroraview.integration.qt._locks import acquire_exclusive
+from auroraview.integration.qt._locks import (
+    FLAG_CHILD_WINDOW_FIX,
+    FLAG_GEOMETRY_SYNC,
+    acquire_exclusive,
+)
 
 if TYPE_CHECKING:
     from qtpy.QtGui import QWindow
@@ -294,8 +298,8 @@ class LifecycleMixin:
             # mutually exclusive via _locks.acquire_exclusive.
             with acquire_exclusive(
                 self,
-                "_geometry_sync_in_progress",
-                "_child_window_fix_in_progress",
+                FLAG_GEOMETRY_SYNC,
+                FLAG_CHILD_WINDOW_FIX,
             ) as got:
                 if not got:
                     if retries_left > 0:
@@ -316,8 +320,7 @@ class LifecycleMixin:
                     if _VERBOSE_LOGGING:
                         logger.debug("[LifecycleMixin] Delayed geometry sync completed")
                 except Exception as e:
-                    if _VERBOSE_LOGGING:
-                        logger.debug(f"[LifecycleMixin] delayed_geometry_sync swallowed: {e!r}")
+                    logger.debug(f"[LifecycleMixin] delayed_geometry_sync failed: {e!r}")
 
         # Schedule catch-up syncs. The previous fan-out
         # (150ms / 600ms / 1500ms) was a workaround for the case

@@ -129,16 +129,22 @@ def try_acquire_flag(host: Any, name: str) -> bool:
 def release_flag(host: Any, name: str) -> None:
     """Release a guard previously acquired via :func:`try_acquire_flag`.
 
-    The ``assert`` below is a debug-only safety net and is stripped under
-    ``python -O`` (or when bytecode optimisers like PyOxidizer drop
-    asserts).  For production-grade pairing safety, prefer the
-    :func:`acquire_flag` / :func:`acquire_exclusive` context managers
-    which use ``with`` and cannot be mismatched.
+    Raises :class:`RuntimeError` if the flag is not currently held.  This
+    check is always active (including under ``python -O``) so that
+    mismatched acquire/release pairs are caught in DCC hosts that run
+    with optimisations enabled.  For production-grade pairing safety,
+    prefer the :func:`acquire_flag` / :func:`acquire_exclusive` context
+    managers which use ``with`` and cannot be mismatched.
     """
-    assert getattr(host, name, False), (
-        f"release_flag called without a matching try_acquire_flag: {name}"
-    )
+    if not getattr(host, name, False):
+        raise RuntimeError(f"release_flag called without a matching try_acquire_flag: {name}")
     setattr(host, name, False)
+
+
+# Canonical flag name constants — use these instead of raw strings to avoid
+# silent typo bugs (getattr with a default masks misspelled attribute names).
+FLAG_GEOMETRY_SYNC = "_geometry_sync_in_progress"
+FLAG_CHILD_WINDOW_FIX = "_child_window_fix_in_progress"
 
 
 __all__ = [
@@ -146,4 +152,6 @@ __all__ = [
     "acquire_exclusive",
     "try_acquire_flag",
     "release_flag",
+    "FLAG_GEOMETRY_SYNC",
+    "FLAG_CHILD_WINDOW_FIX",
 ]
