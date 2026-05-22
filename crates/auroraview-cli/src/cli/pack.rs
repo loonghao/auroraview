@@ -121,12 +121,7 @@ pub struct PackArgs {
 /// - `--capture-file-drop` only → `Some(true)`
 /// - `--no-capture-file-drop` only → `Some(false)`
 pub fn resolve_capture_file_drop(args: &PackArgs) -> Option<bool> {
-    match (args.capture_file_drop, args.no_capture_file_drop) {
-        (false, false) => None,
-        (true, false) => Some(true),
-        (false, true) => Some(false),
-        (true, true) => unreachable!("clap overrides_with should make this impossible"),
-    }
+    super::resolve_flag_pair(args.capture_file_drop, args.no_capture_file_drop)
 }
 
 fn format_path(path: &Path) -> String {

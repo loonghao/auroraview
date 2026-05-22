@@ -228,8 +228,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `SetWindowPos(SWP_FRAMECHANGED)` re-entered the same non-reentrant mutex
   via the synchronous `WM_NCCALCSIZE` dispatch.
 
-
-
 ## [0.5.2](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.1...auroraview-v0.5.2) (2026-04-25)
 
 

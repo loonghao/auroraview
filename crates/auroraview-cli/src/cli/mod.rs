@@ -17,3 +17,21 @@ pub use pack::{resolve_capture_file_drop, run_pack, PackArgs};
 pub use run::{resolve_capture_file_drop as resolve_run_capture_file_drop, run_webview, RunArgs};
 pub use self_update::{run_self_update, SelfUpdateArgs};
 pub use skills::{run_skills, SkillsArgs};
+
+/// Resolve a pair of `--flag` / `--no-flag` clap booleans (both using
+/// `SetTrue` + `overrides_with`) into a tri-state `Option<bool>`.
+///
+/// - both absent → `None` (defer to lower layer / code default)
+/// - `--flag` only → `Some(true)`
+/// - `--no-flag` only → `Some(false)`
+///
+/// The `(true, true)` arm is unreachable when clap's `overrides_with`
+/// is correctly configured.
+pub fn resolve_flag_pair(positive: bool, negative: bool) -> Option<bool> {
+    match (positive, negative) {
+        (false, false) => None,
+        (true, false) => Some(true),
+        (false, true) => Some(false),
+        (true, true) => unreachable!("clap overrides_with should make this impossible"),
+    }
+}
