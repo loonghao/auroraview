@@ -5,6 +5,90 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.3](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.2...auroraview-v0.5.3) (2026-05-22)
+
+
+### Features
+
+* **auroraview-extensions:** migrate RuntimeManager.message_handlers and uninstall_urls to DashMap ([6245c73](https://github.com/loonghao/auroraview/commit/6245c73d809f5726f2208a4a66c43bcf86b56c70))
+* **auroraview-extensions:** migrate ScriptingManager.registered_scripts to DashMap ([6d7bfb6](https://github.com/loonghao/auroraview/commit/6d7bfb6134f520751e09a11c724448fcc64ed2b2))
+* **core:** add deprecated decorator to event_emitter [auto-improve][done] ([9f82933](https://github.com/loonghao/auroraview/commit/9f8293364e2f8bf88ecb9d4debe73899182fb5ec))
+* **extensions:** implement runtime API methods and fix clippy warnings ([3878b8d](https://github.com/loonghao/auroraview/commit/3878b8d25d1d8f3d2bbfe1791a363ec40d84bff0))
+* **mcp-agui:** integrate AG-UI events for all MCP tools ([1ac09bb](https://github.com/loonghao/auroraview/commit/1ac09bbe07bec6291b46fd0e84b056455953fe9b))
+* **mcp:** add Display impls for all public types ([c61d879](https://github.com/loonghao/auroraview/commit/c61d87924095b4d17eff233580e7afe4898f3d2e))
+* **mcp:** add enable_oauth config field and simplified OAuth 2.0 implementation ([62f71ac](https://github.com/loonghao/auroraview/commit/62f71ac3616daec49cfc8d8b259322a6cae66343))
+* **mcp:** add OAuth 2.0 endpoints to MCP server ([c8d445b](https://github.com/loonghao/auroraview/commit/c8d445b28c8c5e248934dc8faae72803aabca6c1))
+* **mcp:** add rmcp auth + elicitation features (oauth2 5.0.0) ([321abb6](https://github.com/loonghao/auroraview/commit/321abb6bfe826bb4827d767229c71474e00a89f3))
+* **mcp:** add update_cdp_endpoint() to WebViewRegistry ([3384acf](https://github.com/loonghao/auroraview/commit/3384acf88d00d7e3b3f18fd4570c53aacf687f45))
+* **mcp:** expose update_cdp_endpoint to Python bindings ([95353ea](https://github.com/loonghao/auroraview/commit/95353eaf19344727a76b1692c2423db3ca3aeab9))
+* **mcp:** implement real eval_js via CDP Runtime.evaluate ([7d5469c](https://github.com/loonghao/auroraview/commit/7d5469ca4e6b4e1ecb4d19112d3df00086bb1ee9))
+* **mcp:** implement real screenshot via CDP ([4a27586](https://github.com/loonghao/auroraview/commit/4a275868636fdefcad1b18ed5b59ca7bc705bac6))
+* **mcp:** re-enable MCP Server - add rmcp/axum/mdns-sd deps, export all modules, fix compilation ([b9a7284](https://github.com/loonghao/auroraview/commit/b9a72849092ca0fa2590c514b46bf61258277794))
+* **mcp:** upgrade rmcp from 0.3.2 to 1.5.0 ([7cc3a39](https://github.com/loonghao/auroraview/commit/7cc3a393e5af05124760502bf948543933f28ba3))
+* merge auto-improve to main ([#396](https://github.com/loonghao/auroraview/issues/396)) ([46a1708](https://github.com/loonghao/auroraview/commit/46a1708c1a3fc7962bb3a4629cc8cd5abe0f8d85))
+* **ue:** add auroraview-ue crate with GameThread executor ([6c355b2](https://github.com/loonghao/auroraview/commit/6c355b28b9a611c9247cea912791239bf34308a6))
+* **ue:** add Display impls for UeEmbedMode and UeWebViewConfig ([b136aab](https://github.com/loonghao/auroraview/commit/b136aaba7a74fd250a07056a95ecdcfd2419b5cb))
+
+
+### Bug Fixes
+
+* **browser:** isolate tests from persisted bookmarks on disk ([b138075](https://github.com/loonghao/auroraview/commit/b1380759a61bfa12910619b55924c89c1573e178))
+* **build:** resolve compilation errors after merge with main ([6c0c6f5](https://github.com/loonghao/auroraview/commit/6c0c6f5fe8997346dbc7b1a1d2962394b77d9266))
+* **ci:** handle PR comment 403 from fork PRs and missing issues permission ([1a38786](https://github.com/loonghao/auroraview/commit/1a387861d83d2fe0717399da487aaa6e099679e4))
+* **ci:** resolve lint, encoding and test naming issues ([9dea400](https://github.com/loonghao/auroraview/commit/9dea400bc989512eb4ad75723ac58c8f51b22075))
+* **ci:** restore desktop extension build ([0e0f993](https://github.com/loonghao/auroraview/commit/0e0f993499fd57de1c569ce94880bb4a75978763))
+* **ci:** satisfy ruff and clippy ([2bbb712](https://github.com/loonghao/auroraview/commit/2bbb7124b317317f831256d8e3b64cd6c19df278))
+* **cli-tests:** replace match-with-empty-arm with if let ([f433e38](https://github.com/loonghao/auroraview/commit/f433e38fca47f35dd6ba239f1b977be3830d8101))
+* **clippy:** satisfy needless_borrows and deprecated lints ([b6a3984](https://github.com/loonghao/auroraview/commit/b6a39847aa1d5b0d4e477e4ae57396000698f7b4))
+* **clippy:** suppress struct_excessive_bools in Cli struct ([db1b510](https://github.com/loonghao/auroraview/commit/db1b5107d20ce4b3c451f57f451973ac25fe567c))
+* correct regressions from 2c39318 and 24e135b ([bc3643b](https://github.com/loonghao/auroraview/commit/bc3643b1115e5053635990dcbfdb7dc249c6b499))
+* **doc:** fix Rustdoc warnings across multiple crates ([a33b38a](https://github.com/loonghao/auroraview/commit/a33b38ab8509aaa5feb4da3d9f580e47a25c8006))
+* **doc:** suppress false-positive Rustdoc warning in ai-agent ([c23510f](https://github.com/loonghao/auroraview/commit/c23510f8fd798190f9fb47540d418f0cbe3bbc41))
+* **doc:** suppress remaining Rustdoc warning in ai-agent ([77db3c5](https://github.com/loonghao/auroraview/commit/77db3c5588e12b595211de005ce4594434199ac1))
+* **mcp-oauth:** add Default impl for OAuthStore, use strip_prefix ([0017e7c](https://github.com/loonghao/auroraview/commit/0017e7c5bc7b99e312020cdbb4d3ec513b7160ce))
+* **mcp-oauth:** use aws_lc::DEFAULT_PROVIDER for CryptoProvider initialization ([32b555d](https://github.com/loonghao/auroraview/commit/32b555d36e11c7deb1918c95676906e78481dae8))
+* **mcp-python:** add missing enable_oauth field to PyMcpConfigWrapper ([0d1e533](https://github.com/loonghao/auroraview/commit/0d1e5333e9e1cfd3dd0de4f4c30e9368887a6e82))
+* **mcp:** fix clippy needless_continue in cdp.rs and doc_markdown in lib.rs ([bf0b7e5](https://github.com/loonghao/auroraview/commit/bf0b7e59c48d4942e0537a10138b45fc5db2ba98))
+* **mcp:** fix compilation errors in auroraview-mcp crate ([b7bfcec](https://github.com/loonghao/auroraview/commit/b7bfcec4ed2b3bbe12db14b57b0e5ad38ef6760e))
+* **mcp:** fix documentation warnings in lib.rs ([af5f905](https://github.com/loonghao/auroraview/commit/af5f90556d72bede2ee0e681977227bb6224082e))
+* **mcp:** remove unused imports and fix clippy warnings ([9aa9529](https://github.com/loonghao/auroraview/commit/9aa9529206f9f45444977697f4a590fc58b8e130))
+* **mcp:** suppress missing_errors_doc clippy warnings (crate-level) ([f44a7b8](https://github.com/loonghao/auroraview/commit/f44a7b85c241b28ae17b68916624e44c28cd1b71))
+* prevent gallery backend crash ([cb7ce73](https://github.com/loonghao/auroraview/commit/cb7ce73b2983fa41c6be26160bcb487f855e5049))
+* **py37:** import Literal from typing_extensions on Python 3.7 ([5280db0](https://github.com/loonghao/auroraview/commit/5280db05e64d57dd348ebf876a9b8e17f313890e))
+* **python:** delegate EventTimer readiness checks to WebView.is_ready ([9b8569d](https://github.com/loonghao/auroraview/commit/9b8569d52af71f960749fbd0daaf2b53acadf038))
+* **python:** guard process_events against missing core in packed mode ([abf14b4](https://github.com/loonghao/auroraview/commit/abf14b4d80a9256a8505a12e6cccde77e11f9d79))
+* **qt:** keep EventTimer ticking when only the sync core is ready ([660d1ba](https://github.com/loonghao/auroraview/commit/660d1ba5ea867788bffb8680c513c87d65bbe8a9))
+* **ue:** silence unused-import lint on linux clippy ([f54b702](https://github.com/loonghao/auroraview/commit/f54b70239425700e19432317097e173075edad79))
+* **windows:** prevent host UI freeze and STA deadlock during WebView2 embedding ([7893beb](https://github.com/loonghao/auroraview/commit/7893bebf9452b20904780819b5b577fd532ebb5d))
+* **windows:** unfreeze WebView2 cold-start STA pump ([8821255](https://github.com/loonghao/auroraview/commit/88212552488f991d6b729540e543fd3f49f71d42))
+
+
+### Performance Improvements
+
+* **bench:** add OAuthStore benchmarks to measure DashMap optimization ([c23e0f0](https://github.com/loonghao/auroraview/commit/c23e0f04d90c3b21a2a06dcb3634ff5d8740c5aa))
+* **core:** replace RwLock&lt;HashMap&gt; with DashMap in WindowManager ([970a300](https://github.com/loonghao/auroraview/commit/970a300b6d71ec81de5ac78d3f52d1b0ba5e6d2b))
+* **mcp-oauth:** replace RwLock&lt;HashMap&gt; with DashMap for better concurrency ([345717a](https://github.com/loonghao/auroraview/commit/345717a40d359b3cb23b454d1c11027d3f44532d))
+* **mcp:** add WebViewRegistry benchmarks [auto-improve][done] ([f10327b](https://github.com/loonghao/auroraview/commit/f10327ba0a94250fa277ae49ecfbdee61e3fab72))
+* **signals:** replace RwLock&lt;HashMap&gt; with DashMap in SignalRegistry ([8c1297f](https://github.com/loonghao/auroraview/commit/8c1297fdc3035e332c23b7d51afb20ec651cc571))
+
+
+### Code Refactoring
+
+* **mcp:** reuse dcc adapter contract ([b952f16](https://github.com/loonghao/auroraview/commit/b952f16fd43a1075afcdb8f932281b0eb25d78e3))
+
+
+### Documentation
+
+* add performance benchmark results [auto-improve][done] ([71577c3](https://github.com/loonghao/auroraview/commit/71577c301c2b3cac0114da6937d12f2e558a0029))
+* **auto-improve:** update memory.md with iteration [#33](https://github.com/loonghao/auroraview/issues/33) progress [auto-improve][done] ([1ffcaae](https://github.com/loonghao/auroraview/commit/1ffcaae5d3fbcd9fb1d7d530eb488acbaad4da78))
+* **auto-improve:** update memory.md with iteration [#7](https://github.com/loonghao/auroraview/issues/7) results ([d554574](https://github.com/loonghao/auroraview/commit/d55457419f21fd8861c33b4093d9b5226a526afd))
+* **mcp:** add basic usage example [auto-improve][done] ([f014a8c](https://github.com/loonghao/auroraview/commit/f014a8cf7d5150cbeeb9db80db10cffb8f65f499))
+* **mcp:** add comprehensive README for MCP Server ([459051b](https://github.com/loonghao/auroraview/commit/459051b940e940d702076d5eb877805d2329bf5b))
+* **mcp:** add MCP Server documentation and README update [auto-improve][done] ([0d93519](https://github.com/loonghao/auroraview/commit/0d93519e34a55c25a0303b19d7d2f29ce1c94c36))
+* record webview2 cold-start fixes in CHANGELOG and add PR draft ([1f20043](https://github.com/loonghao/auroraview/commit/1f20043905971ac58817d579e18f77a7ae92332c))
+* sync PR draft and CHANGELOG with current branch scope ([dd15315](https://github.com/loonghao/auroraview/commit/dd153157a4f40be125ad77d7d1d09eb19019d14f))
+* **ue:** add comprehensive README for UE integration ([51ee003](https://github.com/loonghao/auroraview/commit/51ee0032936171c7bf8ba313fb7d8ee8fbd28a01))
+
 ## [Unreleased]
 
 ### Added
