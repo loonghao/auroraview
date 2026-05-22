@@ -101,10 +101,14 @@ jobs:
 
   # PR Preview comment
   preview-comment:
-    if: github.event_name == 'pull_request'
+    # Fork PRs receive a read-only GITHUB_TOKEN, so the optional preview comment
+    # must not fail an otherwise successful docs build for external contributors.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     needs: build
     permissions:
+      contents: read
+      issues: write
       pull-requests: write
     steps:
       - name: Find Comment
