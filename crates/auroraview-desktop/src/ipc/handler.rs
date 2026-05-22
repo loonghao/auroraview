@@ -168,25 +168,24 @@ impl Default for IpcRouter {
 /// drag-and-drop session would emit 2-3 identical warnings, and a stuck
 /// "no listener" misconfiguration would spam the tracing subscriber.
 ///
-/// The set of event names is closed (RFC 0015 §5), so a fixed-size array
-/// of `AtomicBool` keyed by `&'static str` is both lock-free and zero-
-/// allocation on the hot path. Unknown event names (should not happen at
-/// runtime, but is the only way to add a new variant without touching
-/// this file) fall through to [`UNKNOWN_DRAG_DROP_WARNED`].
+/// The set of event names is closed (RFC 0015 §5), so we keep one
+/// `AtomicBool` per known name plus a single catch-all. The `match` in
+/// [`should_warn_drag_drop_listener_missing`] is exhaustive on the closed
+/// set; adding a fourth `file_drop_*` event in RFC 0015 will surface as
+/// a missing arm there rather than silently flowing into the catch-all.
 ///
 /// Scope is process-global rather than per-`IpcRouter`: in production a
 /// single process owns at most one router, and "warn once across the
 /// whole process" matches operator expectations better than "warn once
 /// per router instance" (which would be silently affected by reload /
 /// hot-restart paths).
-static DRAG_DROP_WARN_GUARDS: [(&str, AtomicBool); 3] = [
-    ("file_drop_hover", AtomicBool::new(false)),
-    ("file_drop", AtomicBool::new(false)),
-    ("file_drop_cancelled", AtomicBool::new(false)),
-];
+static DRAG_DROP_WARN_HOVER: AtomicBool = AtomicBool::new(false);
+static DRAG_DROP_WARN_DROP: AtomicBool = AtomicBool::new(false);
+static DRAG_DROP_WARN_CANCELLED: AtomicBool = AtomicBool::new(false);
 
-/// Catch-all guard for any drag-drop event name not in
-/// [`DRAG_DROP_WARN_GUARDS`]. See the array's docstring for rationale.
+/// Catch-all guard for any drag-drop event name outside the closed set
+/// in [`should_warn_drag_drop_listener_missing`]. See that function's
+/// docstring for rationale.
 static UNKNOWN_DRAG_DROP_WARNED: AtomicBool = AtomicBool::new(false);
 
 /// Try to flip the warn-once guard for `event_name`.
@@ -194,18 +193,19 @@ static UNKNOWN_DRAG_DROP_WARNED: AtomicBool = AtomicBool::new(false);
 /// Returns `true` exactly once per process per event name, `false` on
 /// every subsequent call. Lock-free; no allocation regardless of
 /// `event_name`.
+///
+/// `Ordering::Relaxed` is sufficient: the warn is purely diagnostic and
+/// we accept that two threads racing on the same first event could both
+/// produce a single warn line — the cost of an extra memory fence on
+/// every drag-drop event is not worth ruling that out.
 fn should_warn_drag_drop_listener_missing(event_name: &str) -> bool {
-    for (name, guard) in &DRAG_DROP_WARN_GUARDS {
-        if *name == event_name {
-            // Relaxed is sufficient: the warn is purely diagnostic and
-            // we accept that two threads racing on the same first event
-            // could both produce a single warn line — the cost of an
-            // extra memory fence on every drag-drop event is not worth
-            // ruling that out.
-            return !guard.swap(true, Ordering::Relaxed);
-        }
-    }
-    !UNKNOWN_DRAG_DROP_WARNED.swap(true, Ordering::Relaxed)
+    let guard = match event_name {
+        "file_drop_hover" => &DRAG_DROP_WARN_HOVER,
+        "file_drop" => &DRAG_DROP_WARN_DROP,
+        "file_drop_cancelled" => &DRAG_DROP_WARN_CANCELLED,
+        _ => &UNKNOWN_DRAG_DROP_WARNED,
+    };
+    !guard.swap(true, Ordering::Relaxed)
 }
 
 impl auroraview_core::builder::DragDropIpcSink for IpcRouter {
