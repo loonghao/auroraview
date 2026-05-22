@@ -11,7 +11,7 @@ of embedding a WebView native window into a Qt widget. It supports two modes:
 import logging
 import os
 import sys
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Tuple
 
 try:
     from qtpy.QtCore import Qt, QTimer
@@ -33,6 +33,7 @@ from auroraview.integration.qt._compat import (
     supports_direct_embedding,
     update_embedded_window_geometry,
 )
+from auroraview.integration.qt._locks import acquire_exclusive
 
 if TYPE_CHECKING:
     from auroraview.core.webview import WebView
@@ -76,6 +77,17 @@ class EmbeddingMixin:
     _webview_page_layout: "QVBoxLayout"  # type: ignore[name-defined]
     _using_direct_embed: bool
     _direct_embed_hwnd: Optional[int]
+    # Cross-task mutex flags: see _schedule_child_window_fixes and
+    # LifecycleMixin.delayed_geometry_sync for the deadlock these
+    # protect against in DCC hosts.
+    _geometry_sync_in_progress: bool
+    _child_window_fix_in_progress: bool
+    # Last (width, height) we successfully pushed to the WebView2
+    # controller. Used to short-circuit no-op re-syncs that would
+    # otherwise re-issue SetWindowPos / put_Bounds STA calls and
+    # cause visible flicker (or, in DCC hosts, freeze the main
+    # thread when several catch-up timers stack up).
+    _last_synced_bounds: "Optional[Tuple[int, int]]"
 
     def _create_webview_container(self, core, hwnd: Optional[int] = None) -> None:
         """Create Qt container for WebView after WebView is initialized.
@@ -220,11 +232,25 @@ class EmbeddingMixin:
         logger.info(f"[EmbeddingMixin] Direct embedding successful: HWND=0x{webview_hwnd:X}")
 
     def _schedule_child_window_fixes(self, webview_hwnd: int) -> None:
-        """Schedule multiple attempts to fix WebView2 child windows.
+        """Schedule attempts to fix WebView2 child windows.
 
-        WebView2 creates child windows (Chrome_WidgetWin_0, etc.) asynchronously
-        after the main window is created. We need to fix them multiple times
-        to catch all of them as they're created.
+        WebView2 creates child windows (Chrome_WidgetWin_0, etc.)
+        asynchronously after the main window is created. We need to
+        re-run the fix a few times to catch all of them.
+
+        IMPORTANT: this routine performs Win32 SetWindowPos /
+        SetWindowLongPtrW on every child HWND, which is the same kind
+        of work that _force_container_geometry / sync_webview2_controller_bounds
+        does. If both run concurrently inside a nested event dispatch,
+        the resulting Win32 + WebView2 STA message cascade can deadlock
+        the DCC main thread.
+
+        We protect against that with two mechanisms:
+          1. Reentry guard: skip if a previous fix is still running, or
+             if a geometry sync is currently in flight.
+          2. Coarser schedule: a small number of catch-up ticks is
+             enough; the previous 6-tick fan-out (50/100/200/500/1000/2000)
+             collided with the geometry sync ticks.
 
         Args:
             webview_hwnd: The WebView's native window handle.
@@ -232,23 +258,47 @@ class EmbeddingMixin:
         from auroraview.integration.qt.platforms import get_backend
 
         def fix_children():
-            """Fix all child windows."""
-            try:
-                backend = get_backend()
-                if hasattr(backend, "_fix_all_child_windows_recursive"):
-                    count = backend._fix_all_child_windows_recursive(webview_hwnd)
-                    if count > 0:
-                        logger.info(f"[EmbeddingMixin] Fixed {count} WebView2 child windows")
-            except Exception as e:
-                if _VERBOSE_LOGGING:
-                    logger.debug(f"[EmbeddingMixin] fix_children failed: {e}")
+            """Fix all child windows.
 
-        # Fix immediately
+            The first invocation is synchronous (called below) and the
+            follow-up invocations are scheduled via QTimer; both paths go
+            through the same guard so they cannot run concurrently with
+            each other or with the delayed geometry sync.
+            """
+            if getattr(self, "_is_closing", False):
+                return
+            # Mutually exclusive with the delayed geometry sync: both
+            # tasks issue SetWindowPos / put_Bounds on the STA thread,
+            # and interleaving them has been observed to deadlock DCC
+            # hosts.  See _locks.acquire_exclusive for the rationale.
+            with acquire_exclusive(
+                self,
+                "_child_window_fix_in_progress",
+                "_geometry_sync_in_progress",
+            ) as got:
+                if not got:
+                    return
+                try:
+                    backend = get_backend()
+                    if hasattr(backend, "_fix_all_child_windows_recursive"):
+                        count = backend._fix_all_child_windows_recursive(webview_hwnd)
+                        if count > 0:
+                            logger.info(
+                                f"[EmbeddingMixin] Fixed {count} WebView2 child windows"
+                            )
+                except Exception as e:
+                    if _VERBOSE_LOGGING:
+                        logger.debug(f"[EmbeddingMixin] fix_children failed: {e}")
+
+        # Fix immediately (synchronously, before any timer fires)
         fix_children()
 
-        # Schedule delayed fixes to catch asynchronously created child windows
-        delays = [50, 100, 200, 500, 1000, 2000]
-        for delay in delays:
+        # A small number of catch-up ticks for asynchronously created
+        # child windows. The previous 6-tick fan-out
+        # ([50, 100, 200, 500, 1000, 2000]) collided with the
+        # geometry-sync ticks and caused Maya freezes via nested
+        # SetWindowPos / WebView2 put_Bounds calls.
+        for delay in (250, 1000):
             QTimer.singleShot(delay, fix_children)
 
     def _create_container_qt(self, webview_hwnd: int) -> None:
@@ -385,6 +435,14 @@ class EmbeddingMixin:
         window position/size, but WebView2's controller may need explicit
         bounds update to render content correctly.
 
+        Idempotent: if the requested (width, height) matches the last value
+        we successfully pushed via ``sync_bounds`` / ``set_size``, this is
+        a no-op. The underlying Rust path performs ``SetWindowPos`` plus
+        ``ICoreWebView2Controller::put_Bounds`` (a synchronous STA COM
+        call), and re-issuing it for an unchanged size is what produced
+        the "window keeps re-creating itself" symptom and the DCC main
+        thread freeze when several catch-up timers stacked up.
+
         Args:
             force_width: If > 0, use this width instead of container size.
             force_height: If > 0, use this height instead of container size.
@@ -410,6 +468,16 @@ class EmbeddingMixin:
                 )
                 return
 
+            # Idempotency guard: skip if we already synced this exact size.
+            last = getattr(self, "_last_synced_bounds", None)
+            if last == (width, height):
+                if _VERBOSE_LOGGING:
+                    logger.debug(
+                        f"[EmbeddingMixin] _sync_webview2_controller_bounds: "
+                        f"size unchanged ({width}x{height}), skipping"
+                    )
+                return
+
             logger.info(
                 f"[EmbeddingMixin] _sync_webview2_controller_bounds: syncing to {width}x{height}"
             )
@@ -422,6 +490,7 @@ class EmbeddingMixin:
                 if callable(sync_bounds):
                     try:
                         sync_bounds(width, height)
+                        self._last_synced_bounds = (width, height)
                         logger.info(
                             f"[EmbeddingMixin] sync_bounds({width}, {height}) called successfully"
                         )
@@ -436,6 +505,7 @@ class EmbeddingMixin:
                 if callable(set_size):
                     try:
                         set_size(width, height)
+                        self._last_synced_bounds = (width, height)
                         logger.info(
                             f"[EmbeddingMixin] Synced WebView2 bounds via set_size: {width}x{height}"
                         )
@@ -448,10 +518,22 @@ class EmbeddingMixin:
             logger.warning(f"[EmbeddingMixin] _sync_webview2_controller_bounds failed: {e}")
 
     def _force_container_geometry(self) -> None:
-        """Force container to fill parent layout immediately."""
-        try:
-            from qtpy.QtWidgets import QApplication
+        """Force container to fill parent layout immediately.
 
+        IMPORTANT: This method must NOT call QApplication.processEvents().
+        In DCC hosts (Maya, Houdini, Nuke) the Qt event loop is shared with
+        the host, and any nested processEvents() during WebView2 / Win32
+        SetWindowPos work has been observed to dispatch other pending
+        QTimer callbacks (notably the WebView2 child-window fixers in
+        _schedule_child_window_fixes). When that nested callback also
+        manipulates HWND geometry, the resulting Win32 + COM message
+        cascade can deadlock the STA thread (Maya freezes after the
+        second `Delayed geometry sync completed`).
+
+        The container geometry update only needs to schedule a layout
+        update; Qt will repaint on the next frame on its own.
+        """
+        try:
             container = getattr(self, "_webview_container", None)
             if container is None:
                 return
@@ -476,10 +558,9 @@ class EmbeddingMixin:
                 except Exception:
                     pass
 
-            # Qt5-style: single processEvents
-            QApplication.processEvents()
-
-            # Sync WebView2 controller bounds
+            # Sync WebView2 controller bounds.
+            # No processEvents() between the resize above and this call:
+            # see method docstring for why.
             self._sync_webview2_controller_bounds(width, height)
 
             if _VERBOSE_LOGGING:

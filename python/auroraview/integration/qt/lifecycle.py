@@ -23,6 +23,7 @@ from auroraview.integration.qt._compat import (
     hide_window_for_init,
     show_window_after_init,
 )
+from auroraview.integration.qt._locks import acquire_exclusive
 
 if TYPE_CHECKING:
     from qtpy.QtGui import QWindow
@@ -69,6 +70,8 @@ class LifecycleMixin:
     _webview: "WebView"
     _webview_initialized: bool
     _is_closing: bool
+    _geometry_sync_in_progress: bool
+    _child_window_fix_in_progress: bool
     _stack: "QStackedWidget"
     _initial_url: Optional[str]
     _initial_html: Optional[str]
@@ -241,20 +244,99 @@ class LifecycleMixin:
 
         QApplication.processEvents()
 
-        # Step 7: Schedule delayed geometry sync for DCC apps
-        def delayed_geometry_sync() -> None:
-            """Sync geometry after layout has stabilized."""
-            try:
-                self._force_container_geometry()  # type: ignore[attr-defined]
-                self._sync_webview2_controller_bounds()  # type: ignore[attr-defined]
-                if _VERBOSE_LOGGING:
-                    logger.debug("[LifecycleMixin] Delayed geometry sync completed")
-            except Exception:
-                pass
+        # Step 7: Schedule delayed geometry sync for DCC apps.
+        #
+        # IMPORTANT: This must be reentrancy-safe and must not run
+        # concurrently with the WebView2 child-window fixer scheduled
+        # by EmbeddingMixin._schedule_child_window_fixes. Reasons:
+        #   1. _force_container_geometry() ultimately calls
+        #      sync_webview_bounds() in Rust, which performs
+        #      SetWindowPos(SWP_FRAMECHANGED) and
+        #      ICoreWebView2Controller::put_Bounds (a synchronous
+        #      COM call on the STA thread).
+        #   2. The child-window fixer enumerates every WebView2 child
+        #      HWND and runs SetWindowPos / SetWindowLongPtrW on each.
+        #   3. If both run while the other is still in flight (for
+        #      example because Qt processes a pending QTimer during
+        #      a SetWindowPos), the resulting Win32 + WebView2 STA
+        #      message cascade deadlocks the DCC main thread. This is
+        #      what we observed in Maya: the UI freezes after the
+        #      second `Delayed geometry sync completed` line.
+        #   4. resizeEvent already syncs bounds when geometry actually
+        #      changes, so the delayed pass only needs to run for the
+        #      initial layout settle.
+        # The two boolean flags on self (initialised in _core.py) act
+        # as a cross-task mutex between the geometry sync and the
+        # child-window fixer; see auroraview.integration.qt._locks.
+        # Maximum number of times delayed_geometry_sync will reschedule
+        # itself when the WebView2 child-window fixer holds its flag.
+        # 3 retries at 300ms each cover 300/600/900ms; the fixer's
+        # longest tick is 1000ms, so this comfortably outlives a normal
+        # fixer pass.  After that we give up and let resizeEvent /
+        # _force_container_geometry pick up future geometry changes.
+        max_retries = 3
 
-        # Schedule multiple syncs at different intervals
-        for delay in [50, 100, 250, 500, 1000]:
-            QTimer.singleShot(delay, delayed_geometry_sync)
+        def delayed_geometry_sync(retries_left: int = max_retries) -> None:
+            """Sync geometry after layout has stabilized.
+
+            Args:
+                retries_left: Remaining reschedules if the child-window
+                    fixer is currently in flight.  Hitting zero means we
+                    let resizeEvent handle subsequent geometry settles.
+            """
+            if getattr(self, "_is_closing", False):
+                return
+            # _force_container_geometry() ultimately calls SetWindowPos +
+            # ICoreWebView2Controller::put_Bounds.  The child-window
+            # fixer also issues SetWindowPos on every WebView2 child
+            # HWND.  Letting both run interleaved on the STA thread has
+            # been observed to deadlock Maya, so the two tasks are
+            # mutually exclusive via _locks.acquire_exclusive.
+            with acquire_exclusive(
+                self,
+                "_geometry_sync_in_progress",
+                "_child_window_fix_in_progress",
+            ) as got:
+                if not got:
+                    if retries_left > 0:
+                        # Either the fixer is in flight, or another
+                        # geometry sync is already running.  Reschedule
+                        # so we still get an initial geometry pass even
+                        # when the user never resizes the DCC window.
+                        QTimer.singleShot(
+                            300,
+                            lambda: delayed_geometry_sync(retries_left - 1),
+                        )
+                    return
+                try:
+                    # _force_container_geometry already syncs WebView2
+                    # controller bounds internally; do not call
+                    # _sync_webview2_controller_bounds again here.
+                    self._force_container_geometry()  # type: ignore[attr-defined]
+                    if _VERBOSE_LOGGING:
+                        logger.debug("[LifecycleMixin] Delayed geometry sync completed")
+                except Exception as e:
+                    if _VERBOSE_LOGGING:
+                        logger.debug(
+                            f"[LifecycleMixin] delayed_geometry_sync swallowed: {e!r}"
+                        )
+
+        # Schedule catch-up syncs. The previous fan-out
+        # (150ms / 600ms / 1500ms) was a workaround for the case
+        # where the WebView2 controller bounds did not match the
+        # container after the initial show. With the size-idempotency
+        # guard inside _sync_webview2_controller_bounds (see
+        # EmbeddingMixin), repeated calls at the same size are no-ops.
+        #
+        # We keep two ticks:
+        #   - 150ms: primary catch-up right after the layout settles.
+        #   - 500ms: backup that lands between the child-window fixer's
+        #     250ms and 1000ms ticks, covering the window where the
+        #     primary 150ms tick can be skipped because the fixer is
+        #     in flight.  Idempotency makes this essentially free if
+        #     the primary already succeeded.
+        QTimer.singleShot(150, delayed_geometry_sync)
+        QTimer.singleShot(500, delayed_geometry_sync)
 
         # Step 8: Load initial content
         if self._initial_url:
