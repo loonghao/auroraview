@@ -317,9 +317,7 @@ class LifecycleMixin:
                         logger.debug("[LifecycleMixin] Delayed geometry sync completed")
                 except Exception as e:
                     if _VERBOSE_LOGGING:
-                        logger.debug(
-                            f"[LifecycleMixin] delayed_geometry_sync swallowed: {e!r}"
-                        )
+                        logger.debug(f"[LifecycleMixin] delayed_geometry_sync swallowed: {e!r}")
 
         # Schedule catch-up syncs. The previous fan-out
         # (150ms / 600ms / 1500ms) was a workaround for the case
