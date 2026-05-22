@@ -111,80 +111,86 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### ⚠ BREAKING CHANGES
 
-* **DCC：默认 `capture_file_drop` 从 `True` 改为 `False`**（RFCs 0013 / 0015 / 0017）。
-  之前在 Maya / Houdini / Nuke / Blender 等 DCC 宿主中嵌入的 `AuroraView` 会自动
-  接管 OS 拖放并转发为 `file_drop` IPC 事件；现在默认与 standalone / CLI / packed
-  模式一致——不接管，前端可正常使用 HTML5 `dragover` / `drop`。
-  - **影响**：依赖 `auroraview.on('file_drop', ...)` 的 DCC 工具会停止收到事件。
-  - **迁移**：构造 `AuroraView` 时显式传入 `capture_file_drop=True`：
+* **DCC: default `capture_file_drop` changed from `True` to `False`** (RFCs 0013 / 0015 / 0017).
+  Previously, an `AuroraView` embedded in DCC hosts such as Maya / Houdini / Nuke / Blender
+  would automatically take over OS drag-and-drop and forward it as `file_drop` IPC events.
+  The default is now aligned with standalone / CLI / packed modes — no takeover, so the
+  frontend can use HTML5 `dragover` / `drop` as usual.
+  - **Impact**: DCC tools relying on `auroraview.on('file_drop', ...)` will stop receiving events.
+  - **Migration**: explicitly pass `capture_file_drop=True` when constructing `AuroraView`:
     ```python
     super().__init__(parent=parent, capture_file_drop=True, ...)
     ```
-  - **示例**：见 [`examples/desktop_app_capture_file_drop.py`](./examples/desktop_app_capture_file_drop.py)。
-  - **说明**：详见 [`docs/zh/guide/file-drop.md`](./docs/zh/guide/file-drop.md)。
+  - **Example**: see [`examples/desktop_app_capture_file_drop.py`](./examples/desktop_app_capture_file_drop.py).
+  - **Details**: see [`docs/zh/guide/file-drop.md`](./docs/zh/guide/file-drop.md).
 
 ### Features
 
-* **drag-drop**：新增 `auroraview_core::builder::attach_drag_drop_handler` helper
-  + `DragDropIpcSink` trait + `DispatchError`，统一 5 处 builder 接入点
-  （RFC 0015 §3.3）。`capture=false` 路径不发生 `Arc::clone`；`capture=true`
-  路径恰好一次 clone。
-* **drag-drop**：新增共享 `auroraview_core::builder::NoopDragDropSink` 与
-  `attach_drag_drop_handler` helper，消除 `auroraview-browser` 与
-  `webview/tab_manager.rs` 中的重复定义。
-* **browser**：多 Tab Browser 模式硬关闭 `capture_file_drop`（RFC 0016）——
-  controller 与所有业务 tab 永远不挂 `with_drag_drop_handler`，规避多 WebView
-  叠加场景下 OS 拖放状态机无法收敛的问题。
-* **CLI**：`auroraview run` 新增 `--capture-file-drop` 单向 flag；
-  `auroraview pack` 新增对偶 flag `--capture-file-drop` /
-  `--no-capture-file-drop`（RFC 0015 §4.2）。
-* **packed runtime**：新增 `AURORAVIEW_CAPTURE_FILE_DROP` 环境变量逃生口，
-  支持大小写不敏感的 `1/true/on/yes/enabled` × `0/false/off/no/disabled` 字面量
-  （RFC 0015 §4.3）。
-* **manifest**：新增 `[security].capture_file_drop: Optional[bool]`
-  （RFC 0015 §4.1，`#[serde(default)]` 保证 overlay 二进制兼容，**无需 bump version**）。
-* **Python**：`AuroraView(capture_file_drop=Optional[bool])` 三态契约
-  （RFC 0017）。`None` / `True` / `False` 一路保留到 PyO3 binding；Rust 侧
-  `unwrap_or(false)` 是唯一允许的 flatten 点。
+* **drag-drop**: add `auroraview_core::builder::attach_drag_drop_handler` helper
+  + `DragDropIpcSink` trait + `DispatchError`, unifying the 5 builder integration
+  points (RFC 0015 §3.3). The `capture=false` path performs no `Arc::clone`; the
+  `capture=true` path clones exactly once.
+* **drag-drop**: add shared `auroraview_core::builder::NoopDragDropSink` and the
+  `attach_drag_drop_handler` helper, eliminating duplicated definitions in
+  `auroraview-browser` and `webview/tab_manager.rs`.
+* **browser**: hard-disable `capture_file_drop` in multi-tab Browser mode (RFC 0016) —
+  neither the controller nor any business tab ever attaches `with_drag_drop_handler`,
+  avoiding the unrecoverable OS drag-and-drop state machine when multiple WebViews
+  are stacked.
+* **CLI**: `auroraview run` adds a one-way `--capture-file-drop` flag;
+  `auroraview pack` adds the dual flags `--capture-file-drop` /
+  `--no-capture-file-drop` (RFC 0015 §4.2).
+* **packed runtime**: add `AURORAVIEW_CAPTURE_FILE_DROP` environment variable as
+  an escape hatch, supporting case-insensitive `1/true/on/yes/enabled` ×
+  `0/false/off/no/disabled` literals (RFC 0015 §4.3).
+* **manifest**: add `[security].capture_file_drop: Optional[bool]`
+  (RFC 0015 §4.1; `#[serde(default)]` keeps overlay binary compatibility,
+  **no version bump required**).
+* **Python**: `AuroraView(capture_file_drop=Optional[bool])` tri-state contract
+  (RFC 0017). `None` / `True` / `False` are preserved all the way through to the
+  PyO3 binding; `unwrap_or(false)` on the Rust side is the only allowed flatten point.
 
 ### Refactors
 
-* **workspace**：`wry` (0.54.4) / `tao` (0.34.6) 版本固定从 5 处 crate 的
-  `Cargo.toml` 集中到根 `[workspace.dependencies]`（RFC 0014），消除升级 wry
-  时的版本漂移风险。
-* **ipc**：`PackedDragDropSink` 收紧封装（pub 字段 → `new()` 构造器）；
-  `IpcRouter::dispatch` 的 warn-once 实现从 `DashSet<String>` 改为固定大小
-  `(&'static str, AtomicBool)` 数组 + 命名 static 上的 exhaustive `match`，
-  hot-path lock-free 零分配。
-* **desktop**：缺失 drag-drop sink 时改为 warn-once，避免日志刷屏。
+* **workspace**: pin `wry` (0.54.4) / `tao` (0.34.6) versions centrally in the
+  root `[workspace.dependencies]` instead of in 5 different crate `Cargo.toml`
+  files (RFC 0014), eliminating version-drift risk when upgrading wry.
+* **ipc**: tighten encapsulation of `PackedDragDropSink` (pub fields → `new()`
+  constructor); switch the `IpcRouter::dispatch` warn-once implementation from
+  `DashSet<String>` to a fixed-size `(&'static str, AtomicBool)` array plus an
+  exhaustive `match` over named statics — lock-free and allocation-free on the
+  hot path.
+* **desktop**: log warn-once when the drag-drop sink is missing, avoiding log
+  spam.
 
 ### Documentation
 
-* 新增 [`docs/zh/guide/file-drop.md`](./docs/zh/guide/file-drop.md) 用户向导（含
-  HTML5 ↔ IPC 互斥说明、DCC 迁移指南、CLI / manifest / env-var 合并优先级、
-  故障排查）。
-* 新增 RFC 0013 / 0014 / 0015 / 0016 / 0017 文件拖放系列设计文档。
-* 新增 [`examples/desktop_app_capture_file_drop.py`](./examples/desktop_app_capture_file_drop.py)
-  桌面端 IPC 文件拖放演示。
+* Add [`docs/zh/guide/file-drop.md`](./docs/zh/guide/file-drop.md) user guide
+  (covers HTML5 ↔ IPC mutual exclusion, DCC migration, CLI / manifest / env-var
+  merge precedence, and troubleshooting).
+* Add RFC 0013 / 0014 / 0015 / 0016 / 0017 file-drop design document series.
+* Add [`examples/desktop_app_capture_file_drop.py`](./examples/desktop_app_capture_file_drop.py)
+  desktop IPC file-drop demo.
 
 ### Tests / CI
 
-* `crates/auroraview-core/tests/builder_helpers_tests.rs`：6 个
-  `attach_drag_drop_handler` 契约测试（smoke / clone-not-once /
+* `crates/auroraview-core/tests/builder_helpers_tests.rs`: 6 contract tests for
+  `attach_drag_drop_handler` (smoke / clone-not-once /
   clone-exactly-once-dual / dispatch + Over filter / error swallowed /
-  `Send + Sync` blanket）。
-* `crates/auroraview-pack/tests/manifest_tests.rs` + `config_tests.rs`：
-  `[security].capture_file_drop` 三态解析 + `from_manifest` 映射。
-* `crates/auroraview-cli/tests/{pack_args_tests,pack_merge_rule_tests,packed_env_var_tests}.rs`：
-  CLI flag 解析、合并规则真值表、env-var 4 类取值（unset / truthy / falsy /
-  invalid）。
+  `Send + Sync` blanket).
+* `crates/auroraview-pack/tests/manifest_tests.rs` + `config_tests.rs`:
+  tri-state parsing of `[security].capture_file_drop` and the `from_manifest`
+  mapping.
+* `crates/auroraview-cli/tests/{pack_args_tests,pack_merge_rule_tests,packed_env_var_tests}.rs`:
+  CLI flag parsing, merge-rule truth table, and the 4 env-var value classes
+  (unset / truthy / falsy / invalid).
 * `tests/python/unit/test_capture_file_drop_tristate.py` +
-  `test_child_window_isolation.py` + 新增的
-  `tests/python/integration/test_capture_file_drop_passthrough.py` + PyO3
-  `_dump_capture_file_drop` 测试钩子（RFC 0017 §4）。
+  `test_child_window_isolation.py` + the new
+  `tests/python/integration/test_capture_file_drop_passthrough.py` plus a PyO3
+  `_dump_capture_file_drop` test hook (RFC 0017 §4).
 * `scripts/ci/check_capture_file_drop_defaults.py` +
-  `check_browser_no_drag_drop_capture.py`：两份 CI 静态绊索，由
-  `vx just ci-grep` 接入 `vx just test`。
+  `check_browser_no_drag_drop_capture.py`: two static CI trip-wires wired into
+  `vx just test` via `vx just ci-grep`.
 ### Added
 
 * **windows**: `AURORAVIEW_WEBVIEW2_TIMEOUT_SECS` environment variable to
