@@ -148,13 +148,15 @@ where
     let callback = Arc::new(callback);
 
     DragDropHandler::new(move |data: DragDropEventData| {
+        // Defense-in-depth: `into_handler` already short-circuits Over events,
+        // but guard here too in case the caller bypasses `into_handler`.
+        if data.event_type == DragDropEventType::Over {
+            return;
+        }
+
         let event_name = data.event_type.as_event_name();
         let json_data = data.to_json();
-
-        // Skip Over events (too frequent)
-        if data.event_type != DragDropEventType::Over {
-            callback(event_name, json_data);
-        }
+        callback(event_name, json_data);
     })
     .into_handler()
 }
