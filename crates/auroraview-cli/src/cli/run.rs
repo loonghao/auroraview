@@ -386,7 +386,6 @@ pub fn run_webview(args: RunArgs) -> Result<()> {
     // (the documented code default).
     let capture_file_drop = resolve_capture_file_drop(&args).unwrap_or(false);
 
-
     // Determine the content to load and assets root
     let (html_content, assets_root) = if let Some(url_str) = &args.url {
         // For URLs, just normalize and no assets root
