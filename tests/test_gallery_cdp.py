@@ -51,10 +51,10 @@ CDP_PORT = int(os.environ.get("WEBVIEW2_CDP_PORT", "9222"))
 GALLERY_EXE = PROJECT_ROOT / "gallery" / "pack-output" / "auroraview-gallery.exe"
 
 # Timeouts
-STARTUP_TIMEOUT = 60  # Gallery startup timeout
-API_TIMEOUT = 30  # API call timeout (increased for slow operations)
+STARTUP_TIMEOUT = 120  # Gallery startup timeout (WebView2 cold-start on CI can be slow)
+API_TIMEOUT = 60  # API call timeout (some DCC samples need more time)
 EXAMPLE_RUN_TIMEOUT = 2  # Example run duration (reduced for faster tests)
-LOADING_TIMEOUT = 45  # Loading screen timeout
+LOADING_TIMEOUT = 90  # Loading screen timeout (WebView2 cold-start on CI runners)
 
 
 @dataclass
