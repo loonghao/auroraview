@@ -341,13 +341,18 @@ jobs:
             echo "Checking npm token with npm whoami..."
             if npm whoami 2>/dev/null; then
               echo "npm_auth=token-ok" >> $GITHUB_OUTPUT
+              echo "npm ping verified; token appears valid"
             else
               echo "WARNING: npm token authentication failed"
               echo "npm_auth=token-failed" >> $GITHUB_OUTPUT
               echo ""
               echo "ACTION REQUIRED: update npm authentication"
               echo "  - Preferred: enable npm trusted publishing for this repository"
-              echo "  - Fallback: replace NPM_TOKEN with an Automation token that bypasses OTP"
+              echo "    (Settings -> Security -> Secrets and variables -> Actions -> Trusted publishing)"
+              echo "  - Fallback: replace NPM_TOKEN with an Automation type token"
+              echo "    (npm -> Access Tokens -> Granular Access Token -> type: Automation)"
+              echo "    Automation tokens do NOT expire and bypass 2FA/OTP"
+              echo "    Classic Publish tokens require OTP and WILL fail in CI"
             fi
           else
             echo "No NPM_TOKEN configured; workflow will rely on npm trusted publishing"
@@ -455,25 +460,35 @@ jobs:
           echo "npm publish failed (exit code $final_status)"
 
           if grep -qi 'EOTP' "$final_log"; then
-            echo "Detected npm EOTP: this publish path still requires a one-time password."
+            echo "Detected npm EOTP: the token requires a one-time password."
+            echo "Classic Publish tokens REQUIRE 2FA/OTP in CI - this will ALWAYS fail."
             echo ""
-            echo "Recommended fixes (choose one):"
-            echo "  1. Preferred: enable npm trusted publishing for this GitHub repository/package"
-            echo "  2. Or replace NPM_TOKEN with an Automation token that bypasses OTP"
+            echo "Fixes (choose one):"
+            echo "  1. Enable npm trusted publishing (zero-token, zero-expiry):"
+            echo "     npm -> package -> Settings -> Trusted Publishers -> Add GitHub Actions"
+            echo "  2. Replace NPM_TOKEN with Automation type (bypasses OTP, no expiry):"
+            echo "     npm -> Access Tokens -> Granular Access Token -> Type: Automation"
+            echo "  3. If you must use a Publish token, set npm 2FA to authorization-only"
+            echo "     (npm profile set 2fa auth-only), but option 1 or 2 is preferred"
           elif grep -Eiq 'ENEEDAUTH|E401|authentication|must be logged in|not authorized' "$final_log"; then
             echo "Detected npm authentication failure."
             echo ""
-            echo "Recommended fixes:"
-            echo "  1. Preferred: enable npm trusted publishing for this GitHub repository/package"
-            echo "  2. Or verify NPM_TOKEN is present and has publish permission"
+            echo "Fixes:"
+            echo "  1. Enable npm trusted publishing for this repository/package"
+            echo "  2. Verify NPM_TOKEN is an Automation type token with publish permission"
+            echo "     (Classic tokens may have expired or lack permission)"
           elif grep -Eiq 'trusted publishing|trusted publisher|not linked' "$final_log"; then
             echo "Trusted publishing is not configured for this npm package/repository pair."
             echo ""
-            echo "Recommended fixes:"
-            echo "  1. Link this GitHub repository as a trusted publisher in npm"
-            echo "  2. Or provide an Automation token via NPM_TOKEN"
+            echo "Fixes:"
+            echo "  1. Link this GitHub repository as a trusted publisher in npm:"
+            echo "     https://www.npmjs.com/package/@auroraview/sdk -> Settings -> Trusted Publishers"
+            echo "  2. Provide an Automation token via NPM_TOKEN (no expiry, bypasses OTP)"
           else
             echo "See the npm output above for the exact failure details."
+            echo ""
+            echo "Note: npm Automation tokens (Granular Access Token with Automation type)"
+            echo "do NOT expire and bypass 2FA/OTP, unlike Classic Publish tokens."
           fi
           echo ""
           exit "$final_status"
@@ -493,8 +508,13 @@ jobs:
           else
             echo "- npm publish failed" >> $GITHUB_STEP_SUMMARY
             echo "- Last attempted method: ${METHOD:-unknown}" >> $GITHUB_STEP_SUMMARY
-            echo "- Prefer enabling npm trusted publishing for this repository/package" >> $GITHUB_STEP_SUMMARY
-            echo "- If token publishing is still required, use an Automation token instead of a token that triggers OTP" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Token lifetime guidance:**" >> $GITHUB_STEP_SUMMARY
+            echo "- npm Automation tokens (Granular Access Token, type=Automation): **no expiry**, bypass OTP" >> $GITHUB_STEP_SUMMARY
+            echo "- npm Classic Publish tokens: **may expire**, require OTP → fail in CI" >> $GITHUB_STEP_SUMMARY
+            echo "- npm Trusted Publishing: **zero-token** via GitHub OIDC → preferred" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Action:** Replace NPM_TOKEN with an Automation token, or enable trusted publishing." >> $GITHUB_STEP_SUMMARY
           fi
 
   # (Removed) `mcp-pypi-publish` — the standalone `auroraview-mcp` PyPI package

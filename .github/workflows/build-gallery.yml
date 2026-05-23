@@ -332,13 +332,15 @@ jobs:
           # Start with CDP enabled, wait for process to initialize
           $process = Start-Process -FilePath $exe -WorkingDirectory "gallery\pack-output" -PassThru -WindowStyle Normal
           Write-Host "Gallery started with PID: $($process.Id)"
-          # Give the process time to initialize and open CDP port
-          Start-Sleep -Seconds 8
+          # Give the process time to initialize WebView2 and open CDP port
+          # Cold-start on Windows CI runners can take 10-20 seconds for WebView2
+          Start-Sleep -Seconds 15
 
       - name: Wait for CDP port
         shell: pwsh
         run: |
-          $deadline = (Get-Date).AddSeconds(60)
+          # WebView2 cold-start on CI runners can take >60s on first run
+          $deadline = (Get-Date).AddSeconds(120)
           while ((Get-Date) -lt $deadline) {
             try {
               $r = Invoke-WebRequest -Uri 'http://127.0.0.1:9222/json/version' -TimeoutSec 2 -UseBasicParsing
@@ -349,7 +351,7 @@ jobs:
             } catch { }
             Start-Sleep -Milliseconds 1000
           }
-          Write-Host "ERROR: CDP not ready after 60s"
+          Write-Host "ERROR: CDP not ready after 120s"
           exit 1
 
       - name: Run CDP E2E tests
