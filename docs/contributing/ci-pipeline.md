@@ -178,7 +178,7 @@ The Python package is published to PyPI as `auroraview`. Key considerations:
 
 1. **File Size Limit**: PyPI has a 100MB limit per file. Source distributions (sdist) often exceed this due to bundled assets, so they are built separately for GitHub Releases only.
 2. **Platform Tags**: Only Windows and macOS wheels are uploaded to PyPI. Linux wheels use non-standard tags and are excluded.
-3. **ABI3 Support**: Python 3.8+ uses abi3 (stable ABI) for a single wheel per platform. Python 3.7 requires separate non-abi3 builds.
+3. **ABI3 Support**: Python 3.8+ uses abi3 (stable ABI) for a single wheel per platform. Python 3.7 requires separate non-abi3 builds; CI publishes dedicated `cp37` wheels for Linux/Windows, while macOS 3.7 users should build from source.
 
 ## Troubleshooting
 
@@ -202,10 +202,11 @@ The Python package is published to PyPI as `auroraview`. Key considerations:
 Error: `404 Not Found - PUT https://registry.npmjs.org/@auroraview%2fsdk`
 
 **Solution**:
-1. Verify `NPM_TOKEN` is set in GitHub repository secrets
-2. Generate a new token at https://www.npmjs.com/settings/loonghao/tokens
-3. Use "Automation" token type (not "Publish")
-4. Ensure the token hasn't expired
+1. Verify npm trusted publishing is linked to this GitHub repository/package, or use `NPM_TOKEN`
+2. Verify `NPM_TOKEN` is set in GitHub repository secrets
+3. Generate a new token at https://www.npmjs.com/settings/loonghao/tokens
+4. Use "Automation" token type with publish permission
+5. Ensure the token hasn't expired
 
 ### PyPI publish fails with "File too large"
 

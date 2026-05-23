@@ -131,14 +131,18 @@ jobs:
               const hasLinux = artifacts.artifacts.some(a => a.name === 'wheels-linux-x86_64');
               const hasWindows = artifacts.artifacts.some(a => a.name === 'wheels-windows-x64');
               const hasMacos = artifacts.artifacts.some(a => a.name === 'wheels-macos-universal2-apple-darwin');
+              const hasLinuxPy37 = artifacts.artifacts.some(a => a.name === 'wheels-linux-x86_64-py37');
+              const hasWindowsPy37 = artifacts.artifacts.some(a => a.name === 'wheels-windows-x64-py37');
 
-              // Check for essential platforms (x86_64 + macOS universal2)
+              // Check for essential platforms (x86_64 + macOS universal2) and CPython 3.7 baseline wheels.
               // Note: ARM64 wheels are not built (webkit2gtk/wry cross-compilation is not feasible)
-              if (hasLinux && hasWindows && hasMacos) {
+              if (hasLinux && hasWindows && hasMacos && hasLinuxPy37 && hasWindowsPy37) {
                 console.log(`Found matching artifacts from run ${run.id} (commit: ${targetSha})`);
-                console.log(`  Linux x86_64: ${hasLinux}`);
-                console.log(`  Windows x64: ${hasWindows}`);
-                console.log(`  macOS universal2: ${hasMacos}`);
+                console.log(`  Linux x86_64 abi3: ${hasLinux}`);
+                console.log(`  Windows x64 abi3: ${hasWindows}`);
+                console.log(`  macOS universal2 abi3: ${hasMacos}`);
+                console.log(`  Linux x86_64 py37: ${hasLinuxPy37}`);
+                console.log(`  Windows x64 py37: ${hasWindowsPy37}`);
                 core.setOutput('available', 'true');
                 core.setOutput('run_id', run.id.toString());
                 core.setOutput('source_sha', targetSha);
@@ -418,8 +422,10 @@ jobs:
             return ${PIPESTATUS[0]}
           }
 
+          set +e
           publish_trusted "$trusted_log"
           trusted_status=$?
+          set -e
           if [ "$trusted_status" -eq 0 ]; then
             echo "publish_result=success" >> "$GITHUB_OUTPUT"
             echo "publish_method=trusted" >> "$GITHUB_OUTPUT"
@@ -431,8 +437,10 @@ jobs:
           if [ -n "${NPM_TOKEN:-}" ] && grep -Eiq 'ENEEDAUTH|E401|E404|authentication|must be logged in|trusted publishing|trusted publisher|not authorized|not linked' "$trusted_log"; then
             publish_method="token"
             final_log="$token_log"
+            set +e
             publish_with_token "$token_log"
             token_status=$?
+            set -e
             final_status="$token_status"
             if [ "$token_status" -eq 0 ]; then
               echo "publish_result=success" >> "$GITHUB_OUTPUT"

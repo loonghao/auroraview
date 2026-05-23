@@ -80,9 +80,10 @@ auroraview = "auroraview.__main__:main"
 [tool.maturin]
 python-source = "python"
 module-name = "auroraview._core"
-# Note: abi3-py38 for Python 3.8+, Python 3.7 requires separate non-abi3 build
+# Default builds stay non-abi3 so Python 3.7 source builds remain valid.
+# CI passes abi3-py38 explicitly for Python 3.8+ release wheels.
 # Note: runtime-desktop and runtime-dcc are optional features for advanced use cases
-features = ["python-bindings", "pyo3/extension-module", "abi3-py38", "runtime-desktop", "runtime-dcc"]
+features = ["python-bindings", "pyo3/extension-module", "runtime-desktop", "runtime-dcc"]
 bindings = "pyo3"
 
 # Ruff configuration
