@@ -307,7 +307,11 @@ jobs:
   # The Python `auroraview-mcp` package was retired in favour of the Rust
   # `crates/auroraview-mcp` adapter + `dcc-mcp-core`'s gateway — see #364.
 
-  # Publish SDK to npm
+  # Publish SDK to npm via OIDC Trusted Publishing.
+  # No NPM_TOKEN needed — npm authenticates via GitHub's OIDC token (id-token: write).
+  # Requires one-time setup: add this repo as a trusted publisher on npm's package page.
+  # npm granular access tokens with write permission now expire after 90 days max (Nov 2025),
+  # so OIDC trusted publishing is the only solution with no expiry.
   npm-publish:
     name: Publish to npm
     runs-on: ubuntu-latest
@@ -329,38 +333,11 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Verify npm authentication
-        id: npm-auth
-        continue-on-error: true
+      - name: Verify npm connectivity
         shell: bash
         run: |
           echo "Checking npm registry connectivity..."
-          npm ping || echo "WARNING: npm ping failed"
-
-          if [ -n "${NPM_TOKEN:-}" ]; then
-            echo "Checking npm token with npm whoami..."
-            if npm whoami 2>/dev/null; then
-              echo "npm_auth=token-ok" >> $GITHUB_OUTPUT
-              echo "npm ping verified; token appears valid"
-            else
-              echo "WARNING: npm token authentication failed"
-              echo "npm_auth=token-failed" >> $GITHUB_OUTPUT
-              echo ""
-              echo "ACTION REQUIRED: update npm authentication"
-              echo "  - Preferred: enable npm trusted publishing for this repository"
-              echo "    (Settings -> Security -> Secrets and variables -> Actions -> Trusted publishing)"
-              echo "  - Fallback: replace NPM_TOKEN with an Automation type token"
-              echo "    (npm -> Access Tokens -> Granular Access Token -> type: Automation)"
-              echo "    Automation tokens do NOT expire and bypass 2FA/OTP"
-              echo "    Classic Publish tokens require OTP and WILL fail in CI"
-            fi
-          else
-            echo "No NPM_TOKEN configured; workflow will rely on npm trusted publishing"
-            echo "npm_auth=trusted-publishing" >> $GITHUB_OUTPUT
-          fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          npm ping || echo "WARNING: npm ping failed (non-blocking)"
 
       - name: Verify package configuration
         shell: bash
@@ -381,117 +358,79 @@ jobs:
         shell: bash
         run: |
           TAG_NAME="${{ needs.release-please.outputs.tag_name || needs.check-tag.outputs.tag_name }}"
-          # Extract version from tag (auroraview-v0.3.8 -> 0.3.8)
           VERSION=$(echo "$TAG_NAME" | sed 's/auroraview-v//')
           echo "Setting SDK version to: $VERSION"
           cd packages/auroraview-sdk
           npm version "$VERSION" --no-git-tag-version --allow-same-version
 
-      - name: Publish to npm
+      - name: Publish to npm (OIDC Trusted Publishing)
         id: npm-publish
         shell: bash
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           cd packages/auroraview-sdk
 
           VERSION=$(node -p "require('./package.json').version")
-          echo "Publishing @auroraview/sdk@$VERSION..."
+          echo "Publishing @auroraview/sdk@$VERSION via OIDC trusted publishing..."
 
           if npm view "@auroraview/sdk@$VERSION" version 2>/dev/null; then
             echo "Version $VERSION already published, skipping"
             echo "publish_result=skipped" >> "$GITHUB_OUTPUT"
-            echo "publish_method=already-exists" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          trusted_log=$(mktemp)
-          token_log=$(mktemp)
-          final_log="$trusted_log"
-          final_status=1
-          publish_method="trusted"
-
-          publish_trusted() {
-            local log_file="$1"
-            echo "Attempting npm trusted publishing with provenance..."
-            unset NODE_AUTH_TOKEN
-            npm publish --provenance --access public --ignore-scripts 2>&1 | tee "$log_file"
-            return ${PIPESTATUS[0]}
-          }
-
-          publish_with_token() {
-            local log_file="$1"
-            echo "Attempting npm token-based publishing with provenance..."
-            export NODE_AUTH_TOKEN="$NPM_TOKEN"
-            npm publish --provenance --access public --ignore-scripts 2>&1 | tee "$log_file"
-            return ${PIPESTATUS[0]}
-          }
-
+          # OIDC trusted publishing: npm uses the GitHub-issued OIDC token
+          # to authenticate — no NPM_TOKEN secret needed.
+          # Prerequisite: trusted publisher configured on npm for this repo+workflow.
+          publish_log=$(mktemp)
           set +e
-          publish_trusted "$trusted_log"
-          trusted_status=$?
+          npm publish --provenance --access public --ignore-scripts 2>&1 | tee "$publish_log"
+          publish_status=${PIPESTATUS[0]}
           set -e
-          if [ "$trusted_status" -eq 0 ]; then
+
+          if [ "$publish_status" -eq 0 ]; then
             echo "publish_result=success" >> "$GITHUB_OUTPUT"
-            echo "publish_method=trusted" >> "$GITHUB_OUTPUT"
+            echo "Published @auroraview/sdk@$VERSION via OIDC trusted publishing"
             exit 0
-          fi
-
-          final_status="$trusted_status"
-
-          if [ -n "${NPM_TOKEN:-}" ] && grep -Eiq 'ENEEDAUTH|E401|E404|authentication|must be logged in|trusted publishing|trusted publisher|not authorized|not linked' "$trusted_log"; then
-            publish_method="token"
-            final_log="$token_log"
-            set +e
-            publish_with_token "$token_log"
-            token_status=$?
-            set -e
-            final_status="$token_status"
-            if [ "$token_status" -eq 0 ]; then
-              echo "publish_result=success" >> "$GITHUB_OUTPUT"
-              echo "publish_method=token" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
           fi
 
           echo "publish_result=failed" >> "$GITHUB_OUTPUT"
-          echo "publish_method=$publish_method" >> "$GITHUB_OUTPUT"
           echo ""
-          echo "npm publish failed (exit code $final_status)"
+          echo "========== npm publish FAILED (exit code $publish_status) =========="
+          echo ""
 
-          if grep -qi 'EOTP' "$final_log"; then
-            echo "Detected npm EOTP: the token requires a one-time password."
-            echo "Classic Publish tokens REQUIRE 2FA/OTP in CI - this will ALWAYS fail."
+          if grep -Eiq 'trusted publishing|trusted publisher|not linked' "$publish_log"; then
+            echo "ERROR: Trusted publishing is not configured for this npm package/repository pair."
             echo ""
-            echo "Fixes (choose one):"
-            echo "  1. Enable npm trusted publishing (zero-token, zero-expiry):"
-            echo "     npm -> package -> Settings -> Trusted Publishers -> Add GitHub Actions"
-            echo "  2. Replace NPM_TOKEN with Automation type (bypasses OTP, no expiry):"
-            echo "     npm -> Access Tokens -> Granular Access Token -> Type: Automation"
-            echo "  3. If you must use a Publish token, set npm 2FA to authorization-only"
-            echo "     (npm profile set 2fa auth-only), but option 1 or 2 is preferred"
-          elif grep -Eiq 'ENEEDAUTH|E401|authentication|must be logged in|not authorized' "$final_log"; then
-            echo "Detected npm authentication failure."
+            echo "TO FIX — add this repo as a trusted publisher on npm:"
+            echo "  1. Go to https://www.npmjs.com/package/@auroraview/sdk/access"
+            echo "  2. Click 'Trusted Publishers' → 'Add Trusted Publisher'"
+            echo "  3. Set: Owner=loonghao, Repository=auroraview, Workflow=.github/workflows/release.yml"
+            echo "  4. Save, then re-run this workflow"
+          elif grep -Eiq 'ENEEDAUTH|E401|authentication|must be logged in|not authorized' "$publish_log"; then
+            echo "ERROR: npm authentication failed."
             echo ""
-            echo "Fixes:"
-            echo "  1. Enable npm trusted publishing for this repository/package"
-            echo "  2. Verify NPM_TOKEN is an Automation type token with publish permission"
-            echo "     (Classic tokens may have expired or lack permission)"
-          elif grep -Eiq 'trusted publishing|trusted publisher|not linked' "$final_log"; then
-            echo "Trusted publishing is not configured for this npm package/repository pair."
+            echo "Make sure Trusted Publishing is configured (see above)."
             echo ""
-            echo "Fixes:"
-            echo "  1. Link this GitHub repository as a trusted publisher in npm:"
-            echo "     https://www.npmjs.com/package/@auroraview/sdk -> Settings -> Trusted Publishers"
-            echo "  2. Provide an Automation token via NPM_TOKEN (no expiry, bypasses OTP)"
+            echo "NOTE: npm granular access tokens now have a max lifetime of 90 days."
+            echo "Trusted Publishing (OIDC) is the only solution with no expiry."
+            echo "See: https://github.blog/changelog/2025-09-29-npm-granular-access-token-max-expiration-90-days/"
+          elif grep -qi 'EOTP' "$publish_log"; then
+            echo "ERROR: npm is requesting a one-time password (EOTP)."
+            echo ""
+            echo "This should not happen with OIDC trusted publishing."
+            echo "Check that the npm package's 2FA settings allow automation:"
+            echo "  https://www.npmjs.com/package/@auroraview/sdk/access"
+            echo "  Set 'Publishing access' → 'Require two-factor authentication for write actions'"
           else
-            echo "See the npm output above for the exact failure details."
+            echo "See the publish log above for the full error output."
             echo ""
-            echo "Note: npm Automation tokens (Granular Access Token with Automation type)"
-            echo "do NOT expire and bypass 2FA/OTP, unlike Classic Publish tokens."
+            echo "Known causes:"
+            echo "  - Trusted publisher not configured (most common)"
+            echo "  - Package name mismatch"
+            echo "  - Version already exists (checked above)"
           fi
           echo ""
-          exit "$final_status"
+          exit "$publish_status"
 
       - name: NPM Publish Summary
         if: always()
@@ -499,22 +438,17 @@ jobs:
         run: |
           echo "## npm Publish Results" >> $GITHUB_STEP_SUMMARY
           RESULT="${{ steps.npm-publish.outputs.publish_result }}"
-          METHOD="${{ steps.npm-publish.outputs.publish_method }}"
           if [ "$RESULT" == "success" ]; then
-            echo "- Published @auroraview/sdk successfully" >> $GITHUB_STEP_SUMMARY
-            echo "- Method: ${METHOD:-unknown}" >> $GITHUB_STEP_SUMMARY
+            echo "- Published @auroraview/sdk successfully via OIDC trusted publishing" >> $GITHUB_STEP_SUMMARY
           elif [ "$RESULT" == "skipped" ]; then
             echo "- Skipped: version already exists on npm" >> $GITHUB_STEP_SUMMARY
           else
             echo "- npm publish failed" >> $GITHUB_STEP_SUMMARY
-            echo "- Last attempted method: ${METHOD:-unknown}" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Token lifetime guidance:**" >> $GITHUB_STEP_SUMMARY
-            echo "- npm Automation tokens (Granular Access Token, type=Automation): **no expiry**, bypass OTP" >> $GITHUB_STEP_SUMMARY
-            echo "- npm Classic Publish tokens: **may expire**, require OTP → fail in CI" >> $GITHUB_STEP_SUMMARY
-            echo "- npm Trusted Publishing: **zero-token** via GitHub OIDC → preferred" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Action:** Replace NPM_TOKEN with an Automation token, or enable trusted publishing." >> $GITHUB_STEP_SUMMARY
+            echo "**npm token policy (Nov 2025):** all granular access tokens with write permission expire after 90 days max." >> $GITHUB_STEP_SUMMARY
+            echo "**Solution:** Use OIDC trusted publishing — no tokens, no expiry, no rotation." >> $GITHUB_STEP_SUMMARY
+            echo "Configure at: https://www.npmjs.com/package/@auroraview/sdk/access → Trusted Publishers" >> $GITHUB_STEP_SUMMARY
+            echo "Owner: loonghao | Repository: auroraview | Workflow: .github/workflows/release.yml" >> $GITHUB_STEP_SUMMARY
           fi
 
   # (Removed) `mcp-pypi-publish` — the standalone `auroraview-mcp` PyPI package
