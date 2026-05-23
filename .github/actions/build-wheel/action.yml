@@ -175,6 +175,34 @@ runs:
         wheel_file=$(ls dist/*.whl | head -1)
         echo "wheel-path=$wheel_file" >> $GITHUB_OUTPUT
 
+    - name: Verify wheel Python tag
+      shell: bash
+      run: |
+        wheel_file=$(ls -t dist/*.whl | head -1)
+        echo "Verifying wheel tag: $wheel_file"
+
+        if [[ "${{ inputs.python-version }}" == "3.7" ]]; then
+          if [[ "$wheel_file" == *"abi3"* ]]; then
+            echo "[ERROR] Python 3.7 wheels must be non-abi3: $wheel_file"
+            exit 1
+          fi
+          if [[ "$wheel_file" != *"cp37"* ]]; then
+            echo "[ERROR] Python 3.7 wheel should carry a cp37 tag: $wheel_file"
+            exit 1
+          fi
+          echo "[OK] Python 3.7 wheel uses a dedicated cp37 tag"
+        else
+          if [[ "$wheel_file" != *"abi3"* ]]; then
+            echo "[ERROR] Python ${{ inputs.python-version }} wheels must use abi3: $wheel_file"
+            exit 1
+          fi
+          if [[ "$wheel_file" == *"cp37"* ]]; then
+            echo "[ERROR] ABI3 wheel must not be tagged as cp37: $wheel_file"
+            exit 1
+          fi
+          echo "[OK] Python ${{ inputs.python-version }} wheel uses abi3"
+        fi
+
     - name: Test wheel installation
       if: inputs.test-wheel == 'true'
       shell: bash

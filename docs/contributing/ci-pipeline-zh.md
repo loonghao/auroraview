@@ -178,7 +178,7 @@ Python 包作为 `auroraview` 发布到 PyPI。关键注意事项：
 
 1. **文件大小限制**: PyPI 对每个文件有 100MB 限制。源代码分发包（sdist）通常由于捆绑的资源而超过此限制，因此它们仅单独构建用于 GitHub 发布。
 2. **平台标签**: 只有 Windows 和 macOS 的 wheel 会上传到 PyPI。Linux wheel 使用非标准标签并被排除。
-3. **ABI3 支持**: Python 3.8+ 使用 abi3（稳定 ABI），每个平台只需一个 wheel。Python 3.7 需要单独的非 abi3 构建。
+3. **ABI3 支持**: Python 3.8+ 使用 abi3（稳定 ABI），每个平台只需一个 wheel。Python 3.7 需要单独的非 abi3 构建；CI 为 Linux/Windows 发布专用 `cp37` wheel，macOS 3.7 用户应从源码构建。
 
 ## 故障排除
 
@@ -202,10 +202,11 @@ Python 包作为 `auroraview` 发布到 PyPI。关键注意事项：
 错误：`404 Not Found - PUT https://registry.npmjs.org/@auroraview%2fsdk`
 
 **解决方案**：
-1. 验证 GitHub 仓库 secrets 中已设置 `NPM_TOKEN`
-2. 在 https://www.npmjs.com/settings/loonghao/tokens 生成新令牌
-3. 使用 "Automation" 令牌类型（不是 "Publish"）
-4. 确保令牌未过期
+1. 验证 npm trusted publishing 已绑定此 GitHub 仓库/包，或使用 `NPM_TOKEN`
+2. 验证 GitHub 仓库 secrets 中已设置 `NPM_TOKEN`
+3. 在 https://www.npmjs.com/settings/loonghao/tokens 生成新令牌
+4. 使用具有发布权限的 "Automation" 令牌类型
+5. 确保令牌未过期
 
 ### PyPI 发布失败，提示"文件太大"
 

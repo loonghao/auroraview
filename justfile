@@ -1254,8 +1254,7 @@ gallery-ci-build: sdk-build gallery-ci-install
 # Install Python Playwright for Gallery CI/E2E flows
 gallery-ci-playwright-install:
     @echo "Installing Python Playwright for Gallery tests..."
-    vx uv sync --group test
-    vx uv run python -m playwright install chromium
+    vx uv run --with playwright python -m playwright install chromium
     @echo "[OK] Gallery Playwright installed!"
 
 
@@ -1288,7 +1287,7 @@ gallery-test-inspector: gallery-build
 # Run Gallery Playwright E2E tests (frontend only, with mock API)
 gallery-test-playwright: gallery-ci-playwright-install
     @echo "Running Gallery Playwright E2E tests..."
-    vx uv run python scripts/test_gallery_e2e.py
+    vx uv run --with playwright python scripts/test_gallery_e2e.py
 
 # Full Gallery verification path aligned with CI frontend checks
 gallery-verify: gallery-ci-build gallery-test-playwright
@@ -1342,14 +1341,26 @@ gallery-e2e-stop:
     @echo "[OK] Gallery stopped"
 
 # Run E2E tests against a running packed Gallery via CDP
+[windows]
 gallery-e2e-test: gallery-ci-playwright-install
     @echo "Running Gallery CDP E2E tests..."
-    vx uv run pytest tests/test_gallery_cdp.py -v --tb=short
+    $env:PYTEST_DISABLE_PLUGIN_AUTOLOAD = '1'; vx uv run --with pytest --with playwright pytest tests/test_gallery_cdp.py -v --tb=short -o addopts=
+
+[unix]
+gallery-e2e-test: gallery-ci-playwright-install
+    @echo "Running Gallery CDP E2E tests..."
+    PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 vx uv run --with pytest --with playwright pytest tests/test_gallery_cdp.py -v --tb=short -o addopts=
 
 # Run E2E tests with more verbose stdout (for debugging)
+[windows]
 gallery-e2e-test-headed: gallery-ci-playwright-install
     @echo "Running Gallery CDP E2E tests with verbose output..."
-    vx uv run pytest tests/test_gallery_cdp.py -v --tb=short -s
+    $env:PYTEST_DISABLE_PLUGIN_AUTOLOAD = '1'; vx uv run --with pytest --with playwright pytest tests/test_gallery_cdp.py -v --tb=short -s -o addopts=
+
+[unix]
+gallery-e2e-test-headed: gallery-ci-playwright-install
+    @echo "Running Gallery CDP E2E tests with verbose output..."
+    PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 vx uv run --with pytest --with playwright pytest tests/test_gallery_cdp.py -v --tb=short -s -o addopts=
 
 # Show where Gallery E2E artifacts are written
 gallery-e2e-report:

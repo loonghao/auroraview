@@ -117,7 +117,7 @@ server.stop()
 
 - Core stack: Rust 1.90+, PyO3 0.27 (abi3), Wry 0.54, Tao 0.34
 - Web engines: Windows (WebView2), macOS (WKWebView), Linux (WebKitGTK)
-- Packaging: maturin with abi3 → one wheel works for CPython 3.7-3.13
+- Packaging: maturin wheels; CPython 3.8+ uses abi3 per platform, CPython 3.7 uses dedicated cp37 wheels on Linux/Windows and source builds on macOS
 - Event loop: blocking show() by default; nonblocking mode planned for host loops
 - Deferred loading: URL/HTML set before show() are stored then applied at creation
 - IPC: bidirectional event bus (Python ↔ JavaScript via CustomEvent)
@@ -231,7 +231,8 @@ sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev  # Debian/Ubuntu
 # sudo pacman -S webkit2gtk                          # Arch Linux
 
 # Download and install wheel from GitHub Releases
-pip install https://github.com/loonghao/auroraview/releases/latest/download/auroraview-{version}-cp37-abi3-linux_x86_64.whl
+# Python 3.8+: cp38-abi3, Python 3.7: cp37-cp37m
+pip install https://github.com/loonghao/auroraview/releases/latest/download/auroraview-{version}-cp38-abi3-linux_x86_64.whl
 ```
 
 Or build from source:

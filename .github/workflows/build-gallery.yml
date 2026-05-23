@@ -353,7 +353,11 @@ jobs:
           exit 1
 
       - name: Run CDP E2E tests
-        run: vx uv run pytest tests/test_gallery_cdp.py -v --tb=short
+        run: vx uv run --with pytest --with playwright pytest tests/test_gallery_cdp.py -v --tb=short -o addopts=
+        env:
+          # This CDP smoke test does not use Qt. Keep pytest-qt from requiring
+          # PySide/PyQt in the lean Gallery E2E environment.
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
 
       - name: Upload test results
         if: always()
