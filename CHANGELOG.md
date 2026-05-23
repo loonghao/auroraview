@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.4](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.3...auroraview-v0.5.4) (2026-05-23)
+
+
+### Bug Fixes
+
+* gate unsafe usage ([17774f6](https://github.com/loonghao/auroraview/commit/17774f6a6f436b3aea0d1e59b9adcb7a8e07a675))
+* keep codecov checks informational ([11655fa](https://github.com/loonghao/auroraview/commit/11655faa12f25b163023e3c0e1c5a035affdd12f))
+* repair ci wheel and release publishing ([9409eda](https://github.com/loonghao/auroraview/commit/9409edaa3af60ee414bf470e947eae42cfa59753))
+
 ## [0.5.3](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.2...auroraview-v0.5.3) (2026-05-22)
 
 
