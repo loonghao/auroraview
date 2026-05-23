@@ -29,15 +29,6 @@ coverage:
         only_pulls: false
         informational: true  # Don't block PR for patch coverage
 
-    # Changes coverage (lines changed in PR)
-    changes:
-      default:
-        target: 80%
-        threshold: 5%
-        if_ci_failed: success
-        if_not_found: success
-        informational: true  # Don't block PR, just inform
-
 # Comment configuration
 comment:
   layout: "header, diff, flags, components, footer"
@@ -177,8 +168,3 @@ ignore:
 # GitHub checks
 github_checks:
   annotations: true  # Add annotations to PR
-
-# Codecov AI (if enabled)
-codecov_ai:
-  enabled: true
-
