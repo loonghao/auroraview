@@ -509,8 +509,13 @@ hakari-check:
     vx cargo hakari generate --diff
     vx cargo hakari manage-deps --dry-run
 
+# Verify Rust unsafe usage stays inside reviewed FFI boundaries
+unsafe-audit:
+    @echo "Auditing Rust unsafe usage..."
+    vx python scripts/audit_unsafe.py
+
 # Run linting
-lint:
+lint: unsafe-audit
     @echo "Linting Rust code..."
     vx cargo clippy --all-targets --all-features -- -D warnings
     @echo "Linting Python code..."
@@ -658,6 +663,7 @@ ci-test-basic:
 
 ci-lint:
     @echo "Running CI linting..."
+    vx just unsafe-audit
     vx cargo fmt --all -- --check
     vx cargo clippy --all-targets --all-features -- -D warnings
     vx uvx ruff check python/ tests/

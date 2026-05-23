@@ -138,6 +138,8 @@ jobs:
             ci:
               - '.github/**'
               - 'justfile'
+              - 'scripts/audit_unsafe.py'
+              - 'scripts/unsafe_allowlist.txt'
               - '.pre-commit-config.yaml'
               - '.codecov.yml'
             tests:
@@ -342,6 +344,10 @@ jobs:
       - name: Check Rust formatting
         if: needs.path-filter.outputs.needs_rust_checks == 'true'
         run: cargo fmt --all -- --check
+
+      - name: Audit unsafe usage
+        if: needs.path-filter.outputs.needs_rust_checks == 'true'
+        run: vx just unsafe-audit
 
       - name: Install system dependencies
         if: needs.path-filter.outputs.needs_rust_checks == 'true'
