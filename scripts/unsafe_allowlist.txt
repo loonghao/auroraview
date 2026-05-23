@@ -1,0 +1,28 @@
+# AuroraView unsafe allowlist.
+#
+# Format:
+#   path | unsafe construct count | rationale
+#
+# This file freezes the current unsafe boundary. Do not raise a count or add a
+# path without explaining why safe Rust cannot express that boundary.
+
+crates/auroraview-browser/src/browser.rs | 3 | Win32 child window enumeration callback and HWND FFI for browser embedding.
+crates/auroraview-cli/src/packed/mod.rs | 1 | Windows handle and process setup for packed executable launch.
+crates/auroraview-cli/src/packed/warmup.rs | 2 | Optional Windows WebView2 DLL warmup through dynamically loaded native symbols.
+crates/auroraview-core/src/builder/click_through.rs | 3 | Win32 window style mutation and subclass procedure for click-through behavior.
+crates/auroraview-core/src/builder/com_init.rs | 1 | COM apartment initialization through the Win32 API.
+crates/auroraview-core/src/builder/vibrancy.rs | 8 | DWM/User32 dynamic symbol calls and window composition attributes.
+crates/auroraview-core/src/builder/window_style.rs | 16 | Win32 subclassing, DWM attributes, owner/parent mutation, and GDI brush lifecycle.
+crates/auroraview-core/src/utils.rs | 1 | Win32 process handle query and handle close.
+crates/auroraview-core/src/window/mod.rs | 2 | Win32 message posting and HWND destruction for native windows.
+crates/auroraview-dcc/src/webview.rs | 18 | WebView2 COM controller, settings, event callbacks, and message pumping in DCC hosts.
+crates/auroraview-desktop/src/window/builder.rs | 1 | COM apartment initialization for desktop window creation.
+crates/auroraview-signals/src/signal.rs | 2 | Manual Send/Sync marker for signal storage guarded by synchronization primitives.
+src/platform/windows/warmup.rs | 2 | Optional Windows WebView2 runtime warmup through dynamically loaded native symbols.
+src/platform/windows/webview2.rs | 7 | Win32 event handles, COM wait integration, and manual Send/Sync marker for signal state.
+src/webview/backend/native.rs | 5 | Win32 HWND validation, subclass callbacks, and child-window enumeration.
+src/webview/message_pump.rs | 4 | Win32 message pump calls and COM apartment setup.
+src/webview/proxy.rs | 2 | Manual Send/Sync marker for proxy state composed of Arc-backed synchronization.
+src/webview/tab_manager.rs | 3 | Win32 child-window enumeration callback and HWND FFI for tab discovery.
+src/webview/timer.rs | 3 | Win32 timer message loop and callback integration.
+src/webview/webview_inner.rs | 5 | WebView2 COM event handlers and Windows-specific WebView interaction.
