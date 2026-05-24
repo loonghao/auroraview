@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.5](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.4...auroraview-v0.5.5) (2026-05-24)
+
+
+### Bug Fixes
+
+* **ci:** increase CDP E2E timeouts and improve npm token guidance ([b67cda7](https://github.com/loonghao/auroraview/commit/b67cda7efc968ae48e769e4c6629d62cc9147148))
+* **ci:** migrate npm publish from token-based to OIDC trusted publishing ([2070c87](https://github.com/loonghao/auroraview/commit/2070c877cec4e3ece9281750ecb621fd2ca5a46f))
+
 ## [0.5.4](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.3...auroraview-v0.5.4) (2026-05-23)
 
 
