@@ -75,7 +75,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/loonghao/auroraview"
+    "url": "git+https://github.com/loonghao/auroraview.git"
   },
   "publishConfig": {
     "access": "public",
