@@ -38,7 +38,7 @@ permissions:
   contents: write # Required for creating releases and uploading artifacts
   pull-requests: write # Required for release-please
   issues: write # Required for release-please
-  id-token: write # Required for PyPI trusted publishing
+  id-token: write # Required for PyPI and npm trusted publishing
   attestations: write # Required for artifact attestation
   actions: read # Required for downloading artifacts from other workflows
 
@@ -200,7 +200,7 @@ jobs:
       (needs.check-pr-artifacts.result != 'success' || needs.check-pr-artifacts.outputs.artifacts-available != 'true' || inputs.force-rebuild)
     uses: ./.github/workflows/build-wheels.yml
     with:
-      test-wheel: 'false'
+      test-wheel: ${{ 'false' }}
     permissions:
       contents: read
       actions: write
@@ -330,8 +330,48 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
+
+      - name: Install npm trusted publishing CLI
+        shell: bash
+        run: npm install -g npm@11
+
+      - name: Verify npm trusted publishing toolchain
+        shell: bash
+        run: |
+          node --version
+          npm --version
+
+          node <<'NODE'
+          const { execFileSync } = require("node:child_process");
+
+          function parse(version) {
+            return version.split(".").map((part) => Number(part));
+          }
+
+          function atLeast(actual, minimum) {
+            for (let index = 0; index < minimum.length; index += 1) {
+              const actualPart = actual[index] || 0;
+              const minimumPart = minimum[index] || 0;
+              if (actualPart > minimumPart) return true;
+              if (actualPart < minimumPart) return false;
+            }
+            return true;
+          }
+
+          const nodeVersion = process.versions.node;
+          const npmVersion = execFileSync("npm", ["--version"], { encoding: "utf8" }).trim();
+
+          if (!atLeast(parse(nodeVersion), [22, 14, 0])) {
+            throw new Error(`npm trusted publishing requires Node >= 22.14.0; found ${nodeVersion}`);
+          }
+
+          if (!atLeast(parse(npmVersion), [11, 5, 1])) {
+            throw new Error(`npm trusted publishing requires npm >= 11.5.1; found ${npmVersion}`);
+          }
+          NODE
 
       - name: Verify npm connectivity
         shell: bash
@@ -404,7 +444,7 @@ jobs:
             echo "TO FIX — add this repo as a trusted publisher on npm:"
             echo "  1. Go to https://www.npmjs.com/package/@auroraview/sdk/access"
             echo "  2. Click 'Trusted Publishers' → 'Add Trusted Publisher'"
-            echo "  3. Set: Owner=loonghao, Repository=auroraview, Workflow=.github/workflows/release.yml"
+            echo "  3. Set: Owner=loonghao, Repository=auroraview, Workflow filename=release.yml, Environment=npm"
             echo "  4. Save, then re-run this workflow"
           elif grep -Eiq 'ENEEDAUTH|E401|authentication|must be logged in|not authorized' "$publish_log"; then
             echo "ERROR: npm authentication failed."
@@ -448,7 +488,7 @@ jobs:
             echo "**npm token policy (Nov 2025):** all granular access tokens with write permission expire after 90 days max." >> $GITHUB_STEP_SUMMARY
             echo "**Solution:** Use OIDC trusted publishing — no tokens, no expiry, no rotation." >> $GITHUB_STEP_SUMMARY
             echo "Configure at: https://www.npmjs.com/package/@auroraview/sdk/access → Trusted Publishers" >> $GITHUB_STEP_SUMMARY
-            echo "Owner: loonghao | Repository: auroraview | Workflow: .github/workflows/release.yml" >> $GITHUB_STEP_SUMMARY
+            echo "Owner: loonghao | Repository: auroraview | Workflow filename: release.yml | Environment: npm" >> $GITHUB_STEP_SUMMARY
           fi
 
   # (Removed) `mcp-pypi-publish` — the standalone `auroraview-mcp` PyPI package
