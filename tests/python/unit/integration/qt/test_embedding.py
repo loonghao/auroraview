@@ -80,9 +80,7 @@ class TestCreateWebViewContainer:
         host = _Host()
         core = MagicMock()
         core.get_hwnd.return_value = 0xCAFE
-        with patch.dict(
-            "os.environ", {"AURORAVIEW_USE_DIRECT_EMBED": "0"}, clear=False
-        ):
+        with patch.dict("os.environ", {"AURORAVIEW_USE_DIRECT_EMBED": "0"}, clear=False):
             EmbeddingMixin._create_webview_container(host, core)
         # AURORAVIEW_USE_DIRECT_EMBED=0 forces createWindowContainer path
         host._create_container_qt.assert_called_once_with(0xCAFE)
@@ -92,9 +90,7 @@ class TestCreateWebViewContainer:
     def test_env_force_direct_embed_on(self):
         host = _Host()
         core = MagicMock()
-        with patch.dict(
-            "os.environ", {"AURORAVIEW_USE_DIRECT_EMBED": "1"}, clear=False
-        ):
+        with patch.dict("os.environ", {"AURORAVIEW_USE_DIRECT_EMBED": "1"}, clear=False):
             EmbeddingMixin._create_webview_container(host, core, hwnd=0x1234)
         host._create_container_direct.assert_called_once_with(0x1234)
         host._create_container_qt.assert_not_called()
@@ -102,9 +98,7 @@ class TestCreateWebViewContainer:
     def test_env_force_direct_embed_off(self):
         host = _Host()
         core = MagicMock()
-        with patch.dict(
-            "os.environ", {"AURORAVIEW_USE_DIRECT_EMBED": "false"}, clear=False
-        ):
+        with patch.dict("os.environ", {"AURORAVIEW_USE_DIRECT_EMBED": "false"}, clear=False):
             EmbeddingMixin._create_webview_container(host, core, hwnd=0x1234)
         host._create_container_qt.assert_called_once_with(0x1234)
         host._create_container_direct.assert_not_called()
@@ -113,9 +107,7 @@ class TestCreateWebViewContainer:
         host = _Host()
         core = MagicMock()
         monkeypatch.delenv("AURORAVIEW_USE_DIRECT_EMBED", raising=False)
-        with patch.object(
-            embedding, "is_qt6", return_value=True
-        ), patch.object(
+        with patch.object(embedding, "is_qt6", return_value=True), patch.object(
             embedding, "supports_direct_embedding", return_value=True
         ):
             EmbeddingMixin._create_webview_container(host, core, hwnd=0x1234)
@@ -126,9 +118,7 @@ class TestCreateWebViewContainer:
         host = _Host()
         core = MagicMock()
         monkeypatch.delenv("AURORAVIEW_USE_DIRECT_EMBED", raising=False)
-        with patch.object(
-            embedding, "is_qt6", return_value=False
-        ), patch.object(
+        with patch.object(embedding, "is_qt6", return_value=False), patch.object(
             embedding, "supports_direct_embedding", return_value=True
         ):
             EmbeddingMixin._create_webview_container(host, core, hwnd=0x1234)
@@ -170,9 +160,7 @@ class TestScheduleChildWindowFixes:
             staticmethod(lambda d, c: timer_calls.append((d, c))),
         )
         backend = MagicMock()
-        with patch(
-            "auroraview.integration.qt.platforms.get_backend", return_value=backend
-        ):
+        with patch("auroraview.integration.qt.platforms.get_backend", return_value=backend):
             EmbeddingMixin._schedule_child_window_fixes(host, 0xABCD)
         backend._fix_all_child_windows_recursive.assert_not_called()
         # The synchronous call returned early but two follow-up timers are
@@ -183,27 +171,19 @@ class TestScheduleChildWindowFixes:
     def test_blocked_when_geometry_sync_in_flight(self, monkeypatch):
         host = _Host()
         host._geometry_sync_in_progress = True  # peer holds the flag
-        monkeypatch.setattr(
-            embedding.QTimer, "singleShot", staticmethod(lambda d, c: None)
-        )
+        monkeypatch.setattr(embedding.QTimer, "singleShot", staticmethod(lambda d, c: None))
         backend = MagicMock()
-        with patch(
-            "auroraview.integration.qt.platforms.get_backend", return_value=backend
-        ):
+        with patch("auroraview.integration.qt.platforms.get_backend", return_value=backend):
             EmbeddingMixin._schedule_child_window_fixes(host, 0xABCD)
         # Must not call into the backend while the peer holds the flag
         backend._fix_all_child_windows_recursive.assert_not_called()
 
     def test_synchronous_fix_runs_first(self, monkeypatch):
         host = _Host()
-        monkeypatch.setattr(
-            embedding.QTimer, "singleShot", staticmethod(lambda d, c: None)
-        )
+        monkeypatch.setattr(embedding.QTimer, "singleShot", staticmethod(lambda d, c: None))
         backend = MagicMock()
         backend._fix_all_child_windows_recursive.return_value = 5
-        with patch(
-            "auroraview.integration.qt.platforms.get_backend", return_value=backend
-        ):
+        with patch("auroraview.integration.qt.platforms.get_backend", return_value=backend):
             EmbeddingMixin._schedule_child_window_fixes(host, 0xABCD)
         backend._fix_all_child_windows_recursive.assert_called_once_with(0xABCD)
 
@@ -216,36 +196,26 @@ class TestScheduleChildWindowFixes:
             staticmethod(lambda d, c: timer_calls.append((d, c))),
         )
         backend = MagicMock()
-        with patch(
-            "auroraview.integration.qt.platforms.get_backend", return_value=backend
-        ):
+        with patch("auroraview.integration.qt.platforms.get_backend", return_value=backend):
             EmbeddingMixin._schedule_child_window_fixes(host, 0xABCD)
         assert len(timer_calls) == 2
         assert [d for d, _ in timer_calls] == [250, 1000]
 
     def test_releases_flag_after_run(self, monkeypatch):
         host = _Host()
-        monkeypatch.setattr(
-            embedding.QTimer, "singleShot", staticmethod(lambda d, c: None)
-        )
+        monkeypatch.setattr(embedding.QTimer, "singleShot", staticmethod(lambda d, c: None))
         backend = MagicMock()
-        with patch(
-            "auroraview.integration.qt.platforms.get_backend", return_value=backend
-        ):
+        with patch("auroraview.integration.qt.platforms.get_backend", return_value=backend):
             EmbeddingMixin._schedule_child_window_fixes(host, 0xABCD)
         # Must release its own flag on exit
         assert host._child_window_fix_in_progress is False
 
     def test_handles_backend_exception(self, monkeypatch):
         host = _Host()
-        monkeypatch.setattr(
-            embedding.QTimer, "singleShot", staticmethod(lambda d, c: None)
-        )
+        monkeypatch.setattr(embedding.QTimer, "singleShot", staticmethod(lambda d, c: None))
         backend = MagicMock()
         backend._fix_all_child_windows_recursive.side_effect = RuntimeError("boom")
-        with patch(
-            "auroraview.integration.qt.platforms.get_backend", return_value=backend
-        ):
+        with patch("auroraview.integration.qt.platforms.get_backend", return_value=backend):
             # Must not propagate
             EmbeddingMixin._schedule_child_window_fixes(host, 0xABCD)
         # Flag still released
@@ -253,13 +223,9 @@ class TestScheduleChildWindowFixes:
 
     def test_handles_backend_without_fix_method(self, monkeypatch):
         host = _Host()
-        monkeypatch.setattr(
-            embedding.QTimer, "singleShot", staticmethod(lambda d, c: None)
-        )
+        monkeypatch.setattr(embedding.QTimer, "singleShot", staticmethod(lambda d, c: None))
         backend = MagicMock(spec=[])  # no _fix_all_child_windows_recursive
-        with patch(
-            "auroraview.integration.qt.platforms.get_backend", return_value=backend
-        ):
+        with patch("auroraview.integration.qt.platforms.get_backend", return_value=backend):
             EmbeddingMixin._schedule_child_window_fixes(host, 0xABCD)
         # Just ensure no exception escapes
         assert host._child_window_fix_in_progress is False
