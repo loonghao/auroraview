@@ -78,6 +78,7 @@ Constructor params:
 - `url` / `html`: Content to load.
 - `title`, `width`, `height`, `fullscreen`, `debug`.
 - `api`: Object exposed to `auroraview.api.*`.
+- `capture_file_drop`: `Optional[bool]` (default `None` → resolved to `False`). When `True`, OS drag-and-drop is intercepted and forwarded as `file_drop` IPC events with absolute paths. Mutually exclusive with HTML5 `dragover`/`drop`. See `docs/zh/guide/file-drop.md`.
 
 Lifecycle hooks: `on_show`, `on_hide`, `on_close`, `on_ready`.
 
@@ -132,6 +133,12 @@ window.auroraview.trigger('event_name', data);
 | Nuke (PySide2/Qt) | Qt Native (QtWebView) | Custom Panel |
 | Blender | Standalone / Floating tool window | N/A |
 | Unreal Engine | HWND (AuroraView) | via HWND API |
+
+## File Drop (capture_file_drop)
+
+Since v0.6 `capture_file_drop` defaults to `False`. OS drag-and-drop is NOT intercepted unless explicitly enabled. Pass `capture_file_drop=True` to receive IPC `file_drop` events with absolute paths. Mutually exclusive with HTML5 `dragover`/`drop`.
+
+CLI: `auroraview run --capture-file-drop`. Pack: `--capture-file-drop` / `--no-capture-file-drop`. Env: `AURORAVIEW_CAPTURE_FILE_DROP=1`.
 
 ## HTML / Static Resource Loading
 
