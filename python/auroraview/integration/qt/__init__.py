@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Qt integration module for AuroraView.
 
 This module provides Qt-native WebView integration for DCC applications
@@ -45,7 +46,7 @@ Example:
 # The Qt-backed re-exports below require ``qtpy`` and a real Qt binding
 # (PySide2/PySide6/PyQt5/PyQt6). On environments without Qt available
 # (e.g. Python 3.7 CI runs that intentionally skip Qt tests), we still
-# want pure-Python submodules of this package — such as ``_locks`` — to
+# want pure-Python submodules of this package -- such as ``_locks`` -- to
 # be importable so they can be unit-tested in isolation.
 #
 # We therefore wrap the Qt-dependent imports in a guard: if Qt bindings

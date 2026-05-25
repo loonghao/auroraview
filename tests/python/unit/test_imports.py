@@ -68,6 +68,12 @@ def test_auroraview_all_submodules():
             # Skip Windows-only ctypes.windll AttributeError
             if "windll" not in error_str:
                 errors.append(f"{modname}: {e}")
+        except ValueError as e:
+            # ctypes.wintypes raises ValueError("_type_ 'v' not supported")
+            # on non-Windows platforms; safe to skip platform-specific modules.
+            error_str = str(e).lower()
+            if "_type_" not in error_str:
+                errors.append(f"{modname}: {e}")
 
     # Report all errors at once
     if errors:
