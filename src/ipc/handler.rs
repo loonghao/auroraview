@@ -432,6 +432,73 @@ mod tests {
         // Verify message was pushed to queue
         assert_eq!(queue.len(), 1);
     }
+
+    // ------------------------------------------------------------------
+    // RFC 0015 §3.1 — `impl DragDropIpcSink for IpcHandler` coverage.
+    //
+    // These tests exercise the trait method directly so the bridging
+    // glue between `auroraview_core::builder::DragDropIpcSink` and the
+    // PyO3-side `IpcHandler::handle_message` (`String` error → boxed
+    // `IpcStringError` → `DispatchError::Backend`) stays observable in
+    // unit tests, independent of the wry/WebView2 native backend.
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn test_dragdrop_sink_dispatch_success() {
+        use auroraview_core::builder::DragDropIpcSink;
+
+        let handler = IpcHandler::new();
+        // Register a Rust callback for the drag-drop event so
+        // `handle_message` succeeds. The callback does not need to do
+        // anything meaningful — we only care that `dispatch` returns
+        // `Ok(())` when the underlying handler succeeds.
+        handler.on("file_drop_hover", |m| {
+            assert_eq!(m.event, "file_drop_hover");
+            Ok(serde_json::json!({"ok": true}))
+        });
+
+        let result = handler.dispatch(
+            "file_drop_hover",
+            serde_json::json!({"paths": ["/tmp/a.txt"]}),
+        );
+
+        assert!(
+            result.is_ok(),
+            "dispatch should succeed when a handler is registered"
+        );
+    }
+
+    #[test]
+    fn test_dragdrop_sink_dispatch_propagates_handler_error() {
+        use auroraview_core::builder::DispatchError;
+        use auroraview_core::builder::DragDropIpcSink;
+
+        let handler = IpcHandler::new();
+        // Intentionally do NOT register any handler, so
+        // `handle_message` returns the "No handler registered" error
+        // string. The sink must convert it into
+        // `DispatchError::Backend(IpcStringError(...))`.
+        let err = handler
+            .dispatch("file_drop", serde_json::json!({}))
+            .expect_err("dispatch must fail when no handler is registered");
+
+        // The single non-exhaustive variant `Backend(...)` is the only
+        // shape we care about today. If new variants are added later,
+        // the wildcard arm will fail loudly so the test can be revisited.
+        match err {
+            DispatchError::Backend(boxed) => {
+                let msg = boxed.to_string();
+                assert!(
+                    msg.contains("No handler registered"),
+                    "expected the underlying handler error to be wrapped \
+                     verbatim into DispatchError::Backend, got: {msg}"
+                );
+            }
+            other => {
+                panic!("unexpected DispatchError variant from IpcHandler::dispatch: {other:?}")
+            }
+        }
+    }
 }
 
 #[cfg(test)]

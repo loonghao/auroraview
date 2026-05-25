@@ -155,3 +155,77 @@ class TestEntryPointSignatures:
             pytest.skip("Qt/PySide not available in this environment")
 
         assert self._accepts(QtWebView.__init__, "capture_file_drop")
+
+
+class TestWebViewConfigBranchExtraction:
+    """RFC 0017 §4: ``WebView.__init__(config=...)`` must read
+    ``capture_file_drop`` from ``WebViewConfig.content`` and forward it to
+    the Rust ``_CoreWebView`` constructor unchanged.
+
+    This guards the ``config is not None`` branch in
+    ``python/auroraview/core/webview.py`` (the line:
+
+        capture_file_drop = config.content.capture_file_drop
+
+    ) which was previously uncovered because every other test path
+    constructed ``WebView`` via flat kwargs instead of the structured
+    ``WebViewConfig`` entry point.
+
+    We patch the ``_CoreWebView`` symbol on the module so the test never
+    boots a real WebView2 instance — we only need the kwargs the wrapper
+    forwards into the Rust binding to make the assertion.
+    """
+
+    @staticmethod
+    def _build_with_config(capture_value):
+        """Construct a ``WebView`` from a ``WebViewConfig`` and return the
+        kwargs that ``_CoreWebView`` was called with.
+
+        ``capture_value`` is the tri-state value placed onto
+        ``ContentConfig.capture_file_drop`` (``True`` / ``False`` /
+        ``None``). The mocked ``_CoreWebView`` raises immediately so we
+        never run the rest of ``WebView.__init__`` (window manager,
+        ready events, etc.) — we only care about the arguments captured
+        by ``MagicMock``.
+        """
+        from unittest.mock import MagicMock
+
+        import pytest
+
+        import auroraview.core.webview as webview_module
+        from auroraview.core.config import WebViewConfig
+
+        cfg = WebViewConfig.from_kwargs(capture_file_drop=capture_value)
+
+        original_core = webview_module._CoreWebView
+        mock_core = MagicMock(side_effect=RuntimeError("__stop_init__"))
+
+        try:
+            webview_module._CoreWebView = mock_core
+            with pytest.raises(RuntimeError, match="__stop_init__"):
+                webview_module.WebView(config=cfg)
+        finally:
+            webview_module._CoreWebView = original_core
+
+        assert mock_core.call_count == 1, (
+            "WebView(config=...) should call _CoreWebView exactly once"
+        )
+        return mock_core.call_args.kwargs
+
+    def test_config_branch_forwards_true(self):
+        kwargs = self._build_with_config(True)
+        # Critical: this is the line under test
+        # (`capture_file_drop = config.content.capture_file_drop`).
+        assert kwargs["capture_file_drop"] is True
+
+    def test_config_branch_forwards_false(self):
+        kwargs = self._build_with_config(False)
+        # Explicit False must NOT be collapsed to None or True by the
+        # config-extraction branch.
+        assert kwargs["capture_file_drop"] is False
+
+    def test_config_branch_forwards_none(self):
+        kwargs = self._build_with_config(None)
+        # Tri-state contract: None reaches the Rust binding unchanged so
+        # the Rust side can apply its own `unwrap_or(false)` default.
+        assert kwargs["capture_file_drop"] is None
