@@ -950,6 +950,8 @@ mod tests {
         // Test new fields default values
         assert!(!default_config.allow_new_window);
         assert!(!default_config.allow_file_protocol);
+        // RFC 0015 §2: default to browser-native HTML5 drag-drop.
+        assert!(!default_config.capture_file_drop);
         // AuroraView enables all permissions by default
         assert!(default_config.allow_clipboard);
         assert!(default_config.allow_geolocation);
@@ -1060,6 +1062,37 @@ mod tests {
         // Test disabling file protocol (default)
         let cfg2 = WebViewBuilder::new().build();
         assert!(!cfg2.allow_file_protocol);
+    }
+
+    #[rstest]
+    fn test_capture_file_drop_builder(builder: WebViewBuilder) {
+        // RFC 0015 §2: builder must propagate `capture_file_drop` into the
+        // resulting `WebViewConfig`. The default is `false` (browser-native
+        // HTML5 drag-drop), and the setter must support both directions so
+        // callers can explicitly enable or disable it.
+
+        // Default value must be `false` (browser-native drag-drop).
+        let cfg_default = WebViewBuilder::new().build();
+        assert!(!cfg_default.capture_file_drop);
+
+        // Explicitly enabling toggles the field to `true`.
+        let cfg_on = builder.capture_file_drop(true).build();
+        assert!(cfg_on.capture_file_drop);
+
+        // Explicitly disabling keeps the field as `false`.
+        let cfg_off = WebViewBuilder::new().capture_file_drop(false).build();
+        assert!(!cfg_off.capture_file_drop);
+    }
+
+    #[rstest]
+    #[case(true)]
+    #[case(false)]
+    fn test_capture_file_drop_builder_roundtrip(builder: WebViewBuilder, #[case] value: bool) {
+        // Parametric form to lock down both states without relying on the
+        // default. Mirrors the tri-state guarantee on the Python side
+        // (RFC 0017): `false` MUST NOT be silently coerced to the default.
+        let cfg = builder.capture_file_drop(value).build();
+        assert_eq!(cfg.capture_file_drop, value);
     }
 
     #[rstest]
