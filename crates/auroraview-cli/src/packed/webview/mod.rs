@@ -48,9 +48,11 @@ use super::utils::{
 #[cfg(target_os = "windows")]
 use super::utils::{get_extensions_dir, has_extensions_in_dir, prepare_active_extensions_dir};
 
-/// Environment variable for runtime override of `capture_file_drop` in
-/// packed apps (RFC 0015 §4.3).
-const CAPTURE_FILE_DROP_ENV: &str = "AURORAVIEW_CAPTURE_FILE_DROP";
+// Environment variable for runtime override of `capture_file_drop` in
+// packed apps (RFC 0015 §4.3). Re-exported from the workspace-level
+// `auroraview_core::constants` so the literal lives in a single place
+// and can be referenced by other entry points and CI scripts without drift.
+use auroraview_core::constants::CAPTURE_FILE_DROP_ENV;
 
 /// Parse a truthy/falsy literal (case-insensitive, trimmed).
 ///

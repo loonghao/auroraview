@@ -417,9 +417,10 @@ fn run_standalone(
 ///   - explicit `True`  ............... → `True`
 ///   - explicit `False` ............... → `False`
 ///
-/// The function is exposed unconditionally because PyO3 modules cannot
-/// gate functions on `cfg(test)` in the same way Rust unit tests do.
-/// Keep the surface minimal — only the field under test is observable.
+/// Gated behind `feature = "test-helpers"` so production wheels never
+/// expose this function in the public module surface. CI runs tests with
+/// `--features "test-helpers"` which enables it.
+#[cfg(feature = "test-helpers")]
 #[pyfunction]
 #[pyo3(signature = (capture_file_drop=None))]
 fn _dump_capture_file_drop(capture_file_drop: Option<bool>) -> PyResult<bool> {
@@ -433,7 +434,8 @@ fn _dump_capture_file_drop(capture_file_drop: Option<bool>) -> PyResult<bool> {
 pub fn register_desktop_runner(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(run_desktop, m)?)?;
     m.add_function(wrap_pyfunction!(run_standalone, m)?)?; // Legacy alias
-                                                           // RFC 0017 §4.2: passthrough integration test hook.
+                                                           // RFC 0017 §4.2: passthrough integration test hook (test-helpers only).
+    #[cfg(feature = "test-helpers")]
     m.add_function(wrap_pyfunction!(_dump_capture_file_drop, m)?)?;
     Ok(())
 }

@@ -41,6 +41,8 @@ pub use utils::{
 };
 
 // RFC 0015 §4.3: env-var override for `capture_file_drop` in packed apps.
+// Exposed for integration tests only; not part of the public API surface.
+#[doc(hidden)]
 pub use webview::resolve_packed_capture_file_drop;
 
 // Re-export from auroraview-core

@@ -60,13 +60,32 @@ def main():
         action="store_true",
         help="Enable file:// protocol support (allows loading local files from HTML)",
     )
-    parser.add_argument(
+    # RFC 0017: tri-state flag pair, mirrors Rust CLI
+    # (`--capture-file-drop` / `--no-capture-file-drop`).
+    # Using a mutually exclusive group of `store_const` actions keeps
+    # this Python 3.7 compatible (BooleanOptionalAction is 3.9+).
+    capture_drop_group = parser.add_mutually_exclusive_group()
+    capture_drop_group.add_argument(
         "--capture-file-drop",
-        action="store_true",
+        dest="capture_file_drop",
+        action="store_const",
+        const=True,
+        default=None,
         help=(
             "Forward OS file drops as IPC `file_drop` events instead of "
             "browser-native HTML5 drag-drop. Note: enabling this disables "
             "HTML5 dragover/drop inside the WebView."
+        ),
+    )
+    capture_drop_group.add_argument(
+        "--no-capture-file-drop",
+        dest="capture_file_drop",
+        action="store_const",
+        const=False,
+        default=None,
+        help=(
+            "Force-disable IPC file drop capture and let the WebView use "
+            "native HTML5 drag-drop. Overrides any lower-layer default."
         ),
     )
     parser.add_argument(
@@ -108,11 +127,12 @@ def main():
                 asset_root = str(html_file.parent)
 
         # Run standalone WebView (blocking until window closes)
-        # This uses the same event_loop.run_return() approach as the Rust CLI
-        # RFC 0017: --capture-file-drop is a binary CLI switch. Translate to
-        # Optional[bool]: True when set, None when omitted (the underlying
-        # API tri-state). Rust applies unwrap_or(false) to land on bool.
-        capture_file_drop = True if args.capture_file_drop else None
+        # This uses the same event_loop.run_return() approach as the Rust CLI.
+        # RFC 0017: `args.capture_file_drop` is already tri-state thanks to
+        # the mutually exclusive `store_const` group above:
+        #   --capture-file-drop     -> True
+        #   --no-capture-file-drop  -> False
+        #   neither                 -> None  (defer to lower-layer default)
         run_standalone(
             title=args.title,
             width=args.width,
@@ -122,7 +142,7 @@ def main():
             dev_tools=args.debug,
             allow_new_window=args.allow_new_window,
             allow_file_protocol=args.allow_file_protocol,
-            capture_file_drop=capture_file_drop,
+            capture_file_drop=args.capture_file_drop,
             always_on_top=args.always_on_top,
             asset_root=asset_root,
             html_path=html_path,

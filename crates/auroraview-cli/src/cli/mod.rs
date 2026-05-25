@@ -25,13 +25,25 @@ pub use skills::{run_skills, SkillsArgs};
 /// - `--flag` only → `Some(true)`
 /// - `--no-flag` only → `Some(false)`
 ///
-/// The `(true, true)` arm is unreachable when clap's `overrides_with`
-/// is correctly configured.
+/// The `(true, true)` arm should be unreachable when clap's `overrides_with`
+/// is correctly configured. In debug builds we trip a `debug_assert!` to
+/// surface the misconfiguration loudly during development; in release
+/// builds we fall back to positive-wins (last-wins semantics) rather than
+/// panicking, so a future clap upgrade with changed semantics cannot crash
+/// the CLI in production.
 pub fn resolve_flag_pair(positive: bool, negative: bool) -> Option<bool> {
     match (positive, negative) {
         (false, false) => None,
         (true, false) => Some(true),
         (false, true) => Some(false),
-        (true, true) => unreachable!("clap overrides_with should make this impossible"),
+        // Should be unreachable with correct `overrides_with` config,
+        // but fall back to positive-wins rather than panic in production.
+        (true, true) => {
+            debug_assert!(
+                false,
+                "clap overrides_with should make (true, true) impossible"
+            );
+            Some(true)
+        }
     }
 }
