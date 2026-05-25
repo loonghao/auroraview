@@ -9,6 +9,7 @@
 crates/auroraview-browser/src/browser.rs | 3 | Win32 child window enumeration callback and HWND FFI for browser embedding.
 crates/auroraview-cli/src/packed/mod.rs | 1 | Windows handle and process setup for packed executable launch.
 crates/auroraview-cli/src/packed/warmup.rs | 2 | Optional Windows WebView2 DLL warmup through dynamically loaded native symbols.
+crates/auroraview-cli/tests/packed_env_var_tests.rs | 4 | Forward-compatible env-var mutation for Rust 2024 edition; serialized via Mutex per std::env::set_var safety contract.
 crates/auroraview-core/src/builder/click_through.rs | 3 | Win32 window style mutation and subclass procedure for click-through behavior.
 crates/auroraview-core/src/builder/com_init.rs | 1 | COM apartment initialization through the Win32 API.
 crates/auroraview-core/src/builder/vibrancy.rs | 8 | DWM/User32 dynamic symbol calls and window composition attributes.
