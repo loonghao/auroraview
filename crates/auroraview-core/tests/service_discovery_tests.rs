@@ -510,12 +510,26 @@ fn test_instance_registry_update_nonexistent_returns_false() {
 #[rstest]
 fn test_instance_registry_get_by_cdp_port() {
     let registry = InstanceRegistry::new().unwrap();
-    let window_id = format!("test-cdp-{}", std::process::id());
-    let info = InstanceInfo::new(window_id.clone(), "CDP".to_string(), 19103);
+    // Derive a per-process unique CDP port to avoid colliding with stale
+    // registry files left over by previous (or interrupted) test runs.
+    // The shared on-disk InstanceRegistry persists across test processes,
+    // so a fixed port like 19103 can match a leftover record from a
+    // different PID and break this assertion.
+    let pid = std::process::id();
+    let cdp_port: u16 = 19200 + (pid % 10000) as u16;
+    let window_id = format!("test-cdp-{}", pid);
 
+    // Best-effort: clear any stale entry on this exact port before we
+    // register, so a previous run with the same PID-derived port cannot
+    // shadow our fresh registration.
+    if let Ok(Some(stale)) = registry.get_by_cdp_port(cdp_port) {
+        let _ = registry.unregister(&stale.window_id);
+    }
+
+    let info = InstanceInfo::new(window_id.clone(), "CDP".to_string(), cdp_port);
     registry.register(&info).unwrap();
 
-    let result = registry.get_by_cdp_port(19103).unwrap();
+    let result = registry.get_by_cdp_port(cdp_port).unwrap();
     assert!(result.is_some());
     let found = result.unwrap();
     assert_eq!(found.window_id, window_id);
