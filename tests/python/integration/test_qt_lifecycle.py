@@ -43,16 +43,6 @@ _SKIP_WEBVIEW_TESTS = (_IN_CI and not _IS_WINDOWS) or not _CORE_AVAILABLE
 class TestQtWebViewLifecycle:
     """Test QtWebView lifecycle management for the new WebView2-based backend."""
 
-    @pytest.fixture
-    def qapp(self):
-        """Provide a QApplication instance for tests."""
-        from qtpy.QtWidgets import QApplication
-
-        app = QApplication.instance()
-        if app is None:
-            app = QApplication(sys.argv)
-        yield app
-
     def test_qtwebview_close_event_sets_flag(self, qapp):
         """closeEvent should mark the widget as closing."""
         from qtpy.QtGui import QCloseEvent
@@ -60,14 +50,15 @@ class TestQtWebViewLifecycle:
         from auroraview import QtWebView
 
         webview = QtWebView()
-        assert webview._is_closing is False
+        try:
+            assert webview._is_closing is False
 
-        event = QCloseEvent()
-        webview.closeEvent(event)
+            event = QCloseEvent()
+            webview.closeEvent(event)
 
-        assert webview._is_closing is True
-
-        webview.deleteLater()
+            assert webview._is_closing is True
+        finally:
+            webview.deleteLater()
 
     def test_qtwebview_multiple_close_events_safe(self, qapp):
         """Multiple closeEvent calls should not crash."""
@@ -76,15 +67,15 @@ class TestQtWebViewLifecycle:
         from auroraview import QtWebView
 
         webview = QtWebView()
+        try:
+            event1 = QCloseEvent()
+            webview.closeEvent(event1)
+            assert webview._is_closing is True
 
-        event1 = QCloseEvent()
-        webview.closeEvent(event1)
-        assert webview._is_closing is True
-
-        event2 = QCloseEvent()
-        webview.closeEvent(event2)  # Should not crash
-
-        webview.deleteLater()
+            event2 = QCloseEvent()
+            webview.closeEvent(event2)  # Should not crash
+        finally:
+            webview.deleteLater()
 
     def test_qtwebview_embeds_webview_core(self, qapp):
         """QtWebView should create an internal WebView backend instance."""
@@ -92,11 +83,11 @@ class TestQtWebViewLifecycle:
         from auroraview.core.webview import WebView
 
         webview = QtWebView()
-        assert hasattr(webview, "_webview")
-        assert isinstance(webview._webview, WebView)
-
-        webview.close()
-        webview.deleteLater()
+        try:
+            assert hasattr(webview, "_webview")
+            assert isinstance(webview._webview, WebView)
+        finally:
+            webview.deleteLater()
 
     def test_qtwebview_emit_after_close_does_not_crash(self, qapp):
         """Calling emit after closeEvent should be a no-op and not crash."""
@@ -105,102 +96,92 @@ class TestQtWebViewLifecycle:
         from auroraview import QtWebView
 
         webview = QtWebView()
+        try:
+            event = QCloseEvent()
+            webview.closeEvent(event)
 
-        event = QCloseEvent()
-        webview.closeEvent(event)
-
-        # Should not raise even though the underlying WebView has been closed
-        webview.emit("test_event", {"value": 1})
-
-        webview.deleteLater()
+            # Should not raise even though the underlying WebView has been closed
+            webview.emit("test_event", {"value": 1})
+        finally:
+            webview.deleteLater()
 
 
 @pytest.mark.skipif(
     _SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI or Rust core not available"
 )
 class TestQtWebViewEventProcessing:
-    """Test event processing and UI updates."""
+    """Test event processing and UI updates.
 
-    @pytest.fixture
-    def qapp(self):
-        """Provide a QApplication instance for tests."""
-        from qtpy.QtWidgets import QApplication
+    Cleanup convention: all tests use ``deleteLater()`` only in ``finally``.
+    ``WA_DeleteOnClose`` is set by ``QtWebView.__init__`` so an explicit
+    ``close()`` is unnecessary — ``deleteLater()`` is sufficient to schedule
+    C++ destructor dispatch on the next event-loop tick.
+    """
 
-        app = QApplication.instance()
-        if app is None:
-            app = QApplication(sys.argv)
-        yield app
+    @staticmethod
+    def _spy_event_processor(webview, monkeypatch):
+        """Patch ``webview._event_processor.process`` with a counting spy.
 
-    def test_event_processor_processes_events(self, qapp):
+        Returns a list that accumulates one ``True`` entry per call.
+        The original method is still invoked so side-effects are preserved.
+        """
+        calls = []
+        original = webview._event_processor.process
+
+        def _spy():
+            calls.append(True)
+            return original()
+
+        monkeypatch.setattr(webview._event_processor, "process", _spy)
+        return calls
+
+    def test_event_processor_processes_events(self, qapp, monkeypatch):
         """Test that event processor processes events correctly."""
         from auroraview import QtWebView
 
         webview = QtWebView()
+        try:
+            process_called = self._spy_event_processor(webview, monkeypatch)
 
-        # Track event processor calls
-        original_count = webview._event_processor._process_count
+            # Trigger event processing via eval_js
+            webview._webview.eval_js("console.log('test')")
 
-        # Trigger event processing via eval_js
-        webview._webview.eval_js("console.log('test')")
+            # Verify event processor was called
+            assert len(process_called) > 0, "eval_js should trigger event processor"
+        finally:
+            webview.deleteLater()
 
-        # Verify event processor was called
-        assert webview._event_processor._process_count > original_count
-
-        # Cleanup
-        webview.close()
-        webview.deleteLater()
-
-    def test_emit_uses_event_processor(self, qapp):
+    def test_emit_uses_event_processor(self, qapp, monkeypatch):
         """Test that WebView.emit() uses event processor strategy."""
         from auroraview import QtWebView
 
         webview = QtWebView()
+        try:
+            process_called = self._spy_event_processor(webview, monkeypatch)
 
-        # Track event processor calls
-        process_called = []
-        original_process = webview._event_processor.process
+            # Emit event
+            webview._webview.emit("test_event", {"data": "test"})
 
-        def mock_process():
-            process_called.append(True)
-            original_process()
+            # Verify event processor was called
+            assert len(process_called) == 1, "emit() should trigger event processor"
+        finally:
+            webview.deleteLater()
 
-        webview._event_processor.process = mock_process
-
-        # Emit event
-        webview._webview.emit("test_event", {"data": "test"})
-
-        # Verify event processor was called
-        assert len(process_called) == 1, "emit() should trigger event processor"
-
-        # Cleanup
-        webview.close()
-        webview.deleteLater()
-
-    def test_eval_js_uses_event_processor(self, qapp):
+    def test_eval_js_uses_event_processor(self, qapp, monkeypatch):
         """Test that WebView.eval_js() uses event processor strategy."""
         from auroraview import QtWebView
 
         webview = QtWebView()
+        try:
+            process_called = self._spy_event_processor(webview, monkeypatch)
 
-        # Track event processor calls
-        process_called = []
-        original_process = webview._event_processor.process
+            # Execute JavaScript
+            webview._webview.eval_js("console.log('test')")
 
-        def mock_process():
-            process_called.append(True)
-            original_process()
-
-        webview._event_processor.process = mock_process
-
-        # Execute JavaScript
-        webview._webview.eval_js("console.log('test')")
-
-        # Verify event processor was called
-        assert len(process_called) == 1, "eval_js() should trigger event processor"
-
-        # Cleanup
-        webview.close()
-        webview.deleteLater()
+            # Verify event processor was called
+            assert len(process_called) == 1, "eval_js() should trigger event processor"
+        finally:
+            webview.deleteLater()
 
     def test_qtwebview_auto_installs_event_processor(self, qapp):
         """Test that QtWebView automatically installs QtEventProcessor."""
@@ -208,15 +189,13 @@ class TestQtWebViewEventProcessing:
         from auroraview.integration.qt import QtEventProcessor
 
         webview = QtWebView()
-
-        # Verify event processor is installed
-        assert hasattr(webview, "_event_processor")
-        assert isinstance(webview._event_processor, QtEventProcessor)
-        assert webview._webview._event_processor is webview._event_processor
-
-        # Cleanup
-        webview.close()
-        webview.deleteLater()
+        try:
+            # Verify event processor is installed
+            assert hasattr(webview, "_event_processor")
+            assert isinstance(webview._event_processor, QtEventProcessor)
+            assert webview._webview._event_processor is webview._event_processor
+        finally:
+            webview.deleteLater()
 
 
 @pytest.mark.skipif(
@@ -225,16 +204,6 @@ class TestQtWebViewEventProcessing:
 class TestQtWebViewAppIntegration:
     """Lightweight tests around Qt-specific integration flags."""
 
-    @pytest.fixture
-    def qapp(self):
-        """Provide a QApplication instance for tests."""
-        from qtpy.QtWidgets import QApplication
-
-        app = QApplication.instance()
-        if app is None:
-            app = QApplication(sys.argv)
-        yield app
-
     def test_wa_delete_on_close_set(self, qapp):
         """QtWebView should delete itself when closed."""
         from qtpy.QtCore import Qt
@@ -242,9 +211,62 @@ class TestQtWebViewAppIntegration:
         from auroraview import QtWebView
 
         webview = QtWebView()
+        try:
+            # Verify WA_DeleteOnClose is set
+            assert webview.testAttribute(Qt.WA_DeleteOnClose) is True
+        finally:
+            webview.deleteLater()
 
-        # Verify WA_DeleteOnClose is set
-        assert webview.testAttribute(Qt.WA_DeleteOnClose) is True
 
-        # Cleanup
-        webview.close()
+@pytest.mark.skipif(
+    _SKIP_WEBVIEW_TESTS, reason="WebView tests require display in CI or Rust core not available"
+)
+class TestQtWebViewMutexFlags:
+    """Test the cross-task mutex flags initialised by ``QtWebView.__init__``.
+
+    These attributes back the ``acquire_exclusive`` guards in
+    ``EmbeddingMixin._schedule_child_window_fixes`` and
+    ``LifecycleMixin._init_webview_progressive``. They must be present
+    and false / ``None`` on a freshly constructed widget so the first
+    callback to acquire them succeeds.
+
+    Cleanup convention: ``deleteLater()`` only — see TestQtWebViewEventProcessing.
+    """
+
+    @pytest.mark.parametrize(
+        "attr,expected",
+        [
+            ("_geometry_sync_in_progress", False),
+            ("_child_window_fix_in_progress", False),
+            ("_last_synced_bounds", None),
+        ],
+        ids=["geometry_sync", "child_window_fix", "last_synced_bounds"],
+    )
+    def test_mutex_flag_initialised(self, qapp, attr, expected):
+        """Each mutex-related attribute must have the correct initial value."""
+        from auroraview import QtWebView
+
+        webview = QtWebView()
+        try:
+            assert getattr(webview, attr) == expected
+        finally:
+            webview.deleteLater()
+
+    def test_mutex_flag_names_match_locks_module(self, qapp):
+        """The flag names used by ``QtWebView`` must match the canonical
+        constants in :mod:`auroraview.integration.qt._locks`; otherwise
+        ``acquire_exclusive`` would silently use stale values via
+        ``getattr(host, name, False)``.
+        """
+        from auroraview import QtWebView
+        from auroraview.integration.qt._locks import (
+            FLAG_CHILD_WINDOW_FIX,
+            FLAG_GEOMETRY_SYNC,
+        )
+
+        webview = QtWebView()
+        try:
+            assert hasattr(webview, FLAG_GEOMETRY_SYNC)
+            assert hasattr(webview, FLAG_CHILD_WINDOW_FIX)
+        finally:
+            webview.deleteLater()
