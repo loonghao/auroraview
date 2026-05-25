@@ -265,3 +265,93 @@ def test_main_html_rewriting():
     finally:
         # Clean up temp file
         Path(html_path).unlink(missing_ok=True)
+
+
+# ---------------------------------------------------------------------------
+# RFC 0017: --capture-file-drop / --no-capture-file-drop tri-state symmetry
+# with the Rust CLI. The Python CLI must forward `Optional[bool]` to
+# `run_standalone(capture_file_drop=...)` so that the binding layer is the
+# sole flatten point (see `_dump_capture_file_drop` integration test).
+# ---------------------------------------------------------------------------
+
+
+def test_capture_file_drop_omitted_passes_none():
+    """Neither flag → kwarg is `None` (defer to lower-layer default)."""
+    from auroraview.__main__ import main
+
+    with patch("auroraview._core.run_standalone") as mock_run_standalone:
+        with patch.object(sys, "argv", ["auroraview", "--url", "https://example.com"]):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+            # main() calls sys.exit(0) on the success path
+            assert exc_info.value.code == 0
+            mock_run_standalone.assert_called_once()
+            assert mock_run_standalone.call_args.kwargs["capture_file_drop"] is None
+
+
+def test_capture_file_drop_explicit_true():
+    """`--capture-file-drop` → kwarg is `True`."""
+    from auroraview.__main__ import main
+
+    with patch("auroraview._core.run_standalone") as mock_run_standalone:
+        with patch.object(
+            sys,
+            "argv",
+            ["auroraview", "--url", "https://example.com", "--capture-file-drop"],
+        ):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+            assert exc_info.value.code == 0
+            mock_run_standalone.assert_called_once()
+            assert mock_run_standalone.call_args.kwargs["capture_file_drop"] is True
+
+
+def test_capture_file_drop_explicit_false():
+    """`--no-capture-file-drop` → kwarg is `False` (no longer collapses to None)."""
+    from auroraview.__main__ import main
+
+    with patch("auroraview._core.run_standalone") as mock_run_standalone:
+        with patch.object(
+            sys,
+            "argv",
+            ["auroraview", "--url", "https://example.com", "--no-capture-file-drop"],
+        ):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+            assert exc_info.value.code == 0
+            mock_run_standalone.assert_called_once()
+            assert mock_run_standalone.call_args.kwargs["capture_file_drop"] is False
+
+
+def test_capture_file_drop_flags_are_mutually_exclusive():
+    """Passing both `--capture-file-drop` and `--no-capture-file-drop` exits with code 2.
+
+    argparse raises SystemExit(2) for mutually exclusive group violations,
+    matching the behaviour of clap's `overrides_with` is intentionally
+    stricter (clap silently last-wins; argparse refuses) to surface
+    contradictory CLI input early.
+    """
+    from auroraview.__main__ import main
+
+    with patch("auroraview._core.run_standalone") as mock_run_standalone:
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "auroraview",
+                "--url",
+                "https://example.com",
+                "--capture-file-drop",
+                "--no-capture-file-drop",
+            ],
+        ):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+            # argparse exits with code 2 for argument errors
+            assert exc_info.value.code == 2
+            # run_standalone must NOT have been invoked
+            mock_run_standalone.assert_not_called()

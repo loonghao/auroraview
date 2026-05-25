@@ -346,6 +346,11 @@ impl auroraview_core::builder::DragDropIpcSink for PackedDragDropSink {
             &self.plugin_router,
             &self.proxy,
         );
+        tracing::debug!(
+            target: "auroraview::drag_drop",
+            "[packed] forwarded {} to IPC pipeline",
+            event_name
+        );
         Ok(())
     }
 }

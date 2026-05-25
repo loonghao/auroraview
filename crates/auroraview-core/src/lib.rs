@@ -36,6 +36,8 @@ pub mod cleanup;
 pub mod cli;
 /// WebView configuration structures.
 pub mod config;
+/// Workspace-level shared constants (env var names, well-known literals).
+pub mod constants;
 /// DOM manipulation primitives (DomOp, DomBatch).
 pub mod dom;
 /// Unified user event types (CoreUserEvent, ExtendedUserEvent).

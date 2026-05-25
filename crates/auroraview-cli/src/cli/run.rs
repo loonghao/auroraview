@@ -111,9 +111,9 @@ pub fn resolve_capture_file_drop(args: &RunArgs) -> Option<bool> {
 /// The `run` command renders a single WebView for visual / parity smoke
 /// testing. It does **not** register an IPC handler with the WebView
 /// (unlike `packed` / `embedded` paths), so any event we successfully
-/// dispatch has no consumer on the JavaScript side. We still log each
-/// event at `info` level so users who pass `--capture-file-drop` for
-/// behavior verification can confirm wry actually delivered the event.
+/// dispatch has no consumer on the JavaScript side. We log each event
+/// at `debug` level so users who pass `--capture-file-drop` with
+/// `RUST_LOG=debug` can confirm wry actually delivered the event.
 struct RunDragDropSink;
 
 impl auroraview_core::builder::DragDropIpcSink for RunDragDropSink {
@@ -122,11 +122,7 @@ impl auroraview_core::builder::DragDropIpcSink for RunDragDropSink {
         event_name: &str,
         data: serde_json::Value,
     ) -> Result<(), auroraview_core::builder::DispatchError> {
-        // `info!` (not `debug!`) so the default tracing filter shows it.
-        // RunArgs::capture_file_drop is documented as a parity-testing
-        // affordance; silently swallowing the events at `debug` would
-        // make the flag indistinguishable from a no-op.
-        tracing::info!(
+        tracing::debug!(
             target: "auroraview::drag_drop",
             "[run] {} (no IPC handler registered; payload preview: {})",
             event_name,
