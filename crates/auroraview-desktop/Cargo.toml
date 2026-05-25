@@ -17,7 +17,7 @@ wry = { workspace = true }
 tao = { workspace = true }
 
 # System tray
-tray-icon = "0.21"
+tray-icon = "0.24"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }

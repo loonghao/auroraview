@@ -406,7 +406,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "auroraview"
-version = "0.5.3"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "askama",
@@ -437,7 +437,7 @@ dependencies = [
  "mdns-sd",
  "mime_guess",
  "mockall",
- "muda",
+ "muda 0.17.2",
  "open",
  "parking_lot",
  "path-clean",
@@ -474,7 +474,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-ai-agent"
-version = "0.5.3"
+version = "0.5.5"
 dependencies = [
  "async-trait",
  "auroraview-workspace-hack",
@@ -494,7 +494,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-assets"
-version = "0.5.3"
+version = "0.5.5"
 dependencies = [
  "auroraview-workspace-hack",
  "mime_guess",
@@ -506,7 +506,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-bookmarks"
-version = "0.5.3"
+version = "0.5.5"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -521,7 +521,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-browser"
-version = "0.5.3"
+version = "0.5.5"
 dependencies = [
  "auroraview-bookmarks",
  "auroraview-core",
@@ -553,7 +553,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-cli"
-version = "0.5.3"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "auroraview-assets",
@@ -599,7 +599,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-core"
-version = "0.5.3"
+version = "0.5.5"
 dependencies = [
  "active-win-pos-rs",
  "askama",
@@ -636,7 +636,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-dcc"
-version = "0.5.3"
+version = "0.5.5"
 dependencies = [
  "auroraview-core",
  "auroraview-workspace-hack",
@@ -653,7 +653,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-desktop"
-version = "0.5.3"
+version = "0.5.5"
 dependencies = [
  "auroraview-core",
  "auroraview-plugins",
@@ -675,7 +675,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-devtools"
-version = "0.5.3"
+version = "0.5.5"
 dependencies = [
  "auroraview-workspace-hack",
  "rstest 0.18.2",
@@ -686,7 +686,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-downloads"
-version = "0.5.3"
+version = "0.5.5"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -701,7 +701,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-extensions"
-version = "0.5.3"
+version = "0.5.5"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -727,7 +727,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-history"
-version = "0.5.3"
+version = "0.5.5"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -742,7 +742,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-mcp"
-version = "0.5.3"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "auroraview-workspace-hack",
@@ -780,7 +780,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-notifications"
-version = "0.5.3"
+version = "0.5.5"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -794,7 +794,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-pack"
-version = "0.5.3"
+version = "0.5.5"
 dependencies = [
  "auroraview-extensions",
  "auroraview-protect",
@@ -830,7 +830,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugin-core"
-version = "0.5.3"
+version = "0.5.5"
 dependencies = [
  "auroraview-workspace-hack",
  "dunce",
@@ -845,7 +845,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugin-fs"
-version = "0.5.3"
+version = "0.5.5"
 dependencies = [
  "auroraview-plugin-core",
  "auroraview-workspace-hack",
@@ -859,7 +859,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugins"
-version = "0.5.3"
+version = "0.5.5"
 dependencies = [
  "arboard",
  "auroraview-extensions",
@@ -883,7 +883,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-protect"
-version = "0.5.3"
+version = "0.5.5"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -907,7 +907,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-settings"
-version = "0.5.3"
+version = "0.5.5"
 dependencies = [
  "auroraview-workspace-hack",
  "parking_lot",
@@ -920,7 +920,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-signals"
-version = "0.5.3"
+version = "0.5.5"
 dependencies = [
  "auroraview-workspace-hack",
  "crossbeam-channel",
@@ -939,7 +939,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-tabs"
-version = "0.5.3"
+version = "0.5.5"
 dependencies = [
  "auroraview-workspace-hack",
  "dashmap",
@@ -954,7 +954,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-telemetry"
-version = "0.5.3"
+version = "0.5.5"
 dependencies = [
  "auroraview-workspace-hack",
  "opentelemetry",
@@ -976,7 +976,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-testing"
-version = "0.5.3"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1003,7 +1003,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-ue"
-version = "0.5.3"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "auroraview-core",
@@ -3824,7 +3824,7 @@ dependencies = [
  "tower-layer",
  "tower-service",
  "tracing",
- "windows-registry 0.5.3",
+ "windows-registry 0.6.1",
 ]
 
 [[package]]
@@ -3839,7 +3839,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.61.2",
+ "windows-core 0.62.2",
 ]
 
 [[package]]
@@ -4979,6 +4979,27 @@ dependencies = [
  "png 0.17.16",
  "thiserror 2.0.18",
  "windows-sys 0.60.2",
+]
+
+[[package]]
+name = "muda"
+version = "0.19.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47a2e3dff89cd322c66647942668faee0a2b1f88ea6cbb4d374b4a8d7e92528c"
+dependencies = [
+ "crossbeam-channel",
+ "dpi",
+ "gtk",
+ "keyboard-types",
+ "libxdo",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-core-foundation",
+ "objc2-foundation",
+ "once_cell",
+ "png 0.18.1",
+ "thiserror 2.0.18",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -8839,23 +8860,23 @@ dependencies = [
 
 [[package]]
 name = "tray-icon"
-version = "0.21.3"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5e85aa143ceb072062fc4d6356c1b520a51d636e7bc8e77ec94be3608e5e80c"
+checksum = "e47e6d063cfe4ad2e416fcbb310be3a37c5fd85c745b62cb562bfa4a003df674"
 dependencies = [
  "crossbeam-channel",
  "dirs",
  "libappindicator",
- "muda",
+ "muda 0.19.2",
  "objc2",
  "objc2-app-kit",
  "objc2-core-foundation",
  "objc2-core-graphics",
  "objc2-foundation",
  "once_cell",
- "png 0.17.16",
+ "png 0.18.1",
  "thiserror 2.0.18",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
