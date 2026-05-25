@@ -312,3 +312,270 @@ class TestPlatformGuards:
         from qtpy.QtWidgets import QApplication
 
         assert QApplication is not None
+
+
+# ---------------------------------------------------------------------------
+# _initialize_webview / _init_webview_progressive
+# ---------------------------------------------------------------------------
+#
+# These two methods drive the WebView creation handshake and account for the
+# bulk of the lines in ``lifecycle.py``.  They are normally invoked from
+# ``QtWebView.showEvent`` against a fully constructed Qt widget, but the
+# logic is mostly bookkeeping around (a) the Rust core, (b) Win32 anti-
+# flicker helpers, (c) ``QApplication.processEvents`` and (d) ``QTimer``
+# scheduling.  Patching those four things at the module level lets us
+# reach every branch with a stub host.
+
+
+class _ProgressiveHost(_Host):
+    """Stub host with the extra surface ``_init_webview_progressive`` needs."""
+
+    def __init__(self):
+        super().__init__()
+        self._stack = MagicMock()
+        self._initial_url = None
+        self._initial_html = None
+        self._embed_mode = "child"
+        self._using_direct_embed = False
+        self._direct_embed_hwnd = None
+        self._pre_show_hidden = False
+        self._show_start_time = 0.0
+        self._create_webview_container = MagicMock()
+
+    def setAttribute(self, *args, **kwargs):  # noqa: N802 - Qt naming
+        pass
+
+    def winId(self):  # noqa: N802 - Qt naming
+        return 0xABCDEF
+
+    def size(self):
+        s = MagicMock()
+        s.width.return_value = 1024
+        s.height.return_value = 768
+        return s
+
+
+@pytest.fixture
+def stub_qapp(monkeypatch):
+    """Replace ``QApplication`` with a stub whose ``processEvents`` is a no-op."""
+    fake_app = MagicMock()
+    monkeypatch.setattr(lifecycle, "QApplication", fake_app)
+    return fake_app
+
+
+@pytest.fixture
+def stub_anti_flicker(monkeypatch):
+    """Stub the Windows-only anti-flicker helpers and return them as mocks."""
+    hide = MagicMock(return_value=True)
+    show = MagicMock()
+    monkeypatch.setattr(lifecycle, "hide_window_for_init", hide)
+    monkeypatch.setattr(lifecycle, "show_window_after_init", show)
+    return hide, show
+
+
+class TestInitializeWebView:
+    """``_initialize_webview`` is the showEvent entry point."""
+
+    def test_calls_progressive_init(self, monkeypatch, stub_qapp, stub_anti_flicker):
+        host = _ProgressiveHost()
+        called = []
+        host._init_webview_progressive = types.MethodType(lambda self_: called.append(self_), host)
+        monkeypatch.setattr(lifecycle, "sys", types.SimpleNamespace(platform="linux"))
+        LifecycleMixin._initialize_webview(host)
+        assert called == [host]
+        assert host._stack.setCurrentIndex.called
+        assert stub_qapp.processEvents.called
+
+    def test_anti_flicker_runs_on_windows(self, monkeypatch, stub_qapp, stub_anti_flicker):
+        host = _ProgressiveHost()
+        host._init_webview_progressive = types.MethodType(lambda self_: None, host)
+        monkeypatch.setattr(lifecycle, "sys", types.SimpleNamespace(platform="win32"))
+        LifecycleMixin._initialize_webview(host)
+        hide, _show = stub_anti_flicker
+        hide.assert_called_once()
+        assert host._pre_show_hidden is True
+
+    def test_skips_anti_flicker_when_hwnd_zero(self, monkeypatch, stub_qapp, stub_anti_flicker):
+        host = _ProgressiveHost()
+        host._init_webview_progressive = types.MethodType(lambda self_: None, host)
+        host.winId = lambda: 0  # type: ignore[assignment]
+        monkeypatch.setattr(lifecycle, "sys", types.SimpleNamespace(platform="win32"))
+        LifecycleMixin._initialize_webview(host)
+        hide, _show = stub_anti_flicker
+        hide.assert_not_called()
+        assert host._pre_show_hidden is False
+
+
+class TestInitWebViewProgressive:
+    """``_init_webview_progressive`` is the meat of the file (~130 LOC).
+
+    It handles Rust-callback registration, the ``show_embedded`` happy path
+    plus two fallback paths, the post-show NC-strip, anti-flicker
+    completion and final ``QTimer.singleShot`` scheduling.
+    """
+
+    @staticmethod
+    def _make_core(*, has_set_on_hwnd=True, show_embedded=True):
+        core = MagicMock()
+        if not has_set_on_hwnd:
+            del core.set_on_hwnd_created
+        if not show_embedded:
+            del core.show_embedded
+        return core
+
+    def test_no_core_uses_webview_show_fallback(self, captured_timers, stub_qapp):
+        host = _ProgressiveHost()
+        host._webview._core = None
+        LifecycleMixin._init_webview_progressive(host)
+        host._webview.show.assert_called_once()
+        assert captured_timers == []
+
+    def test_show_embedded_happy_path_schedules_two_syncs(
+        self, captured_timers, stub_qapp, monkeypatch
+    ):
+        host = _ProgressiveHost()
+        core = self._make_core()
+        host._webview._core = core
+        host._webview._auto_timer = MagicMock()
+        monkeypatch.setattr(lifecycle, "sys", types.SimpleNamespace(platform="linux"))
+        LifecycleMixin._init_webview_progressive(host)
+        core.show_embedded.assert_called_once()
+        core.show.assert_not_called()
+        core.set_on_hwnd_created.assert_called_once()
+        delays = sorted(d for d, _ in captured_timers)
+        assert delays == [150, 500]
+        host._webview._auto_timer.start.assert_called_once()
+        core.set_visible.assert_called_once_with(True)
+
+    def test_falls_back_to_core_show_when_show_embedded_missing(
+        self, captured_timers, stub_qapp, monkeypatch
+    ):
+        host = _ProgressiveHost()
+        core = self._make_core(show_embedded=False)
+        host._webview._core = core
+        host._webview._auto_timer = MagicMock()
+        monkeypatch.setattr(lifecycle, "sys", types.SimpleNamespace(platform="linux"))
+        LifecycleMixin._init_webview_progressive(host)
+        core.show.assert_called_once()
+
+    def test_show_embedded_exception_falls_back_to_webview_show(self, captured_timers, stub_qapp):
+        host = _ProgressiveHost()
+        core = self._make_core()
+        core.show_embedded.side_effect = RuntimeError("boom")
+        host._webview._core = core
+        LifecycleMixin._init_webview_progressive(host)
+        host._webview.show.assert_called_once()
+        assert captured_timers == []
+
+    def test_set_on_hwnd_created_failure_is_swallowed(
+        self, captured_timers, stub_qapp, monkeypatch
+    ):
+        host = _ProgressiveHost()
+        core = self._make_core()
+        core.set_on_hwnd_created.side_effect = RuntimeError("no callbacks")
+        host._webview._core = core
+        host._webview._auto_timer = MagicMock()
+        monkeypatch.setattr(lifecycle, "sys", types.SimpleNamespace(platform="linux"))
+        LifecycleMixin._init_webview_progressive(host)
+        host._create_webview_container.assert_called()
+
+    def test_callback_creates_container_when_invoked(self, captured_timers, stub_qapp, monkeypatch):
+        host = _ProgressiveHost()
+        core = self._make_core()
+        host._webview._core = core
+        host._webview._auto_timer = MagicMock()
+        monkeypatch.setattr(lifecycle, "sys", types.SimpleNamespace(platform="linux"))
+        LifecycleMixin._init_webview_progressive(host)
+        cb = core.set_on_hwnd_created.call_args[0][0]
+        cb(0xFEED)
+        host._create_webview_container.assert_any_call(core, hwnd=0xFEED)
+
+    def test_loads_initial_url(self, captured_timers, stub_qapp, monkeypatch):
+        host = _ProgressiveHost()
+        host._initial_url = "https://example.com/"
+        core = self._make_core()
+        host._webview._core = core
+        host._webview._auto_timer = MagicMock()
+        monkeypatch.setattr(lifecycle, "sys", types.SimpleNamespace(platform="linux"))
+        LifecycleMixin._init_webview_progressive(host)
+        host._webview.load_url.assert_called_once_with("https://example.com/")
+        host._webview.load_html.assert_not_called()
+
+    def test_loads_initial_html_when_no_url(self, captured_timers, stub_qapp, monkeypatch):
+        host = _ProgressiveHost()
+        host._initial_url = None
+        host._initial_html = "<html></html>"
+        core = self._make_core()
+        host._webview._core = core
+        host._webview._auto_timer = MagicMock()
+        monkeypatch.setattr(lifecycle, "sys", types.SimpleNamespace(platform="linux"))
+        LifecycleMixin._init_webview_progressive(host)
+        host._webview.load_html.assert_called_once_with("<html></html>")
+        host._webview.load_url.assert_not_called()
+
+    def test_no_initial_content_no_load_calls(self, captured_timers, stub_qapp, monkeypatch):
+        host = _ProgressiveHost()
+        core = self._make_core()
+        host._webview._core = core
+        host._webview._auto_timer = MagicMock()
+        monkeypatch.setattr(lifecycle, "sys", types.SimpleNamespace(platform="linux"))
+        LifecycleMixin._init_webview_progressive(host)
+        host._webview.load_url.assert_not_called()
+        host._webview.load_html.assert_not_called()
+
+    def test_auto_timer_failure_falls_back_to_webview_show(
+        self, captured_timers, stub_qapp, monkeypatch
+    ):
+        host = _ProgressiveHost()
+        core = self._make_core()
+        host._webview._core = core
+        timer = MagicMock()
+        timer.start.side_effect = RuntimeError("timer dead")
+        host._webview._auto_timer = timer
+        monkeypatch.setattr(lifecycle, "sys", types.SimpleNamespace(platform="linux"))
+        LifecycleMixin._init_webview_progressive(host)
+        host._webview.show.assert_called_once()
+
+    def test_no_auto_timer_falls_back_to_webview_show(
+        self, captured_timers, stub_qapp, monkeypatch
+    ):
+        host = _ProgressiveHost()
+        core = self._make_core()
+        host._webview._core = core
+        host._webview._auto_timer = None
+        monkeypatch.setattr(lifecycle, "sys", types.SimpleNamespace(platform="linux"))
+        LifecycleMixin._init_webview_progressive(host)
+        host._webview.show.assert_called_once()
+
+    def test_anti_flicker_restore_runs_on_win32(
+        self, captured_timers, stub_qapp, stub_anti_flicker, monkeypatch
+    ):
+        host = _ProgressiveHost()
+        host._pre_show_hidden = True
+        core = self._make_core()
+        host._webview._core = core
+        host._webview._auto_timer = MagicMock()
+        monkeypatch.setattr(lifecycle, "sys", types.SimpleNamespace(platform="win32"))
+        LifecycleMixin._init_webview_progressive(host)
+        _hide, show = stub_anti_flicker
+        show.assert_called_once()
+        assert host._pre_show_hidden is False
+
+    def test_set_visible_failure_is_swallowed(self, captured_timers, stub_qapp, monkeypatch):
+        host = _ProgressiveHost()
+        core = self._make_core()
+        core.set_visible.side_effect = RuntimeError("visibility broken")
+        host._webview._core = core
+        host._webview._auto_timer = MagicMock()
+        monkeypatch.setattr(lifecycle, "sys", types.SimpleNamespace(platform="linux"))
+        LifecycleMixin._init_webview_progressive(host)
+        host._webview._auto_timer.start.assert_called_once()
+
+    def test_stack_switches_to_webview_page(self, captured_timers, stub_qapp, monkeypatch):
+        host = _ProgressiveHost()
+        core = self._make_core()
+        host._webview._core = core
+        host._webview._auto_timer = MagicMock()
+        monkeypatch.setattr(lifecycle, "sys", types.SimpleNamespace(platform="linux"))
+        LifecycleMixin._init_webview_progressive(host)
+        host._stack.setCurrentIndex.assert_called_with(1)
