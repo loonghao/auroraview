@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.7](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.6...auroraview-v0.5.7) (2026-05-25)
+
+
+### Bug Fixes
+
+* isolate Playwright sync startup for CDP tests ([222b784](https://github.com/loonghao/auroraview/commit/222b784092a85ad331e53318145aa2aacce1e766))
+* isolate Playwright sync startup for CDP tests ([ee547fe](https://github.com/loonghao/auroraview/commit/ee547fe6f8ab96086e5be591e0653550e737423c))
+
 ## [0.5.6](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.5...auroraview-v0.5.6) (2026-05-25)
 
 
