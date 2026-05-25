@@ -9,6 +9,7 @@ event loop, which keeps the suite usable on headless CI runners.
 
 import sys
 import types
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -16,12 +17,13 @@ import pytest
 # environments where qtpy is unavailable.
 pytest.importorskip("qtpy", reason="Qt tests require qtpy")
 
-from unittest.mock import MagicMock  # noqa: E402
-
-from auroraview.integration.qt import lifecycle  # noqa: E402
+# The imports below must run AFTER pytest.importorskip("qtpy") above, so we
+# cannot move them up into the top-level import block.  ruff's isort rule
+# (I001) does not understand this constraint, so we suppress it here in
+# addition to the per-import E402 noqas.
+from auroraview.integration.qt import lifecycle  # noqa: E402, I001
 from auroraview.integration.qt.lifecycle import (  # noqa: E402
     LifecycleMixin,
-    _DELAYED_SYNC_MAX_RETRIES,
     _DELAYED_SYNC_RETRY_INTERVAL_MS,
     _delayed_geometry_sync,
 )
@@ -54,9 +56,7 @@ class _Host:
         self._force_container_geometry = MagicMock()
         # Bind mixin methods so ``self._reset_state_for_reuse()`` in the
         # production code resolves to the real implementation on this stub.
-        self._reset_state_for_reuse = types.MethodType(
-            LifecycleMixin._reset_state_for_reuse, self
-        )
+        self._reset_state_for_reuse = types.MethodType(LifecycleMixin._reset_state_for_reuse, self)
 
 
 @pytest.fixture
