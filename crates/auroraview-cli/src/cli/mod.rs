@@ -26,29 +26,25 @@ pub use skills::{run_skills, SkillsArgs};
 /// - `--no-flag` only → `Some(false)`
 ///
 /// The `(true, true)` arm should be unreachable when clap's `overrides_with`
-/// is correctly configured. In debug builds we `panic!` to surface the
-/// misconfiguration loudly during development; in release builds we fall
-/// back to positive-wins (last-wins semantics) rather than panicking, so
-/// a future clap upgrade with changed semantics cannot crash the CLI in
-/// production.
+/// is correctly configured. In debug builds we trip a `debug_assert!` to
+/// surface the misconfiguration loudly during development; release builds
+/// fall back to positive-wins (last-wins semantics) rather than crashing
+/// the user shell on a future clap upgrade with changed semantics.
+#[cold]
+#[inline(never)]
+fn resolve_flag_pair_conflict() -> Option<bool> {
+    debug_assert!(
+        false,
+        "clap overrides_with should make (true, true) impossible"
+    );
+    Some(true)
+}
+
 pub fn resolve_flag_pair(positive: bool, negative: bool) -> Option<bool> {
     match (positive, negative) {
         (false, false) => None,
         (true, false) => Some(true),
         (false, true) => Some(false),
-        // Should be unreachable with correct `overrides_with` config.
-        // Debug builds panic loudly to surface the misconfiguration;
-        // release builds fall back to positive-wins (last-wins
-        // semantics) so a misconfigured CLI never crashes a user shell.
-        (true, true) => {
-            #[cfg(debug_assertions)]
-            {
-                panic!("clap overrides_with should make (true, true) impossible");
-            }
-            #[cfg(not(debug_assertions))]
-            {
-                Some(true)
-            }
-        }
+        (true, true) => resolve_flag_pair_conflict(),
     }
 }

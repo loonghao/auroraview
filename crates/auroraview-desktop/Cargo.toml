@@ -53,5 +53,11 @@ raw-window-handle = "0.6"
 [features]
 default = []
 
+# Exposes test-only escape hatches (e.g. process-global state resets) to
+# integration test binaries so they can observe deterministic behaviour
+# regardless of the order `cargo test` runs them in. Production builds
+# leave the feature off so the helpers are not part of the public API.
+test-helpers = []
+
 [dev-dependencies]
 rstest = "0.26"

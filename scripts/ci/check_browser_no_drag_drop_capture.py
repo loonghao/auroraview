@@ -179,6 +179,64 @@ def check_child_window_no_drag_drop() -> list[tuple[Path, int, str]]:
     return violations
 
 
+def check_browser_must_call_skip_helper() -> list[tuple[Path, int, str]]:
+    """Browser-mode files instantiating ``WebViewBuilder`` must funnel
+    drag-drop intent through the canonical ``skip_drag_drop_capture`` /
+    ``attach_drag_drop_handler`` audit hook.
+
+    Without this check, deleting a ``skip_drag_drop_capture(builder)``
+    line (or replacing it with an unwrapped ``builder``) would silently
+    pass the previous two checks: ``check_no_capture_field`` only looks
+    at config types, and ``check_browser_attach_calls_use_false`` is
+    a no-op when no ``attach_drag_drop_handler`` call is present at all.
+
+    Heuristic: any non-comment ``WebViewBuilder::new(`` occurrence in a
+    Browser-mode file must be followed (within the same file) by at
+    least one ``skip_drag_drop_capture(`` or
+    ``attach_drag_drop_handler(`` reference. We do not try to match
+    builder→audit pairs structurally; for the closed set of files we
+    own, "at least one audit call per file that builds a WebView" is a
+    sufficiently tight invariant and stays grep-able.
+    """
+    violations: list[tuple[Path, int, str]] = []
+    audit_idents = ("skip_drag_drop_capture", "attach_drag_drop_handler")
+
+    for target in BROWSER_CALL_SITES:
+        for path in iter_rust_files(target):
+            if not path.exists():
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError) as exc:
+                print(f"[check] cannot read {path}: {exc}", file=sys.stderr)
+                continue
+
+            # Strip line comments so doc-block examples do not satisfy
+            # the audit on their own.
+            stripped_lines = []
+            for raw_line in text.splitlines():
+                without_comment = re.sub(r"//.*$", "", raw_line)
+                stripped_lines.append(without_comment)
+            stripped_text = "\n".join(stripped_lines)
+
+            # Locate the first builder construction (if any).
+            builder_match = re.search(r"WebViewBuilder::new\s*\(", stripped_text)
+            if builder_match is None:
+                continue
+
+            if not any(ident in stripped_text for ident in audit_idents):
+                line_no = stripped_text.count("\n", 0, builder_match.start()) + 1
+                violations.append(
+                    (
+                        path,
+                        line_no,
+                        "WebViewBuilder constructed without "
+                        "`skip_drag_drop_capture` / `attach_drag_drop_handler` audit hook",
+                    )
+                )
+    return violations
+
+
 def main() -> int:
     failed = False
 
@@ -214,6 +272,20 @@ def main() -> int:
             "(RFC 0015 §3.6)."
         )
         for path, line_no, detail in child_violations:
+            rel = path.relative_to(REPO_ROOT)
+            print(f"  {rel}:{line_no}: {detail}")
+        print()
+
+    audit_violations = check_browser_must_call_skip_helper()
+    if audit_violations:
+        failed = True
+        print(
+            "ERROR: every Browser-mode file constructing `WebViewBuilder` must "
+            "route through the canonical audit hook (`skip_drag_drop_capture` "
+            "or `attach_drag_drop_handler`) so accidental removal is visible "
+            "to this scanner (RFC 0016 §3.2)."
+        )
+        for path, line_no, detail in audit_violations:
             rel = path.relative_to(REPO_ROOT)
             print(f"  {rel}:{line_no}: {detail}")
         print()

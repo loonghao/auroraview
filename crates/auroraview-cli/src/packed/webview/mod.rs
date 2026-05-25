@@ -52,26 +52,8 @@ use super::utils::{get_extensions_dir, has_extensions_in_dir, prepare_active_ext
 // packed apps (RFC 0015 §4.3). Re-exported from the workspace-level
 // `auroraview_core::constants` so the literal lives in a single place
 // and can be referenced by other entry points and CI scripts without drift.
+use auroraview_core::constants::parse_truthy;
 use auroraview_core::constants::CAPTURE_FILE_DROP_ENV;
-
-/// Parse a truthy/falsy literal (case-insensitive, trimmed).
-///
-/// Recognizes the union of common boolean spellings used by the runtimes
-/// AuroraView interoperates with: `1/true/on/yes/enabled` and
-/// `0/false/off/no/disabled`. Anything else returns `None`.
-fn parse_truthy(s: &str) -> Option<bool> {
-    let s = s.trim();
-    const TRUE_LITERALS: &[&str] = &["1", "true", "on", "yes", "enabled"];
-    const FALSE_LITERALS: &[&str] = &["0", "false", "off", "no", "disabled"];
-
-    if TRUE_LITERALS.iter().any(|v| s.eq_ignore_ascii_case(v)) {
-        Some(true)
-    } else if FALSE_LITERALS.iter().any(|v| s.eq_ignore_ascii_case(v)) {
-        Some(false)
-    } else {
-        None
-    }
-}
 
 /// Resolve the effective `capture_file_drop` value at packed runtime,
 /// honoring the [`CAPTURE_FILE_DROP_ENV`] override.

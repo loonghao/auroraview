@@ -210,7 +210,11 @@ class TestWebViewConfigBranchExtraction:
         assert mock_core.call_count == 1, (
             "WebView(config=...) should call _CoreWebView exactly once"
         )
-        return mock_core.call_args.kwargs
+        # NOTE: ``call_args.kwargs`` was added in Python 3.8. AuroraView still
+        # supports Python 3.7 (see project rules), so we unpack the legacy
+        # ``(args, kwargs)`` tuple form which works on every supported version.
+        _, kwargs = mock_core.call_args
+        return kwargs
 
     def test_config_branch_forwards_true(self):
         kwargs = self._build_with_config(True)
