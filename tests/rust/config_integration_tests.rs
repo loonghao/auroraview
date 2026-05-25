@@ -39,6 +39,28 @@ fn default_config_values(default_config: WebViewConfig) {
     assert_eq!(default_config.ipc_batch_interval_ms, 16);
     assert!(default_config.asset_root.is_none());
     assert_eq!(default_config.custom_protocols.len(), 0);
+    // RFC 0015: HTML5 drag-drop is the out-of-the-box default. Enabling
+    // `capture_file_drop` is opt-in because it disables HTML5
+    // dragover/drop inside the WebView (wry/WebView2 limitation).
+    assert!(!default_config.capture_file_drop);
+}
+
+#[rstest]
+#[case(true)]
+#[case(false)]
+fn builder_capture_file_drop(builder: WebViewBuilder, #[case] capture: bool) {
+    let config = builder.capture_file_drop(capture).build();
+    assert_eq!(config.capture_file_drop, capture);
+}
+
+#[rstest]
+fn builder_capture_file_drop_overrides_previous_value(builder: WebViewBuilder) {
+    // The builder takes `mut self`, so a later call must replace, not OR.
+    let config = builder
+        .capture_file_drop(true)
+        .capture_file_drop(false)
+        .build();
+    assert!(!config.capture_file_drop);
 }
 
 #[rstest]

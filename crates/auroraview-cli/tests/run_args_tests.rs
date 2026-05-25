@@ -39,7 +39,7 @@ fn run_args_capture_file_drop_explicit_disable() {
 /// Same `clap` `overrides_with` regression guard as `pack_args_tests.rs`:
 /// when both flags appear on the same command line, the LAST one wins.
 /// This is what keeps the `(true, true)` arm in
-/// `resolve_run_capture_file_drop` from hitting `unreachable!()`.
+/// `resolve_run_capture_file_drop` from tripping its `debug_assert!`.
 #[test]
 fn run_args_capture_file_drop_overrides_with_last_wins() {
     let args = parse(&["--capture-file-drop", "--no-capture-file-drop"]);
