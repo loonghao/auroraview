@@ -5,6 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.6](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.5...auroraview-v0.5.6) (2026-05-25)
+
+
+### Features
+
+* add --no-capture-file-drop flag and harden flag pair resolver ([1aae05c](https://github.com/loonghao/auroraview/commit/1aae05c2d718aae11e9652bba7123c59dcd63cbb))
+* **browser:** hard-disable capture_file_drop in multi-tab Browser mode ([410f2e6](https://github.com/loonghao/auroraview/commit/410f2e662cc9eb098354a56ab7369c28f2113944))
+* **cli:** tri-state capture-file-drop on run ([1dc9d98](https://github.com/loonghao/auroraview/commit/1dc9d9883f5ec4a39b35aeb0904c3c74be292dd3))
+* **core:** add noop drag-drop sink and attach helper ([27ddb52](https://github.com/loonghao/auroraview/commit/27ddb5230fb81bcea4af1f02804c00b1d69d8ef9))
+* **python:** preserve capture_file_drop tri-state through to Rust binding ([e16634e](https://github.com/loonghao/auroraview/commit/e16634eea377213b56e103a09cf244248cb16e37))
+* **python:** preserve capture-file-drop tristate ([39c29ce](https://github.com/loonghao/auroraview/commit/39c29ce13a2071a08ae47a523db8fcaa749a54c4))
+* **python:** thread capture_file_drop through all WebView entry points ([6fed24e](https://github.com/loonghao/auroraview/commit/6fed24e7250a4c03a2d2be3acc5d766dc0e22de6))
+* **rust:** expose capture_file_drop as Optional[bool] in PyO3 binding ([5639e95](https://github.com/loonghao/auroraview/commit/5639e955d0c74d990a8e8291d5c9b38a188e9f93))
+* **webview:** unify drag-drop registration via attach_drag_drop_handler ([362e3eb](https://github.com/loonghao/auroraview/commit/362e3eb7d56ae523e9daa68adb99a9a3c51766fb))
+
+
+### Bug Fixes
+
+* **bindings:** pass capture_file_drop arg in PyDesktopConfig tests ([5691d3b](https://github.com/loonghao/auroraview/commit/5691d3b981ed5e492f1d6498ee8035fe624efd0d))
+* **cli:** use cfg-gated panic instead of debug_assert in resolve_flag_pair ([8394f6b](https://github.com/loonghao/auroraview/commit/8394f6b270c85f2a928e4548067e5e8af9060520))
+* **core:** prevent port collision in service_discovery CDP test ([670749e](https://github.com/loonghao/auroraview/commit/670749e91df0affb181422dc483d02c1af712d4e))
+* **desktop:** warn-once on missing drag-drop sink ([4a6ac2d](https://github.com/loonghao/auroraview/commit/4a6ac2d76eb2c5e2e78e3807fbcd4455a54e3d45))
+* **qt:** prevent DCC deadlock in WebView2 geometry sync ([1de8c75](https://github.com/loonghao/auroraview/commit/1de8c75a4f67d8babdcd12bc5ebbbc8650429a89))
+* **qt:** replace assert with RuntimeError in lock release and add flag constants ([9bb6356](https://github.com/loonghao/auroraview/commit/9bb6356f6e1b7d1aa31bc6e9f690f59e59586d1a))
+* **qt:** resolve CI failures on Python 3.7 Linux runners ([09b7b4c](https://github.com/loonghao/auroraview/commit/09b7b4c441ff1455bf5249d01432706b801004cc))
+
+
+### Code Refactoring
+
+* apply rustfmt and ruff formatting ([6a6ce68](https://github.com/loonghao/auroraview/commit/6a6ce68a013dc8f333a94f662365ec3425cafd91))
+* clean up code style in qt integration modules ([9af754f](https://github.com/loonghao/auroraview/commit/9af754fbbfff1587da65ae5386a068061469bbbe))
+* **cli:** extract resolve_flag_pair utility and inline drag-drop attachment ([294958d](https://github.com/loonghao/auroraview/commit/294958d35243abe567bf6cb225df42dfbef7120a))
+* harden drag-drop pipeline and centralize shared utilities ([3cf255e](https://github.com/loonghao/auroraview/commit/3cf255e906a8c597062aedb52b6c4f76ec8b3624))
+* introduce skip_drag_drop_capture helper and PackConfig::skeleton ([5f7c9f8](https://github.com/loonghao/auroraview/commit/5f7c9f86dd4cb8b14b4189ee040efd5581bd5c56))
+* **ipc:** replace warn-once linear scan with exhaustive match ([24765ea](https://github.com/loonghao/auroraview/commit/24765ead06877e5fbc2b5f7c73532c4da1bc3a15))
+* **ipc:** tighten PackedDragDropSink encapsulation and warn-once ([f5ff4b0](https://github.com/loonghao/auroraview/commit/f5ff4b0d042ce374d877dd8a3ec5d8e47932470d))
+* **qt:** apply linter formatting and remove unused import ([5f5f999](https://github.com/loonghao/auroraview/commit/5f5f999acefd434a0b8fde3c988f9e2099adc91e))
+* **qt:** guard Qt imports so pure-Python submodules stay importable ([adfe618](https://github.com/loonghao/auroraview/commit/adfe618b5ab8680c49392675057aff5e261c94fb))
+* short-circuit DragDropEvent::Over in hot path ([583c0be](https://github.com/loonghao/auroraview/commit/583c0be83c8e20f2479a0dfb9aa07dece8f8096c))
+
+
+### Documentation
+
+* **rfc:** finalize 0013-0017 file-drop guide ([a8fe5a5](https://github.com/loonghao/auroraview/commit/a8fe5a551947f432a4ed14c2b6807992f2db30e3))
+* standardize RFC filenames and update file-drop docs ([4c0e56d](https://github.com/loonghao/auroraview/commit/4c0e56d0a7f36b7444e48e858efe5abd7138f0ae))
+* update llms.txt, CHANGELOG and add file-drop example ([b944fed](https://github.com/loonghao/auroraview/commit/b944fed193d394908725b72c77b29130d934b801))
+
 ## [0.5.5](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.4...auroraview-v0.5.5) (2026-05-24)
 
 
