@@ -153,11 +153,23 @@ where
 
 /// Browser-mode convenience: explicitly skip drag-drop capture.
 ///
-/// Zero-cost passthrough — does **not** construct an `Arc<NoopDragDropSink>`
-/// or invoke [`attach_drag_drop_handler`]. The builder is returned
-/// unchanged. This call site exists purely to preserve auditability for
-/// the CI scanner ([`scripts/ci/check_browser_no_drag_drop_capture.py`])
-/// and to encode the RFC 0016 rationale at every browser-mode entry point.
+/// Forwards to [`attach_drag_drop_handler`] with `capture=false` and a
+/// shared no-op sink so every Browser-mode call site funnels through the
+/// **same** auditable entry point. The CI scanner
+/// ([`scripts/ci/check_browser_no_drag_drop_capture.py`]) only needs to
+/// look at `attach_drag_drop_handler` second arguments — wrapping the
+/// passthrough in the canonical helper keeps its expansion grep-able and
+/// makes accidental removal of the call site visible to the scanner.
+///
+/// # Cost
+///
+/// Zero allocation: a single `&'static Arc<NoopDragDropSink>` is reused
+/// across every call. `attach_drag_drop_handler` short-circuits on
+/// `capture=false` and returns the builder unchanged without ever
+/// touching the sink, so the wrapper is observably equivalent to the
+/// previous identity passthrough.
+///
+/// # Rationale
 ///
 /// Multi-webview overlays cannot maintain a coherent drop state machine
 /// across pixel boundaries (RFC 0016 §2.1). Pages needing absolute file
@@ -165,7 +177,10 @@ where
 /// `capture_file_drop=True` instead.
 #[inline]
 pub fn skip_drag_drop_capture(builder: wry::WebViewBuilder<'_>) -> wry::WebViewBuilder<'_> {
-    builder
+    use std::sync::OnceLock;
+    static NOOP_SINK: OnceLock<Arc<NoopDragDropSink>> = OnceLock::new();
+    let sink = NOOP_SINK.get_or_init(|| Arc::new(NoopDragDropSink));
+    attach_drag_drop_handler(builder, false, sink)
 }
 
 /// Create a drag-drop handler that sends events to an IPC callback

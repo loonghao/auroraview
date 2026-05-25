@@ -60,6 +60,11 @@ pub use config::{DesktopConfig, TrayConfig, TrayMenuItem};
 pub use error::{DesktopError, Result};
 /// Application entry points and event loop types.
 pub use event_loop::{run, run_with_router, UserEvent};
+/// Test-only escape hatch for resetting process-global drag-drop
+/// warn-once guards. Available when the `test-helpers` feature is on,
+/// or to crate-internal tests via `#[cfg(test)]`.
+#[cfg(any(test, feature = "test-helpers"))]
+pub use ipc::reset_drag_drop_warn_guards;
 /// IPC message and routing types.
 pub use ipc::{IpcMessage, IpcResponse, IpcRouter};
 /// Window creation helpers and desktop window type.

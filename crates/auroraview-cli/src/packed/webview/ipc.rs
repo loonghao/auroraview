@@ -340,18 +340,89 @@ impl auroraview_core::builder::DragDropIpcSink for PackedDragDropSink {
             "event": event_name,
             "data": data,
         });
-        handle_ipc_message(
-            &envelope.to_string(),
-            &self.python_backend,
-            &self.plugin_router,
-            &self.proxy,
-        );
-        tracing::debug!(
-            target: "auroraview::drag_drop",
-            "[packed] forwarded {} to IPC pipeline",
-            event_name
-        );
-        Ok(())
+
+        // `handle_ipc_message` is `()`-returning by design: it forwards
+        // structured errors back to the WebView via `UserEvent`s rather
+        // than the call-site. A bug-induced panic deep inside the
+        // pipeline would, however, unwind into the wry drag-drop
+        // closure and (best case) abort the worker thread, (worst
+        // case) corrupt internal state. Since packed mode is the
+        // distribution channel for end users, we promote any such
+        // panic into a `DispatchError::Backend` so the helper-level
+        // `tracing::error!` in `attach_drag_drop_handler` records it.
+        //
+        // `AssertUnwindSafe` is sound here: we never observe partially
+        // mutated state on the unwinding path — the only shared
+        // resources crossed are `Arc<RwLock<…>>` (poisoning is a
+        // well-defined recovery point) and `EventLoopProxy` (`Send`
+        // and operates via message passing).
+        let body = envelope.to_string();
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            handle_ipc_message(
+                &body,
+                &self.python_backend,
+                &self.plugin_router,
+                &self.proxy,
+            );
+        }));
+
+        match result {
+            Ok(()) => {
+                tracing::debug!(
+                    target: "auroraview::drag_drop",
+                    "[packed] forwarded {} to IPC pipeline",
+                    event_name
+                );
+                Ok(())
+            }
+            Err(payload) => {
+                let detail = panic_payload_to_string(&payload);
+                tracing::error!(
+                    target: "auroraview::drag_drop",
+                    "[packed] handle_ipc_message panicked while forwarding {}: {}",
+                    event_name,
+                    detail
+                );
+                Err(auroraview_core::builder::DispatchError::backend(
+                    PackedDragDropPanic {
+                        event: event_name.to_string(),
+                        detail,
+                    },
+                ))
+            }
+        }
+    }
+}
+
+/// Concrete error wrapped into `DispatchError::Backend` when
+/// [`handle_ipc_message`] panics on the drag-drop forwarding path.
+#[derive(Debug)]
+struct PackedDragDropPanic {
+    event: String,
+    detail: String,
+}
+
+impl std::fmt::Display for PackedDragDropPanic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "panic in handle_ipc_message while forwarding `{}`: {}",
+            self.event, self.detail
+        )
+    }
+}
+
+impl std::error::Error for PackedDragDropPanic {}
+
+/// Best-effort decoding of a `Box<dyn Any + Send>` panic payload into a
+/// human-readable string. Mirrors the standard library's panic hook.
+fn panic_payload_to_string(payload: &Box<dyn std::any::Any + Send>) -> String {
+    if let Some(s) = payload.downcast_ref::<&'static str>() {
+        (*s).to_string()
+    } else if let Some(s) = payload.downcast_ref::<String>() {
+        s.clone()
+    } else {
+        "<non-string panic payload>".to_string()
     }
 }
 

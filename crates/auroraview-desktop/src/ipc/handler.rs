@@ -208,6 +208,33 @@ fn should_warn_drag_drop_listener_missing(event_name: &str) -> bool {
     !guard.swap(true, Ordering::Relaxed)
 }
 
+/// Reset every drag-drop warn-once guard to its initial (un-warned)
+/// state. Test-only escape hatch.
+///
+/// The guards are process-global `AtomicBool`s that fire at most once
+/// per name across the whole test binary, which makes warn-observation
+/// scenarios in `cargo test` order-dependent (a previous test in the
+/// same binary may have flipped the guard already). Tests that need
+/// to observe a fresh "first warn" should call this at the top of each
+/// case.
+///
+/// Gated behind the `test-helpers` Cargo feature so production builds
+/// cannot accidentally reach for it; production semantics — "warn once
+/// across the whole process" — stay intact. Crate-internal unit tests
+/// can also reach the helper through `#[cfg(test)]` without enabling
+/// the feature.
+#[cfg(any(test, feature = "test-helpers"))]
+pub fn reset_drag_drop_warn_guards() {
+    for guard in [
+        &DRAG_DROP_WARN_HOVER,
+        &DRAG_DROP_WARN_DROP,
+        &DRAG_DROP_WARN_CANCELLED,
+        &UNKNOWN_DRAG_DROP_WARNED,
+    ] {
+        guard.store(false, Ordering::Relaxed);
+    }
+}
+
 impl auroraview_core::builder::DragDropIpcSink for IpcRouter {
     fn dispatch(
         &self,
