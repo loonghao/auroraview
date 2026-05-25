@@ -146,6 +146,7 @@ markers = [
     "ui: UI tests (requires display)",
     "maya: Maya-specific tests",
     "qt: Qt-specific tests",
+    "qt_related: Tests related to Qt subsystems (requires qtpy installed, but not a live display/runtime)",
     "headless: Headless tests (no display required)",
     "e2e: End-to-end tests",
     "flaky: Flaky tests (auto-rerun up to 2 times)",

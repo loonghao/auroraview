@@ -45,6 +45,47 @@ _VERBOSE_LOGGING = os.environ.get("AURORAVIEW_LOG_VERBOSE", "").lower() in (
     "on",
 )
 
+# Constants for the delayed geometry-sync retry logic.
+_DELAYED_SYNC_MAX_RETRIES = 3
+_DELAYED_SYNC_RETRY_INTERVAL_MS = 300
+
+
+def _delayed_geometry_sync(host, retries_left: int = _DELAYED_SYNC_MAX_RETRIES) -> None:
+    """Sync geometry after layout has stabilized.
+
+    This is the retry loop that ``_init_webview_progressive`` schedules via
+    ``QTimer.singleShot``.  Extracted as a module-level function so unit
+    tests can import and exercise it directly without replicating the logic.
+
+    Args:
+        host: The ``QtWebView`` instance (or any object implementing the
+            expected attributes: ``_is_closing``, ``_force_container_geometry``,
+            and the mutex flags read by ``acquire_exclusive``).
+        retries_left: Remaining reschedules if the child-window fixer is
+            currently in flight.  Hitting zero means we let ``resizeEvent``
+            handle subsequent geometry settles.
+    """
+    if getattr(host, "_is_closing", False):
+        return
+    with acquire_exclusive(
+        host,
+        FLAG_GEOMETRY_SYNC,
+        FLAG_CHILD_WINDOW_FIX,
+    ) as got:
+        if not got:
+            if retries_left > 0:
+                QTimer.singleShot(
+                    _DELAYED_SYNC_RETRY_INTERVAL_MS,
+                    lambda: _delayed_geometry_sync(host, retries_left - 1),
+                )
+            return
+        try:
+            host._force_container_geometry()
+            if _VERBOSE_LOGGING:
+                logger.debug("[LifecycleMixin] Delayed geometry sync completed")
+        except Exception as e:
+            logger.debug(f"[LifecycleMixin] delayed_geometry_sync failed: {e!r}")
+
 
 class LifecycleMixin:
     """Mixin class providing WebView lifecycle management.
@@ -272,56 +313,7 @@ class LifecycleMixin:
         # The two boolean flags on self (initialised in _core.py) act
         # as a cross-task mutex between the geometry sync and the
         # child-window fixer; see auroraview.integration.qt._locks.
-        # Maximum number of times delayed_geometry_sync will reschedule
-        # itself when the WebView2 child-window fixer holds its flag.
-        # 3 retries at 300ms each cover 300/600/900ms; the fixer's
-        # longest tick is 1000ms, so this comfortably outlives a normal
-        # fixer pass.  After that we give up and let resizeEvent /
-        # _force_container_geometry pick up future geometry changes.
-        max_retries = 3
-
-        def delayed_geometry_sync(retries_left: int = max_retries) -> None:
-            """Sync geometry after layout has stabilized.
-
-            Args:
-                retries_left: Remaining reschedules if the child-window
-                    fixer is currently in flight.  Hitting zero means we
-                    let resizeEvent handle subsequent geometry settles.
-            """
-            if getattr(self, "_is_closing", False):
-                return
-            # _force_container_geometry() ultimately calls SetWindowPos +
-            # ICoreWebView2Controller::put_Bounds.  The child-window
-            # fixer also issues SetWindowPos on every WebView2 child
-            # HWND.  Letting both run interleaved on the STA thread has
-            # been observed to deadlock Maya, so the two tasks are
-            # mutually exclusive via _locks.acquire_exclusive.
-            with acquire_exclusive(
-                self,
-                FLAG_GEOMETRY_SYNC,
-                FLAG_CHILD_WINDOW_FIX,
-            ) as got:
-                if not got:
-                    if retries_left > 0:
-                        # Either the fixer is in flight, or another
-                        # geometry sync is already running.  Reschedule
-                        # so we still get an initial geometry pass even
-                        # when the user never resizes the DCC window.
-                        QTimer.singleShot(
-                            300,
-                            lambda: delayed_geometry_sync(retries_left - 1),
-                        )
-                    return
-                try:
-                    # _force_container_geometry already syncs WebView2
-                    # controller bounds internally; do not call
-                    # _sync_webview2_controller_bounds again here.
-                    self._force_container_geometry()  # type: ignore[attr-defined]
-                    if _VERBOSE_LOGGING:
-                        logger.debug("[LifecycleMixin] Delayed geometry sync completed")
-                except Exception as e:
-                    logger.debug(f"[LifecycleMixin] delayed_geometry_sync failed: {e!r}")
-
+        #
         # Schedule catch-up syncs. The previous fan-out
         # (150ms / 600ms / 1500ms) was a workaround for the case
         # where the WebView2 controller bounds did not match the
@@ -336,8 +328,13 @@ class LifecycleMixin:
         #     primary 150ms tick can be skipped because the fixer is
         #     in flight.  Idempotency makes this essentially free if
         #     the primary already succeeded.
-        QTimer.singleShot(150, delayed_geometry_sync)
-        QTimer.singleShot(500, delayed_geometry_sync)
+        #
+        # 3 retries at 300ms each cover 300/600/900ms; the fixer's
+        # longest tick is 1000ms, so this comfortably outlives a normal
+        # fixer pass.  After that we give up and let resizeEvent /
+        # _force_container_geometry pick up future geometry changes.
+        QTimer.singleShot(150, lambda: _delayed_geometry_sync(self))
+        QTimer.singleShot(500, lambda: _delayed_geometry_sync(self))
 
         # Step 8: Load initial content
         if self._initial_url:

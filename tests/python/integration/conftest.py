@@ -360,6 +360,41 @@ async def cdp_page(gallery_cdp_session):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Qt Fixtures
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.fixture(scope="session")
+def qapp():
+    """Provide a QApplication instance for Qt integration tests.
+
+    Scope is ``session`` because Qt enforces a single QApplication per
+    process — creating/destroying it per-function is impossible and would
+    crash.  The instance created here lives for the entire pytest session;
+    individual tests must not mutate global app state (stylesheets, event
+    filters) without restoring it.
+
+    Reuses an existing QApplication if one is already running (as Qt
+    only allows a single QApplication per process).
+
+    Uses a fixed argv to avoid leaking pytest arguments into Qt
+    (which may trigger unknown-argument warnings).
+    """
+    pytest.importorskip("qtpy", reason="Qt tests require qtpy")
+    from qtpy.QtWidgets import QApplication
+
+    app = QApplication.instance()
+    if app is None:
+        app = QApplication(["auroraview-test"])
+    yield app
+    # Flush any pending events so dependent session-scoped fixtures that
+    # tear down after us (e.g. QThread / signal cleanup) see a quiescent
+    # event loop — avoids segfaults from dangling DeferredDelete events.
+    app.processEvents()
+    app.sendPostedEvents()  # ensure DeferredDelete events are delivered
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Sample Mock Data
 # ─────────────────────────────────────────────────────────────────────────────
 
