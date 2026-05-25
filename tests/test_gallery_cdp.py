@@ -25,6 +25,7 @@ Requirements:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import subprocess
@@ -165,13 +166,56 @@ class GalleryTestClient:
         self._playwright = None
         self._browser = None
         self._page = None
+        self._playwright_loop = None
+        self._original_event_loop = None
+
+    def _prepare_playwright_loop(self):
+        """Prepare a compatible event loop for Playwright sync API.
+
+        Some environments (including CI runners with preload hooks) may have
+        an asyncio loop already running in the main thread. Playwright's sync API
+        cannot start in that situation, so we temporarily isolate it to a
+        dedicated loop.
+        """
+        try:
+            running_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+
+        # Keep a reference so tests can run without mutating the caller's loop.
+        self._original_event_loop = running_loop
+        self._playwright_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self._playwright_loop)
+
+    def _restore_playwright_loop(self):
+        """Restore the original event loop after Playwright operations."""
+        if self._playwright_loop is not None and self._original_event_loop is not None:
+            try:
+                self._playwright_loop.close()
+            except Exception:
+                pass
+        self._playwright_loop = None
+        if self._original_event_loop is not None:
+            try:
+                asyncio.set_event_loop(self._original_event_loop)
+            except Exception:
+                pass
+            self._original_event_loop = None
 
     def connect(self):
         """Connect to gallery via CDP."""
         from playwright.sync_api import sync_playwright
 
-        self._playwright = sync_playwright().start()
-        self._browser = self._playwright.chromium.connect_over_cdp(self.cdp_url)
+        self._prepare_playwright_loop()
+        try:
+            self._playwright = sync_playwright().start()
+            self._browser = self._playwright.chromium.connect_over_cdp(self.cdp_url)
+        except Exception:
+            if self._playwright:
+                self._playwright.stop()
+                self._playwright = None
+            self._restore_playwright_loop()
+            raise
 
         # Find the correct page (not about:blank)
         self._page = self._find_gallery_page()
@@ -338,6 +382,7 @@ class GalleryTestClient:
             self._browser.close()
         if self._playwright:
             self._playwright.stop()
+        self._restore_playwright_loop()
 
     @property
     def page(self):
