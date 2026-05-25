@@ -92,7 +92,8 @@ pub use drag_drop::{DragDropCallback, DragDropEventData, DragDropEventType, Drag
 #[cfg(feature = "wry-builder")]
 pub use helpers::{
     attach_drag_drop_handler, create_drag_drop_handler, create_ipc_handler,
-    create_simple_ipc_handler, DispatchError, DragDropIpcSink, NoopDragDropSink,
+    create_simple_ipc_handler, skip_drag_drop_capture, DispatchError, DragDropIpcSink,
+    NoopDragDropSink,
 };
 #[cfg(feature = "wry-builder")]
 pub use ipc::{IpcCallback, IpcMessageHandler, IpcMessageType, ParsedIpcMessage};

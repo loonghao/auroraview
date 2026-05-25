@@ -439,6 +439,42 @@ mod serde_bytes_base64 {
 }
 
 impl PackConfig {
+    /// Build a `PackConfig` skeleton with sane defaults for every field
+    /// other than `mode` and `output_name`.
+    ///
+    /// Centralizes the default values previously duplicated across the
+    /// four public constructors (`url` / `frontend` / `fullstack` /
+    /// `fullstack_with_config`). When a new field is added to
+    /// `PackConfig`, only this skeleton needs to set its default — the
+    /// public constructors automatically inherit it.
+    fn skeleton(mode: PackMode, output_name: String) -> Self {
+        Self {
+            mode,
+            output_name,
+            output_dir: PathBuf::from("."),
+            window: WindowConfig::default(),
+            target_platform: TargetPlatform::Current,
+            debug: false,
+            allow_new_window: false,
+            user_agent: None,
+            inject_js: None,
+            inject_css: None,
+            icon_path: None,
+            window_icon: None,
+            env: HashMap::new(),
+            license: None,
+            hooks: None,
+            remote_debugging_port: None,
+            windows_resource: WindowsPlatformConfig::default(),
+            vx: None,
+            downloads: vec![],
+            compression_level: default_compression_level(),
+            extensions: ExtensionsRuntimeConfig::default(),
+            content_security_policy: None,
+            capture_file_drop: false,
+        }
+    }
+
     /// Create a URL mode configuration
     pub fn url(url: impl Into<String>) -> Self {
         let url = url.into();
@@ -451,32 +487,10 @@ impl PackConfig {
             .unwrap_or("app")
             .to_string();
 
-        Self {
-            mode: PackMode::Url { url },
-            output_name,
-            output_dir: PathBuf::from("."),
-            window: WindowConfig::default(),
-            target_platform: TargetPlatform::Current,
-            debug: false,
-            allow_new_window: false,
-            user_agent: None,
-            inject_js: None,
-            inject_css: None,
-            icon_path: None,
-            window_icon: None,
-            env: HashMap::new(),
-            license: None,
-            hooks: None,
-            remote_debugging_port: None,
-            windows_resource: WindowsPlatformConfig::default(),
-            vx: None,
-            downloads: vec![],
-            compression_level: default_compression_level(),
-            extensions: ExtensionsRuntimeConfig::default(),
-            content_security_policy: None,
-            capture_file_drop: false,
-        }
+        Self::skeleton(PackMode::Url { url }, output_name)
     }
+
+    /// Create a frontend mode configuration
     pub fn frontend(path: impl Into<PathBuf>) -> Self {
         let path = path.into();
         let output_name = path
@@ -485,31 +499,7 @@ impl PackConfig {
             .unwrap_or("app")
             .to_string();
 
-        Self {
-            mode: PackMode::Frontend { path },
-            output_name,
-            output_dir: PathBuf::from("."),
-            window: WindowConfig::default(),
-            target_platform: TargetPlatform::Current,
-            debug: false,
-            allow_new_window: false,
-            user_agent: None,
-            inject_js: None,
-            inject_css: None,
-            icon_path: None,
-            window_icon: None,
-            env: HashMap::new(),
-            license: None,
-            hooks: None,
-            remote_debugging_port: None,
-            windows_resource: WindowsPlatformConfig::default(),
-            vx: None,
-            downloads: vec![],
-            compression_level: default_compression_level(),
-            extensions: ExtensionsRuntimeConfig::default(),
-            content_security_policy: None,
-            capture_file_drop: false,
-        }
+        Self::skeleton(PackMode::Frontend { path }, output_name)
     }
 
     /// Create a fullstack mode configuration (frontend + Python backend)
@@ -521,34 +511,13 @@ impl PackConfig {
             .unwrap_or("app")
             .to_string();
 
-        Self {
-            mode: PackMode::FullStack {
+        Self::skeleton(
+            PackMode::FullStack {
                 frontend_path,
                 python: Box::new(PythonBundleConfig::new(entry_point)),
             },
             output_name,
-            output_dir: PathBuf::from("."),
-            window: WindowConfig::default(),
-            target_platform: TargetPlatform::Current,
-            debug: false,
-            allow_new_window: false,
-            user_agent: None,
-            inject_js: None,
-            inject_css: None,
-            icon_path: None,
-            window_icon: None,
-            env: HashMap::new(),
-            license: None,
-            hooks: None,
-            remote_debugging_port: None,
-            windows_resource: WindowsPlatformConfig::default(),
-            vx: None,
-            downloads: vec![],
-            compression_level: default_compression_level(),
-            extensions: ExtensionsRuntimeConfig::default(),
-            content_security_policy: None,
-            capture_file_drop: false,
-        }
+        )
     }
 
     /// Create a fullstack mode configuration with full Python config
@@ -563,34 +532,13 @@ impl PackConfig {
             .unwrap_or("app")
             .to_string();
 
-        Self {
-            mode: PackMode::FullStack {
+        Self::skeleton(
+            PackMode::FullStack {
                 frontend_path,
                 python: Box::new(python),
             },
             output_name,
-            output_dir: PathBuf::from("."),
-            window: WindowConfig::default(),
-            target_platform: TargetPlatform::Current,
-            debug: false,
-            allow_new_window: false,
-            user_agent: None,
-            inject_js: None,
-            inject_css: None,
-            icon_path: None,
-            window_icon: None,
-            env: HashMap::new(),
-            license: None,
-            hooks: None,
-            remote_debugging_port: None,
-            windows_resource: WindowsPlatformConfig::default(),
-            vx: None,
-            downloads: vec![],
-            compression_level: default_compression_level(),
-            extensions: ExtensionsRuntimeConfig::default(),
-            content_security_policy: None,
-            capture_file_drop: false,
-        }
+        )
     }
 
     /// Set the output name
