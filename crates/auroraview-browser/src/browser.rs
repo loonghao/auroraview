@@ -557,17 +557,9 @@ impl Browser {
             )),
         });
 
-        // Browser mode (controller + all business tabs) never registers
-        // with_drag_drop_handler. Multi-webview overlays cannot maintain a
-        // coherent drop state machine across pixel boundaries (RFC 0016
-        // §2.1). Pages needing absolute paths via IPC should use a top-level
-        // AuroraView instance with capture_file_drop=True instead.
-        let drag_drop_sink = std::sync::Arc::new(crate::NoopDragDropSink);
-        let controller_builder = auroraview_core::builder::attach_drag_drop_handler(
-            controller_builder,
-            false,
-            &drag_drop_sink,
-        );
+        // Browser mode: skip drag-drop capture (RFC 0016 §2.1).
+        let controller_builder =
+            auroraview_core::builder::skip_drag_drop_capture(controller_builder);
 
         let controller = controller_builder
             .build_as_child(window_ref)

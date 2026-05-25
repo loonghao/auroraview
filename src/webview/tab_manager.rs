@@ -83,7 +83,7 @@
 use std::collections::HashMap;
 
 use auroraview_core::assets::get_browser_controller_html;
-use auroraview_core::builder::{get_background_color, log_background_color, NoopDragDropSink};
+use auroraview_core::builder::{get_background_color, log_background_color};
 use serde::{Deserialize, Serialize};
 use tao::dpi::LogicalSize;
 use tao::event::{Event, WindowEvent};
@@ -527,14 +527,8 @@ impl TabManager {
             size: wry::dpi::Size::Physical(wry::dpi::PhysicalSize::new(size.width, content_height)),
         });
 
-        // Browser mode (controller + all business tabs) never registers
-        // with_drag_drop_handler. Multi-webview overlays cannot maintain a
-        // coherent drop state machine across pixel boundaries (RFC 0016
-        // §2.1). Pages needing absolute paths via IPC should use a top-level
-        // AuroraView instance with capture_file_drop=True instead.
-        let drag_drop_sink = std::sync::Arc::new(NoopDragDropSink);
-        let builder =
-            auroraview_core::builder::attach_drag_drop_handler(builder, false, &drag_drop_sink);
+        // Browser mode: skip drag-drop capture (RFC 0016 §2.1).
+        let builder = auroraview_core::builder::skip_drag_drop_capture(builder);
 
         // Use build_as_child() to ensure bounds are respected
         match builder.build_as_child(window) {
@@ -1009,17 +1003,9 @@ impl TabManager {
             )),
         });
 
-        // Browser mode (controller + all business tabs) never registers
-        // with_drag_drop_handler. Multi-webview overlays cannot maintain a
-        // coherent drop state machine across pixel boundaries (RFC 0016
-        // §2.1). Pages needing absolute paths via IPC should use a top-level
-        // AuroraView instance with capture_file_drop=True instead.
-        let drag_drop_sink = std::sync::Arc::new(NoopDragDropSink);
-        let controller_builder = auroraview_core::builder::attach_drag_drop_handler(
-            controller_builder,
-            false,
-            &drag_drop_sink,
-        );
+        // Browser mode: skip drag-drop capture (RFC 0016 §2.1).
+        let controller_builder =
+            auroraview_core::builder::skip_drag_drop_capture(controller_builder);
 
         // Use build_as_child() to ensure bounds are respected
         let controller = controller_builder

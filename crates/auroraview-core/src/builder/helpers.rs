@@ -41,8 +41,28 @@ impl DispatchError {
 /// Implementations are responsible for forwarding events into the IPC
 /// pipeline. They do not log on failure: the helper logs through a single
 /// `tracing::error!` call so all sinks share a uniform log format.
+///
+/// # Contract
+///
+/// The caller (`attach_drag_drop_handler` → `DragDropHandler::into_handler`)
+/// guarantees that **`Over` events are never dispatched**. The `Over`
+/// variant fires per-pixel during a drag and is filtered at the
+/// `DragDropHandler` level before any callback or sink is invoked.
+/// Implementations may therefore assume `event_name` is one of:
+///
+/// - `"file_drop_hover"` (Enter)
+/// - `"file_drop"` (Drop)
+/// - `"file_drop_cancelled"` (Leave)
+///
+/// If an `Over` event somehow reaches `dispatch` (e.g. a caller bypasses
+/// `into_handler`), the implementation is free to return `Ok(())` and
+/// discard it — but this should never happen in normal operation.
 pub trait DragDropIpcSink: Send + Sync + 'static {
     /// Forward a single drag-drop event into the IPC pipeline.
+    ///
+    /// `event_name` is guaranteed to be one of `"file_drop_hover"`,
+    /// `"file_drop"`, or `"file_drop_cancelled"` — never `"file_drop_over"`.
+    /// See the trait-level [Contract](#contract) section.
     fn dispatch(&self, event_name: &str, data: serde_json::Value) -> Result<(), DispatchError>;
 }
 
@@ -129,6 +149,23 @@ where
             );
         }
     }))
+}
+
+/// Browser-mode convenience: explicitly skip drag-drop capture.
+///
+/// Zero-cost passthrough — does **not** construct an `Arc<NoopDragDropSink>`
+/// or invoke [`attach_drag_drop_handler`]. The builder is returned
+/// unchanged. This call site exists purely to preserve auditability for
+/// the CI scanner ([`scripts/ci/check_browser_no_drag_drop_capture.py`])
+/// and to encode the RFC 0016 rationale at every browser-mode entry point.
+///
+/// Multi-webview overlays cannot maintain a coherent drop state machine
+/// across pixel boundaries (RFC 0016 §2.1). Pages needing absolute file
+/// paths via IPC should use a top-level `AuroraView` instance with
+/// `capture_file_drop=True` instead.
+#[inline]
+pub fn skip_drag_drop_capture(builder: wry::WebViewBuilder<'_>) -> wry::WebViewBuilder<'_> {
+    builder
 }
 
 /// Create a drag-drop handler that sends events to an IPC callback

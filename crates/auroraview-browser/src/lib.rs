@@ -134,8 +134,3 @@ pub mod events {
     pub use crate::browser::BrowserEvent;
     pub use crate::tab::TabEvent;
 }
-
-// Browser-mode controller and business tabs always pass `capture=false` to
-// `attach_drag_drop_handler` (RFC 0016). Reuse the shared `NoopDragDropSink`
-// from `auroraview-core::builder` instead of redefining a private one.
-pub(crate) use auroraview_core::builder::NoopDragDropSink;
