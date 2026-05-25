@@ -128,6 +128,7 @@ All WebView types share these common parameters:
 | background_color | str | None | Background color |
 | asset_root | str | None | Custom protocol root |
 | allow_file_protocol | bool | False | Enable file:// |
+| capture_file_drop | Optional[bool] | None | Intercept OS drag-drop as IPC `file_drop` events (None→False) |
 | mode | str | "auto" | Embedding mode ("auto", "child", "owner") |
 
 ### WebView Class Methods
@@ -404,19 +405,39 @@ def on_closing(data):
 
 ## File Drop Events
 
-```python
-from auroraview.core.events import WindowEvent
+> **Breaking change (v0.6)**: `capture_file_drop` defaults to `False`. DCC tools that
+> previously relied on implicit `file_drop` IPC events must now pass
+> `capture_file_drop=True` explicitly.
 
-@webview.on(WindowEvent.FILE_DROP)
+File drop is **mutually exclusive** with HTML5 `dragover`/`drop` — enabling one
+disables the other (wry/WebView2 upstream limitation).
+
+```python
+from auroraview import AuroraView
+
+# Opt-in to OS drag-drop interception
+webview = AuroraView(
+    url="http://localhost:3000",
+    capture_file_drop=True,  # Required since v0.6
+)
+
+@webview.on("file_drop")
 def on_file_drop(data):
     for path in data['paths']:
         print(f"Dropped: {path}")
 
-@webview.on(WindowEvent.FILE_DROP_HOVER)
+@webview.on("file_drop_hover")
 def on_file_hover(data):
     if data['hovering']:
         print(f"Dragging {len(data['paths'])} files over window")
 ```
+
+CLI / packed modes:
+- `auroraview run --capture-file-drop` — enable for `run` subcommand.
+- `auroraview pack --capture-file-drop` / `--no-capture-file-drop` — bake into manifest.
+- `AURORAVIEW_CAPTURE_FILE_DROP=1` — runtime env-var escape hatch.
+
+Merge precedence (highest wins): env-var > CLI flag > manifest > code default (`False`).
 
 ## Custom Protocol Handler
 
@@ -520,6 +541,7 @@ strategy = "standalone"
 auroraview --url https://example.com
 auroraview --html /path/to/file.html
 auroraview --url https://example.com --title "My App" --width 1024 --height 768
+auroraview --url https://example.com --capture-file-drop  # enable IPC file drop
 uvx auroraview --url https://example.com
 ```
 

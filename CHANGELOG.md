@@ -191,6 +191,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * `scripts/ci/check_capture_file_drop_defaults.py` +
   `check_browser_no_drag_drop_capture.py`: two static CI trip-wires wired into
   `vx just test` via `vx just ci-grep`.
+
 ### Added
 
 * **windows**: `AURORAVIEW_WEBVIEW2_TIMEOUT_SECS` environment variable to
