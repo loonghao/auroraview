@@ -34,7 +34,8 @@ p256 = { version = "0.13", features = ["ecdh"] }
 # Hashing and encoding
 blake3 = "1.5"
 base64 = "0.22"
-rand = "0.8"
+rand = "0.10"
+rand_core = { version = "0.6", features = ["getrandom"] }
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }

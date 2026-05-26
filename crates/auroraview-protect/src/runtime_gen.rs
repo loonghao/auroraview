@@ -222,15 +222,15 @@ _protect_module()
 
     /// Obfuscate the key into parts with XOR masks
     fn obfuscate_key(&self, key: &[u8; 32]) -> ([[u8; 8]; 4], [[u8; 8]; 4]) {
-        use rand::Rng;
-        let mut rng = rand::thread_rng();
+        use rand::RngExt;
+        let mut rng = rand::rng();
 
         let mut parts = [[0u8; 8]; 4];
         let mut xor_keys = [[0u8; 8]; 4];
 
         for i in 0..4 {
             let start = i * 8;
-            let xor_key: [u8; 8] = rng.gen();
+            let xor_key: [u8; 8] = rng.random();
             xor_keys[i] = xor_key;
 
             for j in 0..8 {
@@ -771,8 +771,8 @@ _protect_bootstrap()
 
     /// Obfuscate a variable-length key into parts with XOR masks
     fn obfuscate_variable_key(&self, key: &[u8]) -> (Vec<[u8; 8]>, Vec<[u8; 8]>) {
-        use rand::Rng;
-        let mut rng = rand::thread_rng();
+        use rand::RngExt;
+        let mut rng = rand::rng();
 
         // Pad to multiple of 8
         let padded_len = key.len().div_ceil(8) * 8;
@@ -785,7 +785,7 @@ _protect_bootstrap()
 
         for i in 0..num_parts {
             let start = i * 8;
-            let xor_key: [u8; 8] = rng.gen();
+            let xor_key: [u8; 8] = rng.random();
             let mut part = [0u8; 8];
 
             for j in 0..8 {

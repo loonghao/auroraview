@@ -21,8 +21,8 @@ use p256::{
     elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint},
     PublicKey as P256PublicKey,
 };
-use rand::rngs::OsRng;
-use rand::Rng;
+use rand::RngExt;
+use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret as X25519StaticSecret};
 
@@ -196,7 +196,7 @@ pub fn encrypt_hybrid(
     algorithm: EccAlgorithm,
 ) -> ProtectResult<EncryptedPackage> {
     // 1. Generate random AES key
-    let aes_key: [u8; AES_KEY_SIZE] = rand::thread_rng().gen();
+    let aes_key: [u8; AES_KEY_SIZE] = rand::rng().random();
 
     // 2. Encrypt bytecode with AES-256-GCM
     let encrypted_data = encrypt_aes_gcm(bytecode, &aes_key)?;
@@ -253,7 +253,7 @@ fn encrypt_key_x25519(
     let cipher = ChaCha20Poly1305::new_from_slice(&derived_key)
         .map_err(|e| ProtectError::Encryption(e.to_string()))?;
 
-    let nonce_bytes: [u8; CHACHA_NONCE_SIZE] = rand::thread_rng().gen();
+    let nonce_bytes: [u8; CHACHA_NONCE_SIZE] = rand::rng().random();
     let nonce = ChachaNonce::from_slice(&nonce_bytes);
 
     let ciphertext = cipher
@@ -296,7 +296,7 @@ fn encrypt_key_p256(
     let cipher = Aes256Gcm::new_from_slice(&derived_key)
         .map_err(|e| ProtectError::Encryption(e.to_string()))?;
 
-    let nonce_bytes: [u8; AES_NONCE_SIZE] = rand::thread_rng().gen();
+    let nonce_bytes: [u8; AES_NONCE_SIZE] = rand::rng().random();
     let nonce = AesNonce::from_slice(&nonce_bytes);
 
     let ciphertext = cipher
@@ -468,7 +468,7 @@ pub fn encrypt_aes_gcm(plaintext: &[u8], key: &[u8; AES_KEY_SIZE]) -> ProtectRes
     let cipher =
         Aes256Gcm::new_from_slice(key).map_err(|e| ProtectError::Encryption(e.to_string()))?;
 
-    let nonce_bytes: [u8; AES_NONCE_SIZE] = rand::thread_rng().gen();
+    let nonce_bytes: [u8; AES_NONCE_SIZE] = rand::rng().random();
     let nonce = AesNonce::from_slice(&nonce_bytes);
 
     let ciphertext = cipher
@@ -520,7 +520,7 @@ pub struct KeyObfuscator {
 impl KeyObfuscator {
     /// Create a new key obfuscator with the given key
     pub fn new(key: &[u8]) -> Self {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
 
         // Pad key to multiple of 8
         let padded_len = key.len().div_ceil(8) * 8;
@@ -536,7 +536,7 @@ impl KeyObfuscator {
             let mut part: [u8; 8] = padded_key[start..start + 8]
                 .try_into()
                 .expect("slice length is always 8");
-            let xor_key: [u8; 8] = rng.gen();
+            let xor_key: [u8; 8] = rng.random();
 
             // XOR the part with the key
             for j in 0..8 {
@@ -737,7 +737,7 @@ mod tests {
 
     #[test]
     fn test_aes_gcm_roundtrip() {
-        let key: [u8; 32] = rand::thread_rng().gen();
+        let key: [u8; 32] = rand::rng().random();
         let plaintext = b"Test data for AES-GCM encryption";
 
         let encrypted = encrypt_aes_gcm(plaintext, &key).unwrap();

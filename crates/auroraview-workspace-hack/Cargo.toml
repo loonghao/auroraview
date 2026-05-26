@@ -25,7 +25,7 @@ crossbeam-epoch = { version = "0.9" }
 crossbeam-utils = { version = "0.8" }
 crypto-common = { version = "0.1", default-features = false, features = ["getrandom", "std"] }
 data-encoding = { version = "2" }
-digest = { version = "0.10", features = ["mac", "oid", "std"] }
+digest = { version = "0.11", features = ["mac", "oid"] }
 either = { version = "1", features = ["use_std"] }
 flate2 = { version = "1", features = ["zlib-rs"] }
 form_urlencoded = { version = "1" }
@@ -47,7 +47,7 @@ image = { version = "0.25" }
 ipnet = { version = "2" }
 log = { version = "0.4", default-features = false, features = ["std"] }
 memchr = { version = "2" }
-miniz_oxide = { version = "0.8", features = ["simd"] }
+miniz_oxide = { version = "0.9", features = ["simd"] }
 mio = { version = "1", features = ["net", "os-ext"] }
 num-integer = { version = "0.1", default-features = false, features = ["i128", "std"] }
 num-traits = { version = "0.2", features = ["i128"] }
@@ -58,8 +58,7 @@ portable-atomic = { version = "1" }
 ppv-lite86 = { version = "0.2", default-features = false, features = ["simd", "std"] }
 pyo3 = { version = "0.27", features = ["auto-initialize", "extension-module", "multiple-pymethods"] }
 pyo3-ffi = { version = "0.27", features = ["extension-module"] }
-rand-274715c4dabd11b0 = { package = "rand", version = "0.9" }
-rand-c38e5c1d305a1b54 = { package = "rand", version = "0.8", features = ["small_rng"] }
+rand = { version = "0.10" }
 rand_chacha = { version = "0.9", default-features = false, features = ["std"] }
 raw-window-handle = { version = "0.6", default-features = false, features = ["std"] }
 regex = { version = "1" }
@@ -74,7 +73,7 @@ rustls-webpki = { version = "0.103", default-features = false, features = ["ring
 scopeguard = { version = "1" }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
 serde_core = { version = "1", default-features = false, features = ["alloc", "rc", "result", "std"] }
-sha2 = { version = "0.10" }
+sha2 = { version = "0.11" }
 simd-adler32 = { version = "0.3" }
 slab = { version = "0.4" }
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
@@ -100,7 +99,7 @@ zstd-sys = { version = "2", default-features = false, features = ["legacy", "std
 [build-dependencies]
 aho-corasick = { version = "1" }
 crypto-common = { version = "0.1", default-features = false, features = ["getrandom", "std"] }
-digest = { version = "0.10", features = ["mac", "oid", "std"] }
+digest = { version = "0.11", features = ["mac", "oid"] }
 either = { version = "1", features = ["use_std"] }
 generic-array = { version = "0.14", default-features = false, features = ["more_lengths", "zeroize"] }
 hashbrown-986da7b5efc2b80e = { package = "hashbrown", version = "0.16" }
@@ -109,7 +108,7 @@ memchr = { version = "2" }
 phf_shared = { version = "0.13" }
 ppv-lite86 = { version = "0.2", default-features = false, features = ["simd", "std"] }
 pyo3-build-config = { version = "0.27", features = ["extension-module", "resolve-config"] }
-rand-c38e5c1d305a1b54 = { package = "rand", version = "0.8", features = ["small_rng"] }
+rand = { version = "0.10" }
 regex = { version = "1" }
 regex-automata = { version = "0.4", default-features = false, features = ["dfa-build", "dfa-onepass", "hybrid", "meta", "nfa", "perf", "std", "unicode"] }
 regex-syntax = { version = "0.8" }
@@ -117,7 +116,7 @@ rust-embed-impl = { version = "8", default-features = false, features = ["debug-
 rust-embed-utils = { version = "8", default-features = false, features = ["debug-embed", "include-exclude"] }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
 serde_core = { version = "1", default-features = false, features = ["alloc", "rc", "result", "std"] }
-sha2 = { version = "0.10" }
+sha2 = { version = "0.11" }
 subtle = { version = "2", default-features = false, features = ["i128"] }
 syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
 toml_parser = { version = "1" }

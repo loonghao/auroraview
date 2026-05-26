@@ -271,12 +271,12 @@ impl Downloader {
             // SHA256
             let mut hasher = Sha256::new();
             hasher.update(content);
-            format!("{:x}", hasher.finalize())
+            hasher.finalize().iter().map(|b| format!("{:02x}", b)).collect::<String>()
         } else if expected.len() == 128 {
             // SHA512
             let mut hasher = Sha512::new();
             hasher.update(content);
-            format!("{:x}", hasher.finalize())
+            hasher.finalize().iter().map(|b| format!("{:02x}", b)).collect::<String>()
         } else {
             return Err(PackError::Config(format!(
                 "Invalid checksum length: {} (expected 64 for SHA256 or 128 for SHA512)",
