@@ -372,11 +372,22 @@ class LifecycleMixin:
         if self._is_closing:
             return True
 
+        # Emit aboutToClose BEFORE any state mutation.
+        # At this point the widget is still fully alive -- external listeners
+        # can save state, cancel pending async tasks, disconnect callbacks, etc.
+        try:
+            self.aboutToClose.emit()  # type: ignore[attr-defined]
+        except (RuntimeError, AttributeError):
+            pass  # Widget may already be partially destroyed
+
         if _VERBOSE_LOGGING:
             logger.debug("[LifecycleMixin] closeEvent")
         self._is_closing = True
 
         try:
+            # Teardown signal bridge to release callback references
+            self._teardown_signal_bridge()  # type: ignore[attr-defined]
+
             # Close the WebView
             try:
                 self._webview.close()
@@ -405,9 +416,13 @@ class LifecycleMixin:
         self._webview_initialized = False
 
         # Note: We intentionally do NOT reset _is_closing here.
-        # The _is_closing flag should remain True after closeEvent to indicate
-        # the widget is in a closing state. It will be reset by showEvent
-        # if the widget is shown again.
+        # The _is_closing flag remains True after closeEvent to ensure all
+        # pending async callbacks (IPC, navigation events, timers) are
+        # short-circuited by is_alive guards. The flag is reset in showEvent
+        # when the widget is re-shown (DCC reuse pattern: close panel ->
+        # reopen same panel instance). At that point _teardown_signal_bridge()
+        # is called first to clear stale callbacks before the flag reset,
+        # then _setup_signal_bridge() re-establishes fresh callbacks.
 
         # Clear container references (will be recreated on next show)
         self._webview_container = None
@@ -430,8 +445,10 @@ class LifecycleMixin:
         Called from __del__ to ensure cleanup if the widget is GC'ed unexpectedly.
         """
         try:
-            if not getattr(self, "_is_closing", False) and hasattr(self, "_webview"):
-                self._webview.close()
+            if not getattr(self, "_is_closing", False):
+                webview = getattr(self, "_webview", None)
+                if webview is not None:
+                    webview.close()
         except Exception as e:  # pragma: no cover
             if _VERBOSE_LOGGING:
                 logger.debug("[LifecycleMixin] __del__ error: %s", e)

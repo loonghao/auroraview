@@ -113,9 +113,8 @@ class TestQtWebViewEventProcessing:
     """Test event processing and UI updates.
 
     Cleanup convention: all tests use ``deleteLater()`` only in ``finally``.
-    ``WA_DeleteOnClose`` is set by ``QtWebView.__init__`` so an explicit
-    ``close()`` is unnecessary — ``deleteLater()`` is sufficient to schedule
-    C++ destructor dispatch on the next event-loop tick.
+    ``WA_DeleteOnClose`` is NOT set (removed for DCC safety), so explicit
+    ``deleteLater()`` is the canonical cleanup path.
     """
 
     @staticmethod
@@ -204,16 +203,22 @@ class TestQtWebViewEventProcessing:
 class TestQtWebViewAppIntegration:
     """Lightweight tests around Qt-specific integration flags."""
 
-    def test_wa_delete_on_close_set(self, qapp):
-        """QtWebView should delete itself when closed."""
+    def test_wa_delete_on_close_not_set(self, qapp):
+        """QtWebView should NOT set WA_DeleteOnClose.
+
+        WA_DeleteOnClose was removed because in DCC environments (Maya,
+        Houdini), Qt fires spurious closeEvents during DPI changes or
+        native window rebuilds, which would permanently destroy the C++
+        object and create zombie references. The widget relies on explicit
+        destroy()/deleteLater() for cleanup instead.
+        """
         from qtpy.QtCore import Qt
 
         from auroraview import QtWebView
 
         webview = QtWebView()
         try:
-            # Verify WA_DeleteOnClose is set
-            assert webview.testAttribute(Qt.WA_DeleteOnClose) is True
+            assert webview.testAttribute(Qt.WA_DeleteOnClose) is False
         finally:
             webview.deleteLater()
 

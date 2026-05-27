@@ -41,11 +41,12 @@ Example:
     >>> webview.show()
 """
 
+import functools
 import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any, Callable, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 try:
     from qtpy.QtCore import QCoreApplication, QEvent, Qt, QTimer, Signal
@@ -73,6 +74,67 @@ _VERBOSE_LOGGING = os.environ.get("AURORAVIEW_LOG_VERBOSE", "").lower() in (
     "yes",
     "on",
 )
+
+
+# Event names registered by _setup_signal_bridge(). Single source of truth
+# used by both setup (documentation/assertions) and teardown (cleanup).
+_SIGNAL_BRIDGE_EVENTS: tuple = (
+    "navigation_started",
+    "navigation_finished",
+    "load_progress",
+    "title_changed",
+    "url_changed",
+    "js_error",
+    "console_message",
+    "render_process_terminated",
+    "selection_changed",
+    "icon_changed",
+)
+
+
+def _guard_alive(method):
+    """Decorator that guards public API methods against zombie widget access.
+
+    If the widget is closing or the C++ object has been destroyed,
+    the method becomes a silent no-op returning None. This prevents
+    RuntimeError from propagating to user code in async callback scenarios.
+
+    Return value semantics:
+        When the widget is not alive, the decorated method returns None
+        regardless of its normal return type. Callers of guarded methods
+        that normally return values (if any are added in future) MUST
+        handle None as a possible return value indicating the widget is
+        dead. Currently all guarded methods are void (load_url, load_html,
+        eval_js, emit, load_file), so this is transparent.
+    """
+
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        if not self.is_alive:
+            if _VERBOSE_LOGGING:
+                logger.debug(
+                    "QtWebView.%s() skipped: widget is not alive",
+                    method.__name__,
+                )
+            return None
+        try:
+            return method(self, *args, **kwargs)
+        except RuntimeError as e:
+            # Only swallow Qt C++ deletion errors (TOCTOU window between
+            # is_alive check and actual Qt call). Re-raise anything else
+            # (e.g., path errors in load_file, Rust core panics) so that
+            # genuine bugs are not silently hidden.
+            msg = str(e).lower()
+            if "deleted" in msg or "c++ object" in msg or "wrapped c++" in msg:
+                if _VERBOSE_LOGGING:
+                    logger.debug(
+                        "QtWebView.%s() caught RuntimeError (C++ object deleted)",
+                        method.__name__,
+                    )
+                return None
+            raise
+
+    return wrapper
 
 
 class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
@@ -158,6 +220,9 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
     # Window signals
     windowCloseRequested = Signal()
     fullScreenRequested = Signal(bool)
+
+    # Lifecycle signals
+    aboutToClose = Signal()  # Emitted before close sequence, widget still alive
 
     # Class-level flag to track if auto-prewarm has been triggered
     _auto_prewarm_triggered: bool = False
@@ -264,7 +329,14 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
 
         # Native window attributes
         self.setAttribute(Qt.WA_NativeWindow, True)
-        self.setAttribute(Qt.WA_DeleteOnClose, True)
+        # NOTE: WA_DeleteOnClose intentionally NOT set.
+        # In DCC environments (Maya, Houdini, Nuke), Qt may fire spurious
+        # closeEvents during DPI changes or native window rebuilds.
+        # WA_DeleteOnClose would permanently destroy the C++ object, making
+        # the Python reference a "zombie" that crashes on any attribute access.
+        # Instead, we rely on explicit destroy()/deleteLater() or Python GC.
+        # The _reset_state_for_reuse() mechanism allows the widget to be
+        # shown again after a close.
 
         qt_hwnd = int(self.winId())
 
@@ -275,7 +347,7 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
         self._last_emitted_size = (0, 0)
 
         # Create the core WebView
-        self._webview = WebView.create(
+        self._webview: Optional[WebView] = WebView.create(
             title=title,
             width=width,
             height=height,
@@ -305,7 +377,28 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
         )
 
         # Track cleanup state
-        self._is_closing = False
+        # Thread safety note: _is_closing is a plain bool read/written without
+        # explicit locks. This is safe because:
+        # 1. CPython GIL guarantees atomic LOAD_ATTR/STORE_ATTR bytecode ops
+        # 2. All WebView event callbacks are dispatched on the main thread via
+        #    QtEventProcessor (auto_timer=True mode), so reads in signal bridge
+        #    callbacks happen on the same thread as writes in closeEvent/showEvent.
+        # If migrating to free-threaded Python (PEP 703) or non-CPython runtime,
+        # consider using threading.Event or an atomic flag.
+        self._is_closing: bool = False
+        # Latching flag: once the C++ QWidget object is confirmed destroyed
+        # (objectName() raised RuntimeError), this is set True permanently.
+        # Avoids repeated try/except overhead in is_alive on high-frequency
+        # callback paths (e.g., load_progress events during large page loads).
+        self._cpp_dead: bool = False
+
+        # Bridge handler tracking: maps event_name → guarded callback reference.
+        # Used by _teardown_signal_bridge() to surgically remove only bridge
+        # callbacks from the core WebView, preserving user-registered handlers.
+        self._bridge_handlers: Dict[str, Callable] = {}
+        # ConnectionIds returned by core.register_callback() for bridge handlers.
+        # Enables targeted signal system disconnect without clearing user signals.
+        self._bridge_conn_ids: Dict[str, Any] = {}
 
         # Cross-task mutex flags + last-synced bounds memo shared by
         # EmbeddingMixin (child-window fixer) and LifecycleMixin
@@ -403,10 +496,54 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
 
         return page
 
-    def _setup_signal_bridge(self) -> None:
-        """Set up event handlers to bridge WebView events to Qt signals."""
+    def _guarded_bridge_callback(self, fn):
+        """Wrap a signal bridge callback with is_alive guard + RuntimeError catch.
 
-        @self._webview.on("navigation_started")
+        All signal bridge callbacks share the same guard pattern: skip if the
+        widget is dead, catch RuntimeError from C++ object deletion during the
+        TOCTOU window. This helper centralizes that pattern.
+        """
+
+        @functools.wraps(fn)
+        def wrapper(data):
+            if not self.is_alive:
+                return
+            try:
+                return fn(data)
+            except RuntimeError as e:
+                # Consistent with _guard_alive and _make_guarded_ipc_wrapper:
+                # only swallow Qt C++ deletion errors, re-raise anything else.
+                msg = str(e).lower()
+                if "deleted" in msg or "c++ object" in msg or "wrapped c++" in msg:
+                    return None
+                raise
+
+        return wrapper
+
+    def _setup_signal_bridge(self) -> None:
+        """Set up event handlers to bridge WebView events to Qt signals.
+
+        Each callback is guarded by is_alive to prevent RuntimeError when
+        async WebView events arrive after the widget has been closed or
+        its C++ object has been destroyed.
+
+        This method is idempotent: it calls _teardown_signal_bridge() first
+        to clear any existing registrations, preventing duplicate handlers
+        on re-show scenarios.
+
+        Bridge callbacks are tracked in self._bridge_handlers so that
+        _teardown_signal_bridge() can surgically remove them without
+        affecting user-registered handlers on the same event names.
+        """
+        # Defensive teardown: prevent duplicate registration on re-show.
+        # Since register_callback() appends (not replaces), calling setup
+        # twice without teardown would cause events to be handled twice.
+        self._teardown_signal_bridge()
+        self._bridge_handlers = {}
+        self._bridge_conn_ids = {}
+
+        # -- Define raw handler functions (business logic only) --
+
         def on_nav_started(data):
             url = data.get("url", "") if data else ""
             self._qt_signal_state["is_loading"] = True
@@ -416,7 +553,6 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
                 self._qt_signal_state["current_url"] = url
                 self.urlChanged.emit(url)
 
-        @self._webview.on("navigation_finished")
         def on_nav_finished(data):
             success = data.get("success", True) if data else True
             url = data.get("url", "") if data else ""
@@ -427,7 +563,6 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
                 self._qt_signal_state["current_url"] = url
                 self.urlChanged.emit(url)
 
-        @self._webview.on("load_progress")
         def on_load_progress(data):
             progress = data.get("progress", 0) if data else 0
             progress = max(0, min(100, int(progress)))
@@ -435,21 +570,18 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
                 self._qt_signal_state["load_progress"] = progress
                 self.loadProgress.emit(progress)
 
-        @self._webview.on("title_changed")
         def on_title_changed(data):
             title = data.get("title", "") if data else ""
             if title and title != self._qt_signal_state["current_title"]:
                 self._qt_signal_state["current_title"] = title
                 self.titleChanged.emit(title)
 
-        @self._webview.on("url_changed")
         def on_url_changed(data):
             url = data.get("url", "") if data else ""
             if url and url != self._qt_signal_state["current_url"]:
                 self._qt_signal_state["current_url"] = url
                 self.urlChanged.emit(url)
 
-        @self._webview.on("js_error")
         def on_js_error(data):
             if data:
                 self.jsError.emit(
@@ -458,7 +590,6 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
                     data.get("source", ""),
                 )
 
-        @self._webview.on("console_message")
         def on_console_message(data):
             if data:
                 self.consoleMessage.emit(
@@ -468,7 +599,6 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
                     data.get("source", ""),
                 )
 
-        @self._webview.on("render_process_terminated")
         def on_render_terminated(data):
             if data:
                 self.renderProcessTerminated.emit(
@@ -476,11 +606,9 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
                     data.get("exit_code", 0),
                 )
 
-        @self._webview.on("selection_changed")
         def on_selection_changed(data):
             self.selectionChanged.emit()
 
-        @self._webview.on("icon_changed")
         def on_icon_changed(data):
             self.iconChanged.emit()
             if data:
@@ -488,8 +616,105 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
                 if url:
                     self.iconUrlChanged.emit(url)
 
+        # -- Register each handler with guard wrapper, track references --
+
+        _handlers_map = {
+            "navigation_started": on_nav_started,
+            "navigation_finished": on_nav_finished,
+            "load_progress": on_load_progress,
+            "title_changed": on_title_changed,
+            "url_changed": on_url_changed,
+            "js_error": on_js_error,
+            "console_message": on_console_message,
+            "render_process_terminated": on_render_terminated,
+            "selection_changed": on_selection_changed,
+            "icon_changed": on_icon_changed,
+        }
+
+        for event_name, raw_handler in _handlers_map.items():
+            guarded = self._guarded_bridge_callback(raw_handler)
+            conn_id = self._webview.register_callback(event_name, guarded)
+            self._bridge_handlers[event_name] = guarded
+            self._bridge_conn_ids[event_name] = conn_id
+
+        # Dev-time assertion: ensure we registered exactly the events
+        # declared in _SIGNAL_BRIDGE_EVENTS. Catches drift when adding
+        # new events to one place but not the other.
+        assert set(self._bridge_handlers.keys()) == set(_SIGNAL_BRIDGE_EVENTS), (
+            f"Signal bridge event mismatch: registered={set(self._bridge_handlers.keys())}, "
+            f"expected={set(_SIGNAL_BRIDGE_EVENTS)}"
+        )
+
         if _VERBOSE_LOGGING:
-            logger.debug("QtWebView: Signal bridge initialized")
+            logger.debug("QtWebView: Signal bridge initialized (%d callbacks)", len(_SIGNAL_BRIDGE_EVENTS))
+
+    def _teardown_signal_bridge(self) -> None:
+        """Remove only bridge-registered callbacks from the core WebView.
+
+        This is the symmetric counterpart of _setup_signal_bridge(). It
+        surgically removes bridge callbacks tracked in self._bridge_handlers
+        without affecting user-registered handlers on the same event names.
+
+        Strategy:
+        - All bridge callbacks are already guarded by is_alive, so they are
+          effectively no-ops once _is_closing is True.
+        - This teardown is primarily for breaking reference cycles to enable
+          proper garbage collection in long-running DCC sessions.
+        - User handlers registered via QtWebView.on() or register_callback()
+          on the same event names (e.g., "navigation_started") are preserved.
+
+        Called during:
+        - _handle_close_event(): release callbacks before WebView.close()
+        - showEvent() re-show: clear stale callbacks before re-initialization
+        - eventFilter parent close: clean up on parent destruction
+        - _setup_signal_bridge(): idempotent cleanup before (re-)registration
+        """
+        webview = getattr(self, "_webview", None)
+        if webview is None:
+            return
+
+        bridge_handlers = getattr(self, "_bridge_handlers", {})
+        bridge_conn_ids = getattr(self, "_bridge_conn_ids", {})
+
+        # Layer 1: Remove bridge callbacks from legacy event handler registry.
+        # Only removes the specific callable we registered, preserving any
+        # user-registered handlers on the same event name.
+        try:
+            with webview._event_handlers_lock:
+                for ev, handler in bridge_handlers.items():
+                    try:
+                        handlers_list = webview._event_handlers.get(ev)
+                        if handlers_list:
+                            try:
+                                handlers_list.remove(handler)
+                            except ValueError:
+                                pass  # Already removed or not found
+                            # Clean up empty lists to prevent unbounded growth
+                            if not handlers_list:
+                                del webview._event_handlers[ev]
+                    except Exception:
+                        pass
+        except (AttributeError, RuntimeError):
+            pass  # Core structure may differ in test mocks or C++ deleted
+
+        # Layer 2: Disconnect from signal system using stored ConnectionIds.
+        # This only disconnects bridge connections, not user connections.
+        try:
+            if hasattr(webview, "signals") and webview.signals is not None:
+                for event_name, conn_id in bridge_conn_ids.items():
+                    try:
+                        webview.signals.custom.disconnect(event_name, conn_id)
+                    except (AttributeError, RuntimeError, Exception):
+                        pass
+        except (AttributeError, RuntimeError):
+            pass
+
+        # Clear tracked references
+        self._bridge_handlers = {}
+        self._bridge_conn_ids = {}
+
+        if _VERBOSE_LOGGING:
+            logger.debug("QtWebView: Signal bridge torn down (%d events)", len(bridge_handlers))
 
     @classmethod
     def create_deferred(
@@ -565,18 +790,33 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
     # High-level API (delegated to WebView)
     # ------------------------------------------------------------------
 
+    @_guard_alive
     def load_url(self, url: str) -> None:
-        """Load a URL into the embedded WebView."""
+        """Load a URL into the embedded WebView.
+
+        Safe to call at any point in the widget lifecycle. If the widget
+        is closing or destroyed, this is a silent no-op.
+        """
         self._webview.load_url(url)
         logger.debug("QtWebView loading URL: %s", url)
 
+    @_guard_alive
     def load_html(self, html: str) -> None:
-        """Load HTML content into the embedded WebView."""
+        """Load HTML content into the embedded WebView.
+
+        Safe to call at any point in the widget lifecycle. If the widget
+        is closing or destroyed, this is a silent no-op.
+        """
         self._webview.load_html(html)
         logger.debug("QtWebView loading HTML (%s bytes)", len(html))
 
+    @_guard_alive
     def load_file(self, path: Any) -> None:
-        """Load a local HTML file."""
+        """Load a local HTML file.
+
+        Safe to call at any point in the widget lifecycle. If the widget
+        is closing or destroyed, this is a silent no-op.
+        """
         html_path = Path(path).expanduser().resolve()
 
         if self._asset_root:
@@ -609,35 +849,74 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
             else:
                 self.load_url(html_path.as_uri())
 
+    @_guard_alive
     def eval_js(self, script: str) -> None:
-        """Execute JavaScript in the embedded WebView."""
+        """Execute JavaScript in the embedded WebView.
+
+        Safe to call at any point in the widget lifecycle. If the widget
+        is closing or destroyed, this is a silent no-op.
+        """
         self._webview.eval_js(script)
 
+    @_guard_alive
     def emit(self, event_name: str, data: Any = None, auto_process: bool = True) -> None:
-        """Emit an AuroraView event to the embedded WebView."""
+        """Emit an AuroraView event to the embedded WebView.
+
+        Safe to call at any point in the widget lifecycle. If the widget
+        is closing or destroyed, this is a silent no-op.
+        """
         self._webview.emit(event_name, data, auto_process=auto_process)
 
+    def _make_guarded_ipc_wrapper(self, event_name: str, callback: Callable) -> Callable:
+        """Create a guarded IPC wrapper for user-registered event callbacks.
+
+        Combines is_alive guard + ipcMessageReceived signal emission +
+        RuntimeError protection. Used by both on() and register_callback().
+        """
+
+        def wrapper(data):
+            if not self.is_alive:
+                return None
+            try:
+                self.ipcMessageReceived.emit(event_name, data)
+                return callback(data)
+            except RuntimeError as e:
+                # Only swallow Qt C++ deletion errors. Re-raise user
+                # callback RuntimeErrors (e.g., argument validation) so
+                # they surface properly instead of being silently eaten.
+                msg = str(e).lower()
+                if "deleted" in msg or "c++ object" in msg or "wrapped c++" in msg:
+                    return None
+                raise
+
+        return wrapper
+
     def on(self, event_name: str) -> Callable:
-        """Decorator to register event handler with Qt signal emission."""
+        """Decorator to register event handler with Qt signal emission.
+
+        The registered wrapper is guarded: if the widget is closing or
+        the C++ object has been destroyed when an IPC message arrives,
+        the callback is silently skipped.
+        """
 
         def decorator(func: Callable) -> Callable:
-            def wrapper(data):
-                self.ipcMessageReceived.emit(event_name, data)
-                return func(data)
-
-            self._webview.register_callback(event_name, wrapper)
+            self._webview.register_callback(
+                event_name, self._make_guarded_ipc_wrapper(event_name, func)
+            )
             return func
 
         return decorator
 
     def register_callback(self, event_name: str, callback: Callable) -> None:
-        """Register a callback for an event with Qt signal emission."""
+        """Register a callback for an event with Qt signal emission.
 
-        def wrapper(data):
-            self.ipcMessageReceived.emit(event_name, data)
-            return callback(data)
-
-        self._webview.register_callback(event_name, wrapper)
+        The registered wrapper is guarded: if the widget is closing or
+        the C++ object has been destroyed when an IPC message arrives,
+        the callback is silently skipped.
+        """
+        self._webview.register_callback(
+            event_name, self._make_guarded_ipc_wrapper(event_name, callback)
+        )
 
     # Window event callbacks (delegate to WebView)
     def on_shown(self, callback: Callable) -> Callable:
@@ -754,12 +1033,67 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
         """Get current load progress (0-100)."""
         return self._qt_signal_state.get("load_progress", 0)
 
+    @property
+    def is_alive(self) -> bool:
+        """Check if the widget and its underlying WebView are still usable.
+
+        Returns False if:
+        - The widget is in the process of closing (_is_closing)
+        - The C++ QWidget was previously confirmed destroyed (_cpp_dead)
+        - The internal WebView reference is None (after destroy())
+        - The underlying C++ QWidget has been destroyed (deleteLater)
+
+        This is the single source of truth for all validity guards.
+        External code and internal callbacks should check this before
+        accessing the widget to avoid RuntimeError from dead C++ objects.
+
+        Performance note:
+            Once objectName() raises RuntimeError (confirming C++ death),
+            the _cpp_dead flag is latched True. Subsequent calls short-
+            circuit without entering try/except, avoiding overhead on
+            high-frequency callback paths (e.g., load_progress during
+            large page loads may fire dozens of times per second).
+            The flag is reset in showEvent on DCC widget reuse.
+
+        Thread-safety / timing note:
+            After destroy() calls deleteLater(), the C++ object is not
+            immediately deleted — it waits for event loop dispatch. However,
+            _is_closing is always set True BEFORE deleteLater() is called
+            (both in destroy() and _handle_close_event()), so the fast-path
+            ``if self._is_closing: return False`` catches this case before
+            objectName() is ever reached. If _is_closing were somehow
+            bypassed, objectName() would still return True until the event
+            loop processes the deferred deletion — this is acceptable since
+            it means the C++ object is technically still alive at that point.
+        """
+        if self._is_closing:
+            return False
+        if self._cpp_dead:
+            return False
+        if getattr(self, "_webview", None) is None:
+            return False
+        try:
+            # objectName() is a O(1) Qt property access that will raise
+            # RuntimeError if the C++ object has been destroyed.
+            # Unlike isVisible() which traverses the parent chain, this
+            # is a direct member access with negligible overhead.
+            self.objectName()
+            return True
+        except RuntimeError:
+            # C++ object confirmed dead; latch the flag so subsequent
+            # calls skip the try/except entirely (avoids overhead on
+            # high-frequency event paths like load_progress).
+            self._cpp_dead = True
+            return False
+
     # ------------------------------------------------------------------
     # Qt integration
     # ------------------------------------------------------------------
 
     def get_diagnostics(self) -> dict:
         """Get diagnostic information."""
+        if self._webview is None:
+            return {"error": "widget destroyed", "is_alive": False}
         return {
             "event_processor_type": type(self._event_processor).__name__,
             "event_process_count": self._event_processor._process_count,
@@ -790,7 +1124,13 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
                 container.setGeometry(0, 0, width, height)
                 self._sync_webview2_controller_bounds()
             except RuntimeError:
-                # C++ object already deleted during close sequence
+                # C++ container object was destroyed (likely DPI change or
+                # parent deleteLater). Log and clear reference so we don't
+                # attempt further operations on the dead object.
+                logger.warning(
+                    "QtWebView.resizeEvent: container C++ object already deleted "
+                    "(DPI change or close sequence). Clearing container reference."
+                )
                 self._webview_container = None
 
     def moveEvent(self, event) -> None:
@@ -798,44 +1138,129 @@ class QtWebView(LifecycleMixin, EmbeddingMixin, FileDialogMixin, QWidget):
         super().moveEvent(event)
 
     def eventFilter(self, watched, event) -> bool:
-        """Filter events from parent window."""
-        parent_window = getattr(self, "_parent_window", None)
-        if watched == parent_window and parent_window is not None:
-            if event.type() == QEvent.Close:
-                if _VERBOSE_LOGGING:
-                    logger.debug("QtWebView: Parent window closing")
-                try:
-                    if not getattr(self, "_is_closing", False):
-                        self._is_closing = True
-                        webview = getattr(self, "_webview", None)
-                        if webview is not None:
-                            webview.close()
-                except Exception as e:
-                    if _VERBOSE_LOGGING:
-                        logger.debug("QtWebView: error closing on parent close: %s", e)
+        """Filter events from parent window.
 
-        return super().eventFilter(watched, event)
+        Guarded against RuntimeError from Qt C++ object deletion only.
+        Non-deletion RuntimeErrors are re-raised to surface genuine bugs.
+        """
+        try:
+            parent_window = getattr(self, "_parent_window", None)
+            if watched == parent_window and parent_window is not None:
+                if event.type() == QEvent.Close:
+                    if _VERBOSE_LOGGING:
+                        logger.debug("QtWebView: Parent window closing")
+                    # Reuse standard close logic for consistency (emits
+                    # aboutToClose, sets _is_closing, tears down bridge).
+                    self._handle_close_event()
+
+            return super().eventFilter(watched, event)
+        except RuntimeError as e:
+            # Only swallow Qt C++ deletion errors. Re-raise anything else
+            # so that genuine bugs (e.g., logic errors in super()) propagate.
+            msg = str(e).lower()
+            if "deleted" in msg or "c++ object" in msg or "wrapped c++" in msg:
+                return False
+            raise
 
     def showEvent(self, event) -> None:
-        """Handle Qt show event."""
+        """Handle Qt show event.
+
+        On re-show after a previous close (DCC reuse pattern), resets the
+        closing flag so that the widget is fully functional again.
+
+        Ordering is important: _is_closing is reset first (so is_alive
+        returns True), then WebView is (re-)initialized, and finally the
+        signal bridge is re-established on the ready core.
+        """
         super().showEvent(event)
+
+        # Track whether we're coming from a closed state (for bridge setup)
+        was_closing = self._is_closing
+
+        # Reset closing flag on re-show (DCC reuse: close -> show again)
+        if self._is_closing:
+            if _VERBOSE_LOGGING:
+                logger.debug("QtWebView: Resetting _is_closing on re-show (reuse)")
+            self._is_closing = False
+            self._cpp_dead = False  # C++ object is alive if showEvent fires
+            # Reset signal state to prevent stale deduplication
+            # (e.g., navigating to the same URL won't emit urlChanged if
+            # the old value is still cached).
+            self._qt_signal_state = {
+                "current_url": "",
+                "current_title": "",
+                "is_loading": False,
+                "load_progress": 0,
+            }
 
         if not self._webview_initialized:
             self._webview_initialized = True
             self._initialize_webview()
+
+        # Re-establish signal bridge AFTER core is (re-)initialized.
+        # This ensures handlers are registered on a ready WebView core,
+        # not one that's about to be reset by _initialize_webview().
+        if was_closing:
+            self._setup_signal_bridge()
 
     def show(self) -> None:
         """Show the Qt widget."""
         super().show()
 
     def closeEvent(self, event) -> None:
-        """Handle Qt close event."""
+        """Handle Qt close event.
+
+        Accepts the close and cleans up internal WebView state. Since
+        WA_DeleteOnClose is NOT set, the C++ QWidget survives the close
+        and can be shown again (DCC reuse pattern). The internal WebView
+        is released and will be re-created on next showEvent.
+        """
         if self._handle_close_event():
             event.accept()
             return
 
         event.accept()
         super().closeEvent(event)
+
+    def destroy(self) -> None:
+        """Explicitly destroy the widget and release all resources.
+
+        This is the recommended way to permanently dispose of a QtWebView
+        instance. After calling destroy(), the widget cannot be reused.
+
+        Performs:
+        1. Runs standard close logic via _handle_close_event()
+           (emits aboutToClose, sets _is_closing, tears down signal bridge,
+            closes WebView, resets state)
+        2. Removes event filter from parent
+        3. Clears WebView reference (breaks all remaining cycles)
+        4. Schedules C++ object deletion via deleteLater()
+
+        Use this instead of relying on Python GC for deterministic cleanup.
+        """
+        # Reuse standard close logic (idempotent: if _is_closing is already
+        # True, _handle_close_event() returns True immediately -- harmless).
+        self._handle_close_event()
+
+        # Additional permanent cleanup beyond close-for-reuse:
+
+        # Remove event filter from parent window
+        parent_window = getattr(self, "_parent_window", None)
+        if parent_window is not None:
+            try:
+                parent_window.removeEventFilter(self)
+            except (RuntimeError, Exception):
+                pass
+            self._parent_window = None
+
+        # Release WebView reference to break all remaining cycles
+        self._webview = None
+
+        # Schedule C++ object deletion
+        try:
+            self.deleteLater()
+        except RuntimeError:
+            pass  # Already deleted
 
     def __del__(self) -> None:
         """Destructor."""
