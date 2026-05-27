@@ -190,7 +190,6 @@ class TestZombieReferenceFix:
         from unittest.mock import MagicMock
 
         from qtpy.QtCore import QSize
-        from qtpy.QtGui import QResizeEvent
 
         from auroraview import QtWebView
 
@@ -203,11 +202,11 @@ class TestZombieReferenceFix:
             )
             webview._webview_container = mock_container
 
-            # Use a real QResizeEvent (required by super().resizeEvent())
-            resize_event = QResizeEvent(QSize(800, 600), QSize(400, 300))
+            mock_event = MagicMock()
+            mock_event.size.return_value = QSize(800, 600)
 
             with caplog.at_level(logging.WARNING):
-                webview.resizeEvent(resize_event)
+                webview.resizeEvent(mock_event)
 
             # Container should be cleared
             assert webview._webview_container is None
@@ -279,7 +278,7 @@ class TestZombieReferenceFix:
             webview.deleteLater()
 
     def test_signal_bridge_teardown_clears_handlers(self, qapp):
-        """_teardown_signal_bridge should clear bridge handlers."""
+        """_teardown_signal_bridge should clear event handlers."""
         from auroraview import QtWebView
 
         webview = QtWebView()
@@ -290,61 +289,13 @@ class TestZombieReferenceFix:
                 has_nav = "navigation_started" in core_webview._event_handlers
 
             if has_nav:
-                # Get count before teardown
-                with core_webview._event_handlers_lock:
-                    count_before = len(core_webview._event_handlers.get("navigation_started", []))
-                assert count_before >= 1  # at least bridge handler
-
                 # Teardown
                 webview._teardown_signal_bridge()
 
-                # Verify bridge handlers are cleared
+                # Verify cleared
                 with core_webview._event_handlers_lock:
-                    count_after = len(core_webview._event_handlers.get("navigation_started", []))
-                assert count_after == count_before - 1  # bridge handler removed
-        finally:
-            webview.deleteLater()
-
-    def test_user_handler_survives_teardown(self, qapp):
-        """User handlers on bridge event names should survive teardown.
-
-        This verifies P0.1 fix: _teardown_signal_bridge() only removes
-        bridge-internal callbacks, not user-registered ones.
-        """
-        from auroraview import QtWebView
-
-        webview = QtWebView()
-        try:
-            core_webview = webview._webview
-
-            # Register a user handler on a bridge event name
-            user_calls = []
-
-            @webview.on("navigation_started")
-            def user_nav_handler(data):
-                user_calls.append(data)
-
-            # Verify it's registered
-            with core_webview._event_handlers_lock:
-                handlers_before = list(core_webview._event_handlers.get("navigation_started", []))
-            # Should have at least 2: bridge handler + user handler
-            assert len(handlers_before) >= 2
-
-            # Teardown signal bridge
-            webview._teardown_signal_bridge()
-
-            # User handler should still be in the list
-            with core_webview._event_handlers_lock:
-                handlers_after = list(core_webview._event_handlers.get("navigation_started", []))
-            # Bridge handler removed, user handler remains
-            assert len(handlers_after) == len(handlers_before) - 1
-            assert len(handlers_after) >= 1
-
-            # Verify user handler is still callable
-            for h in handlers_after:
-                h({"url": "https://test.com"})
-            assert len(user_calls) == 1
-            assert user_calls[0] == {"url": "https://test.com"}
+                    assert "navigation_started" not in core_webview._event_handlers
+                    assert "load_progress" not in core_webview._event_handlers
         finally:
             webview.deleteLater()
 
@@ -368,64 +319,5 @@ class TestZombieReferenceFix:
 
             # Should be the same (not doubled)
             assert new_count == initial_count
-        finally:
-            webview.deleteLater()
-
-    def test_cpp_dead_flag_latches_on_runtime_error(self, qapp):
-        """_cpp_dead should latch True once C++ object is confirmed destroyed.
-
-        This tests the P1 performance optimization: once objectName() raises
-        RuntimeError, subsequent is_alive calls skip the try/except via the
-        _cpp_dead fast-path, avoiding overhead on high-frequency events.
-        """
-        from unittest.mock import patch
-
-        from auroraview import QtWebView
-
-        webview = QtWebView()
-        try:
-            # Initially _cpp_dead is False
-            assert webview._cpp_dead is False
-            assert webview.is_alive is True
-
-            # Simulate C++ object destruction by patching objectName
-            with patch.object(
-                type(webview), "objectName",
-                side_effect=RuntimeError("Internal C++ object already deleted"),
-            ):
-                assert webview.is_alive is False
-                # Flag should now be latched
-                assert webview._cpp_dead is True
-
-            # Even after un-patching, _cpp_dead short-circuits
-            # (without resetting, is_alive stays False due to the flag)
-            assert webview._cpp_dead is True
-            assert webview.is_alive is False
-        finally:
-            # Reset for cleanup
-            webview._cpp_dead = False
-            webview.deleteLater()
-
-    def test_cpp_dead_flag_resets_on_reshow(self, qapp):
-        """_cpp_dead should reset to False on re-show (DCC reuse)."""
-        from qtpy.QtGui import QCloseEvent, QShowEvent
-
-        from auroraview import QtWebView
-
-        webview = QtWebView()
-        try:
-            # Force _cpp_dead (simulating edge case)
-            webview._cpp_dead = True
-            assert webview.is_alive is False
-
-            # Close first (so showEvent triggers the reset path)
-            webview._is_closing = True
-
-            # Re-show should reset both flags
-            show_event = QShowEvent()
-            webview.showEvent(show_event)
-            assert webview._cpp_dead is False
-            assert webview._is_closing is False
-            assert webview.is_alive is True
         finally:
             webview.deleteLater()
