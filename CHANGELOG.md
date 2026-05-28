@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.8](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.7...auroraview-v0.5.8) (2026-05-28)
+
+
+### Bug Fixes
+
+* **auroraview-protect:** migrate test suite to rand 0.10 API ([4c3e382](https://github.com/loonghao/auroraview/commit/4c3e382b9e31ddd3cbb08de91e21f0c8816ec918))
+
+
+### Code Refactoring
+
+* **auroraview-pack:** reformat checksum method chains ([228dcae](https://github.com/loonghao/auroraview/commit/228dcaee1eb6c04c1b86b0095215c4a163c241bd))
+
 ## [0.5.7](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.6...auroraview-v0.5.7) (2026-05-25)
 
 
