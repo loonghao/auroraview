@@ -8,6 +8,7 @@ use auroraview_protect::crypto::{
     hex_decode, hex_encode, EccAlgorithm, EccKeyPair, KeyObfuscator, AES_KEY_SIZE,
     P256_PUBLIC_KEY_SIZE, X25519_PUBLIC_KEY_SIZE,
 };
+use rand::RngExt;
 use rstest::*;
 
 // ─────────────────────────────────────────────────────────────
@@ -310,7 +311,7 @@ fn package_serialization_roundtrip() {
 
 #[test]
 fn aes_gcm_empty_plaintext_roundtrip() {
-    let key: [u8; AES_KEY_SIZE] = rand::thread_rng().gen();
+    let key: [u8; AES_KEY_SIZE] = rand::rng().random();
     let plaintext: &[u8] = b"";
     let encrypted = encrypt_aes_gcm(plaintext, &key).unwrap();
     let decrypted = decrypt_aes_gcm(&encrypted, &key).unwrap();
@@ -319,7 +320,7 @@ fn aes_gcm_empty_plaintext_roundtrip() {
 
 #[test]
 fn aes_gcm_single_byte_roundtrip() {
-    let key: [u8; AES_KEY_SIZE] = rand::thread_rng().gen();
+    let key: [u8; AES_KEY_SIZE] = rand::rng().random();
     let encrypted = encrypt_aes_gcm(b"\x00", &key).unwrap();
     let decrypted = decrypt_aes_gcm(&encrypted, &key).unwrap();
     assert_eq!(decrypted, b"\x00");
@@ -327,7 +328,7 @@ fn aes_gcm_single_byte_roundtrip() {
 
 #[test]
 fn aes_gcm_large_data_roundtrip() {
-    let key: [u8; AES_KEY_SIZE] = rand::thread_rng().gen();
+    let key: [u8; AES_KEY_SIZE] = rand::rng().random();
     let plaintext: Vec<u8> = (0u8..=255).cycle().take(1_024 * 1024).collect(); // 1 MiB
     let encrypted = encrypt_aes_gcm(&plaintext, &key).unwrap();
     let decrypted = decrypt_aes_gcm(&encrypted, &key).unwrap();
@@ -336,7 +337,7 @@ fn aes_gcm_large_data_roundtrip() {
 
 #[test]
 fn aes_gcm_each_encryption_unique_nonce() {
-    let key: [u8; AES_KEY_SIZE] = rand::thread_rng().gen();
+    let key: [u8; AES_KEY_SIZE] = rand::rng().random();
     let e1 = encrypt_aes_gcm(b"same", &key).unwrap();
     let e2 = encrypt_aes_gcm(b"same", &key).unwrap();
     assert_ne!(e1, e2); // different nonces
@@ -344,8 +345,8 @@ fn aes_gcm_each_encryption_unique_nonce() {
 
 #[test]
 fn aes_gcm_decrypt_wrong_key_fails() {
-    let key1: [u8; AES_KEY_SIZE] = rand::thread_rng().gen();
-    let key2: [u8; AES_KEY_SIZE] = rand::thread_rng().gen();
+    let key1: [u8; AES_KEY_SIZE] = rand::rng().random();
+    let key2: [u8; AES_KEY_SIZE] = rand::rng().random();
     let encrypted = encrypt_aes_gcm(b"secret", &key1).unwrap();
     let result = decrypt_aes_gcm(&encrypted, &key2);
     assert!(result.is_err());
@@ -353,7 +354,7 @@ fn aes_gcm_decrypt_wrong_key_fails() {
 
 #[test]
 fn aes_gcm_decrypt_truncated_data_fails() {
-    let key: [u8; AES_KEY_SIZE] = rand::thread_rng().gen();
+    let key: [u8; AES_KEY_SIZE] = rand::rng().random();
     // too short to even contain nonce + tag
     let short: Vec<u8> = vec![0u8; 10];
     let result = decrypt_aes_gcm(&short, &key);
@@ -362,7 +363,7 @@ fn aes_gcm_decrypt_truncated_data_fails() {
 
 #[test]
 fn aes_gcm_decrypt_tampered_ciphertext_fails() {
-    let key: [u8; AES_KEY_SIZE] = rand::thread_rng().gen();
+    let key: [u8; AES_KEY_SIZE] = rand::rng().random();
     let mut encrypted = encrypt_aes_gcm(b"payload", &key).unwrap();
     // Flip a byte in the ciphertext region
     let last = encrypted.len() - 1;
@@ -378,7 +379,7 @@ fn aes_gcm_decrypt_tampered_ciphertext_fails() {
 #[case(100)]
 #[case(1023)]
 fn aes_gcm_various_plaintext_lengths(#[case] len: usize) {
-    let key: [u8; AES_KEY_SIZE] = rand::thread_rng().gen();
+    let key: [u8; AES_KEY_SIZE] = rand::rng().random();
     let plaintext: Vec<u8> = (0u8..=255).cycle().take(len).collect();
     let encrypted = encrypt_aes_gcm(&plaintext, &key).unwrap();
     let decrypted = decrypt_aes_gcm(&encrypted, &key).unwrap();
@@ -650,6 +651,3 @@ fn decrypt_with_tampered_encrypted_key_fails() {
     let result = decrypt_hybrid(&pkg, &kp.private_key);
     assert!(result.is_err());
 }
-
-// use rand for key generation in AES tests
-use rand::Rng;
