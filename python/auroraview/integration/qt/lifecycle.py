@@ -384,21 +384,33 @@ class LifecycleMixin:
             logger.debug("[LifecycleMixin] closeEvent")
         self._is_closing = True
 
+        # Each cleanup step is wrapped in its own try/except so that a
+        # failure in one step (e.g. signal bridge teardown raising because
+        # the host is partially constructed) does not skip the remaining
+        # steps.  In particular, _webview.close() and _reset_state_for_reuse()
+        # MUST run even if _teardown_signal_bridge() blows up, otherwise
+        # the widget cannot be reused on subsequent shows.
+
+        # Teardown signal bridge to release callback references
         try:
-            # Teardown signal bridge to release callback references
             self._teardown_signal_bridge()  # type: ignore[attr-defined]
+        except Exception as e:
+            if _VERBOSE_LOGGING:
+                logger.debug("[LifecycleMixin] _teardown_signal_bridge failed: %s", e)
 
-            # Close the WebView
-            try:
-                self._webview.close()
-            except Exception as e:  # pragma: no cover
-                if _VERBOSE_LOGGING:
-                    logger.debug("[LifecycleMixin] error closing embedded WebView: %s", e)
+        # Close the WebView
+        try:
+            self._webview.close()
+        except Exception as e:
+            if _VERBOSE_LOGGING:
+                logger.debug("[LifecycleMixin] error closing embedded WebView: %s", e)
 
-            # Reset initialization state for potential reuse
+        # Reset initialization state for potential reuse
+        try:
             self._reset_state_for_reuse()
-        except Exception:
-            pass
+        except Exception as e:
+            if _VERBOSE_LOGGING:
+                logger.debug("[LifecycleMixin] _reset_state_for_reuse failed: %s", e)
 
         return False
 
