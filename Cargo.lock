@@ -406,7 +406,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "auroraview"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "anyhow",
  "askama",
@@ -474,7 +474,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-ai-agent"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "async-trait",
  "auroraview-workspace-hack",
@@ -494,7 +494,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-assets"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "auroraview-workspace-hack",
  "mime_guess",
@@ -506,7 +506,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-bookmarks"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -521,7 +521,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-browser"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "auroraview-bookmarks",
  "auroraview-core",
@@ -553,7 +553,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-cli"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "anyhow",
  "auroraview-assets",
@@ -599,7 +599,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-core"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "active-win-pos-rs",
  "askama",
@@ -636,7 +636,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-dcc"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "auroraview-core",
  "auroraview-workspace-hack",
@@ -653,7 +653,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-desktop"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "auroraview-core",
  "auroraview-plugins",
@@ -675,7 +675,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-devtools"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "auroraview-workspace-hack",
  "rstest 0.18.2",
@@ -686,7 +686,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-downloads"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -701,7 +701,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-extensions"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -727,7 +727,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-history"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -742,7 +742,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-mcp"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "anyhow",
  "auroraview-workspace-hack",
@@ -780,7 +780,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-notifications"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -794,7 +794,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-pack"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "auroraview-extensions",
  "auroraview-protect",
@@ -819,7 +819,7 @@ dependencies = [
  "tar",
  "tempfile",
  "thiserror 2.0.18",
- "toml 0.9.12+spec-1.1.0",
+ "toml 1.1.2+spec-1.1.0",
  "tracing",
  "ureq",
  "url",
@@ -830,7 +830,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugin-core"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "auroraview-workspace-hack",
  "dunce",
@@ -845,7 +845,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugin-fs"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "auroraview-plugin-core",
  "auroraview-workspace-hack",
@@ -859,7 +859,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugins"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "arboard",
  "auroraview-extensions",
@@ -883,7 +883,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-protect"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -908,7 +908,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-settings"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "auroraview-workspace-hack",
  "parking_lot",
@@ -921,7 +921,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-signals"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "auroraview-workspace-hack",
  "crossbeam-channel",
@@ -940,7 +940,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-tabs"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "auroraview-workspace-hack",
  "dashmap",
@@ -955,7 +955,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-telemetry"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "auroraview-workspace-hack",
  "opentelemetry",
@@ -977,7 +977,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-testing"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1004,7 +1004,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-ue"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "anyhow",
  "auroraview-core",
@@ -1107,7 +1107,7 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "tokio-util",
- "toml 0.8.2",
+ "toml 1.1.2+spec-1.1.0",
  "toml_datetime 1.1.1+spec-1.1.0",
  "toml_parser",
  "tower",
@@ -8564,21 +8564,6 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.9.12+spec-1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf92845e79fc2e2def6a5d828f0801e29a2f8acc037becc5ab08595c7d5e9863"
-dependencies = [
- "indexmap 2.14.0",
- "serde_core",
- "serde_spanned 1.1.1",
- "toml_datetime 0.7.5+spec-1.1.0",
- "toml_parser",
- "toml_writer",
- "winnow 0.7.15",
-]
-
-[[package]]
-name = "toml"
 version = "1.1.2+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81f3d15e84cbcd896376e6730314d59fb5a87f31e4b038454184435cd57defee"
@@ -8599,15 +8584,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7cda73e2f1397b1262d6dfdcef8aafae14d1de7748d66822d3bfeeb6d03e5e4b"
 dependencies = [
  "serde",
-]
-
-[[package]]
-name = "toml_datetime"
-version = "0.7.5+spec-1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92e1cfed4a3038bc5a127e35a2d360f145e1f4b971b551a2ba5fd7aedf7e1347"
-dependencies = [
- "serde_core",
 ]
 
 [[package]]
