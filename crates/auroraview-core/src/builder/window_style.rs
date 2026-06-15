@@ -1207,6 +1207,16 @@ pub fn set_window_class_dark_background(_hwnd: isize) {
 /// * `hwnd` - The top-level WebView window handle
 #[cfg(target_os = "windows")]
 pub fn fix_webview2_child_windows(hwnd: isize) {
+    // Guard against a NULL top-level handle. `EnumChildWindows(NULL, ...)` does
+    // NOT no-op: per MSDN it enumerates every *top-level* window on the desktop,
+    // and our callback would then strip styles / subclass / repaint every one of
+    // them — a process-wide side effect that also hangs for a long time. A real
+    // WebView HWND is never 0, so treat 0 as "nothing to fix" and bail out.
+    if hwnd == 0 {
+        tracing::warn!("fix_webview2_child_windows called with NULL hwnd; skipping");
+        return;
+    }
+
     use parking_lot::Mutex;
     use std::collections::HashMap;
     use std::ffi::c_void;
@@ -1670,4 +1680,396 @@ pub fn remove_clip_children_style(hwnd: isize) {
 #[cfg(not(target_os = "windows"))]
 pub fn remove_clip_children_style(_hwnd: isize) {
     // No-op on non-Windows platforms
+}
+
+// ============================================================================
+// Real-window tests (Windows only)
+//
+// These tests create genuine *hidden* top-level / child windows with
+// `CreateWindowExW` and drive every public Win32 styling entry point against
+// them. Unlike the pure-helper tests in `tests/window_style_tests.rs`, this
+// module lives inside the crate so it can reach the `windows` dependency and
+// the `pub(crate)` `drain_thread_messages_for` helper.
+//
+// All windows are created with `WS_POPUP` and never `WS_VISIBLE`, so nothing
+// is ever shown on screen — this is safe to run on a headless CI window
+// station. Each window uses a process-unique class name so the per-class
+// background-brush mutation in `set_window_class_dark_background` cannot leak
+// across tests.
+// ============================================================================
+#[cfg(all(test, target_os = "windows"))]
+mod windows_real_window_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use windows::core::PCWSTR;
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::System::LibraryLoader::GetModuleHandleW;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        CreateWindowExW, DefWindowProcW, DestroyWindow, PostMessageW, RegisterClassW,
+        SendMessageW, UnregisterClassW, GWL_EXSTYLE, GWL_STYLE, HMENU, WINDOW_EX_STYLE,
+        WNDCLASSW, WS_CHILD, WS_CLIPCHILDREN, WS_OVERLAPPEDWINDOW, WS_POPUP,
+    };
+    use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
+
+    const WM_NULL: u32 = 0x0000;
+    const WM_NCHITTEST: u32 = 0x0084;
+
+    /// Install a process-wide TRACE subscriber once. Without an active
+    /// subscriber, `tracing::{info,debug,warn}!` skip evaluating their format
+    /// arguments, leaving those lines uncovered. A TRACE-level subscriber forces
+    /// every log site reached by these tests to actually format, exercising the
+    /// diagnostic branches the production paths emit.
+    fn init_tracing() {
+        use std::sync::Once;
+        static ONCE: Once = Once::new();
+        ONCE.call_once(|| {
+            let _ = tracing_subscriber::fmt()
+                .with_max_level(tracing::Level::TRACE)
+                .with_test_writer()
+                .try_init();
+        });
+    }
+
+    // `WNDCLASSW::lpfnWndProc` wants an `extern "system"` fn pointer; the
+    // `DefWindowProcW` import is a plain Rust fn item, so wrap it.
+    // SAFETY: forwards verbatim to DefWindowProcW, the documented default.
+    unsafe extern "system" fn test_wndproc(
+        hwnd: HWND,
+        msg: u32,
+        wparam: WPARAM,
+        lparam: LPARAM,
+    ) -> LRESULT {
+        DefWindowProcW(hwnd, msg, wparam, lparam)
+    }
+
+    fn module_instance() -> windows::Win32::Foundation::HINSTANCE {
+        // SAFETY: GetModuleHandleW(None) returns the handle of the current
+        // process image, which is always valid for the lifetime of the test.
+        unsafe { GetModuleHandleW(PCWSTR::null()).unwrap().into() }
+    }
+
+    fn to_wide(s: &str) -> Vec<u16> {
+        s.encode_utf16().chain(std::iter::once(0)).collect()
+    }
+
+    /// A registered window class + an owned hidden window. Both are released on
+    /// drop so tests leave no global state behind.
+    struct TestWindow {
+        hwnd: HWND,
+        class_wide: Vec<u16>,
+    }
+
+    impl TestWindow {
+        /// Create a hidden top-level popup window with a unique class.
+        fn new_popup() -> Self {
+            Self::new_with(None, WS_POPUP.0, "AvTestPopup")
+        }
+
+        /// Create a hidden window of a specific class name (used to register the
+        /// `Chrome_WidgetWin_0/1` classes the WebView2 fix looks for).
+        fn new_named_child(parent: HWND, class_base: &str) -> Self {
+            Self::new_with(Some(parent), WS_CHILD.0, class_base)
+        }
+
+        fn new_with(parent: Option<HWND>, style_bits: u32, class_base: &str) -> Self {
+            init_tracing();
+            static COUNTER: AtomicUsize = AtomicUsize::new(0);
+            let n = COUNTER.fetch_add(1, Ordering::SeqCst);
+            // Chrome_WidgetWin_* must keep its exact name to hit the subclass
+            // branch; everything else gets a unique suffix to avoid class-name
+            // collisions across parallel tests.
+            let class_name = if class_base.starts_with("Chrome_WidgetWin_") {
+                class_base.to_string()
+            } else {
+                format!("{class_base}_{}_{n}", std::process::id())
+            };
+            let class_wide = to_wide(&class_name);
+            let hinstance = module_instance();
+
+            // SAFETY: WNDCLASSW is fully initialized with a valid wndproc and
+            // instance; the class-name pointer stays valid because `class_wide`
+            // is owned by the returned struct. RegisterClassW returning 0 just
+            // means the class already exists (Chrome_WidgetWin_*), which is fine.
+            unsafe {
+                let wc = WNDCLASSW {
+                    lpfnWndProc: Some(test_wndproc),
+                    hInstance: hinstance,
+                    lpszClassName: PCWSTR(class_wide.as_ptr()),
+                    ..Default::default()
+                };
+                let _ = RegisterClassW(&wc);
+
+                let hwnd = CreateWindowExW(
+                    WINDOW_EX_STYLE(0),
+                    PCWSTR(class_wide.as_ptr()),
+                    PCWSTR::null(),
+                    WINDOW_STYLE_FROM_BITS(style_bits),
+                    0,
+                    0,
+                    120,
+                    80,
+                    parent,
+                    None::<HMENU>,
+                    Some(hinstance),
+                    None,
+                )
+                .expect("CreateWindowExW failed");
+
+                TestWindow { hwnd, class_wide }
+            }
+        }
+
+        fn raw(&self) -> isize {
+            self.hwnd.0 as isize
+        }
+    }
+
+    impl Drop for TestWindow {
+        fn drop(&mut self) {
+            // SAFETY: hwnd was created by this struct and not yet destroyed.
+            unsafe {
+                let _ = DestroyWindow(self.hwnd);
+                let _ = UnregisterClassW(
+                    PCWSTR(self.class_wide.as_ptr()),
+                    Some(module_instance()),
+                );
+            }
+        }
+    }
+
+    // `WS_OVERLAPPEDWINDOW`/`WS_POPUP` etc. are `WINDOW_STYLE(u32)` newtypes;
+    // this builds one from raw bits for `CreateWindowExW`.
+    #[allow(non_snake_case)]
+    fn WINDOW_STYLE_FROM_BITS(
+        bits: u32,
+    ) -> windows::Win32::UI::WindowsAndMessaging::WINDOW_STYLE {
+        windows::Win32::UI::WindowsAndMessaging::WINDOW_STYLE(bits)
+    }
+
+    #[test]
+    fn subclass_for_zero_nc_area_real_window_and_idempotent() {
+        let w = TestWindow::new_popup();
+        // First call installs the subclass (claim -> install -> upgrade ->
+        // commit, including a synchronous WM_NCCALCSIZE re-entry).
+        subclass_for_zero_nc_area(w.raw());
+        // Second call hits the AlreadyHandled short-circuit.
+        subclass_for_zero_nc_area(w.raw());
+
+        // Drive messages through our installed nc_subclass_wndproc:
+        // SAFETY: w.hwnd is a live window we own.
+        unsafe {
+            const WM_NCCALCSIZE: u32 = 0x0083;
+            // wparam != 0 -> early `return LRESULT(0)` (zero NC area) branch.
+            let _ = SendMessageW(w.hwnd, WM_NCCALCSIZE, Some(WPARAM(1)), Some(LPARAM(0)));
+            // A non-NCCALCSIZE message -> the forward-to-original branch
+            // (CallWindowProcW on the real previous wndproc).
+            let _ = SendMessageW(w.hwnd, WM_NULL, Some(WPARAM(0)), Some(LPARAM(0)));
+        }
+    }
+
+    #[test]
+    fn subclass_for_zero_nc_area_invalid_hwnd_is_noop() {
+        // GetWindowLongPtrW returns 0 for a bogus handle -> InvalidHwnd path.
+        subclass_for_zero_nc_area(0xDEAD_BEEF_isize);
+    }
+
+    #[test]
+    fn apply_child_window_style_reparents_then_skips() {
+        let parent = TestWindow::new_popup();
+        let child = TestWindow::new_popup(); // top-level popup, no parent yet
+
+        // First call: child is top-level (was_child_originally=false), GetParent
+        // is None -> debug branch, needs_set_parent=true -> SetParent runs.
+        let r1 = apply_child_window_style(
+            child.raw(),
+            parent.raw(),
+            ChildWindowStyleOptions::for_dcc_embedding(),
+        )
+        .expect("apply_child_window_style (dcc) failed");
+        assert_eq!(r1.new_style & (WS_CHILD.0 as i32), WS_CHILD.0 as i32);
+        assert_eq!(r1.new_style & (WS_POPUP.0 as i32), 0);
+
+        // Second call with the same parent: GetParent == parent -> needs_set_parent
+        // false -> the skip-SetParent branch. Also exercises the standalone
+        // (force_position=false) SetWindowPos branch.
+        let r2 = apply_child_window_style(
+            child.raw(),
+            parent.raw(),
+            ChildWindowStyleOptions::for_standalone(),
+        )
+        .expect("apply_child_window_style (standalone) failed");
+        assert_eq!(r2.new_style & (WS_CHILD.0 as i32), WS_CHILD.0 as i32);
+    }
+
+    #[test]
+    fn apply_owner_window_style_tool_and_plain() {
+        let owner = TestWindow::new_popup();
+        let owned_tool = TestWindow::new_popup();
+        let owned_plain = TestWindow::new_popup();
+
+        let res_tool =
+            apply_owner_window_style(owned_tool.raw(), owner.raw() as u64, true);
+        assert!(res_tool.tool_window);
+        assert_ne!(res_tool.new_ex_style, res_tool.old_ex_style);
+
+        // tool_window=false leaves ex_style untouched (new == old).
+        let res_plain =
+            apply_owner_window_style(owned_plain.raw(), owner.raw() as u64, false);
+        assert!(!res_plain.tool_window);
+        assert_eq!(res_plain.new_ex_style, res_plain.old_ex_style);
+    }
+
+    #[test]
+    fn apply_tool_window_style_real_window() {
+        let w = TestWindow::new_popup();
+        apply_tool_window_style(w.raw());
+    }
+
+    #[test]
+    fn apply_frameless_window_style_real_window() {
+        let w = TestWindow::new_with(None, WS_OVERLAPPEDWINDOW.0, "AvTestFrameless");
+        let res = apply_frameless_window_style(w.raw())
+            .expect("apply_frameless_window_style failed");
+        // WS_CAPTION (0x00C00000) must be cleared from an overlapped window.
+        assert_eq!(res.new_style & 0x00C00000, 0);
+    }
+
+    #[test]
+    fn apply_frameless_popup_window_style_real_window() {
+        let w = TestWindow::new_with(None, WS_OVERLAPPEDWINDOW.0, "AvTestFramelessPopup");
+        let res = apply_frameless_popup_window_style(w.raw())
+            .expect("apply_frameless_popup_window_style failed");
+        // Result must be a WS_POPUP window with no caption.
+        assert_ne!(res.new_style & (WS_POPUP.0 as i32), 0);
+        assert_eq!(res.new_style & 0x00C00000, 0);
+    }
+
+    #[test]
+    fn disable_window_shadow_real_window() {
+        let w = TestWindow::new_popup();
+        disable_window_shadow(w.raw());
+    }
+
+    #[test]
+    fn set_window_class_dark_background_real_window() {
+        let w = TestWindow::new_popup();
+        set_window_class_dark_background(w.raw());
+        // Idempotent: brush is cached in a OnceLock, second call reuses it.
+        set_window_class_dark_background(w.raw());
+    }
+
+    #[test]
+    fn extend_frame_into_client_area_real_window() {
+        let w = TestWindow::new_popup();
+        extend_frame_into_client_area(w.raw());
+    }
+
+    #[test]
+    fn optimize_transparent_window_resize_real_window() {
+        let w = TestWindow::new_popup();
+        optimize_transparent_window_resize(w.raw());
+    }
+
+    #[test]
+    fn remove_clip_children_style_present_and_absent() {
+        // Window WITH WS_CLIPCHILDREN -> the strip branch runs.
+        let with_clip =
+            TestWindow::new_with(None, WS_POPUP.0 | WS_CLIPCHILDREN.0, "AvTestClip");
+        remove_clip_children_style(with_clip.raw());
+        // SAFETY: valid hwnd; reading style back to confirm the bit is gone.
+        let style = unsafe {
+            windows::Win32::UI::WindowsAndMessaging::GetWindowLongW(with_clip.hwnd, GWL_STYLE)
+        };
+        assert_eq!(style & (WS_CLIPCHILDREN.0 as i32), 0);
+
+        // Window WITHOUT WS_CLIPCHILDREN -> the "no change needed" branch.
+        let no_clip = TestWindow::new_popup();
+        remove_clip_children_style(no_clip.raw());
+    }
+
+    #[test]
+    fn fix_webview2_child_windows_with_real_children() {
+        let parent = TestWindow::new_popup();
+
+        // A Chrome_WidgetWin_0 child -> hits the WM_NCHITTEST subclass branch.
+        let _chrome0 = TestWindow::new_named_child(parent.hwnd, "Chrome_WidgetWin_0");
+        // A Chrome_WidgetWin_1 child -> second subclass class name.
+        let _chrome1 = TestWindow::new_named_child(parent.hwnd, "Chrome_WidgetWin_1");
+        // A child with frame-ish styles so the style-stripping branch fires.
+        let _styled = TestWindow::new_with(
+            Some(parent.hwnd),
+            WS_CHILD.0 | 0x00800000, /* WS_BORDER */
+            "AvTestStyledChild",
+        );
+
+        // Enumerates the children above, subclasses the Chrome ones, strips
+        // styles + dark background on each, and tallies counters.
+        fix_webview2_child_windows(parent.raw());
+
+        // Drive messages through the Chrome subclass (subclass_wndproc):
+        // SAFETY: _chrome0.hwnd is a live, now-subclassed child window.
+        unsafe {
+            // WM_NCHITTEST -> early `return LRESULT(HTCLIENT)` branch.
+            let _ = SendMessageW(
+                _chrome0.hwnd,
+                WM_NCHITTEST,
+                Some(WPARAM(0)),
+                Some(LPARAM(0)),
+            );
+            // A non-NCHITTEST message -> forward-to-original branch.
+            let _ = SendMessageW(_chrome0.hwnd, WM_NULL, Some(WPARAM(0)), Some(LPARAM(0)));
+        }
+
+        // Idempotent: Chrome children are now already subclassed -> the
+        // already_subclassed short-circuit runs.
+        fix_webview2_child_windows(parent.raw());
+    }
+
+    #[test]
+    fn fix_webview2_child_windows_no_children_is_clean() {
+        // A real top-level window with zero children: EnumChildWindows finds
+        // nothing, counters stay at zero, no panic.
+        let parent = TestWindow::new_popup();
+        fix_webview2_child_windows(parent.raw());
+    }
+
+    #[test]
+    fn drain_thread_messages_for_empty_and_with_pending() {
+        let w = TestWindow::new_popup();
+
+        // Empty queue (filtered to our hwnd): n == 0 path.
+        drain_thread_messages_for(Some(w.hwnd), 16, "test-empty");
+
+        // Post a few messages targeted at our hwnd, then drain: 0 < n < cap path.
+        // SAFETY: valid hwnd; WM_NULL carries no payload.
+        unsafe {
+            for _ in 0..3 {
+                let _ = PostMessageW(
+                    Some(w.hwnd),
+                    WM_NULL,
+                    windows::Win32::Foundation::WPARAM(0),
+                    windows::Win32::Foundation::LPARAM(0),
+                );
+            }
+        }
+        drain_thread_messages_for(Some(w.hwnd), 256, "test-pending");
+
+        // cap == 0 forces the loop to never run -> still n == 0, exercises the
+        // bound check itself.
+        drain_thread_messages_for(Some(w.hwnd), 0, "test-zero-cap");
+    }
+
+    #[test]
+    fn child_window_style_options_constructors() {
+        assert!(ChildWindowStyleOptions::for_dcc_embedding().force_position);
+        assert!(!ChildWindowStyleOptions::for_standalone().force_position);
+        assert!(!ChildWindowStyleOptions::default().force_position);
+    }
+
+    #[test]
+    fn suppress_unused_ex_style_import() {
+        // Touch GWL_EXSTYLE so the import is always considered used regardless
+        // of which assertions are compiled in.
+        let _ = GWL_EXSTYLE;
+    }
 }

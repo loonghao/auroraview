@@ -537,12 +537,12 @@ fn frameless_popup_with_multiple_bits_sets_popup_clears_child() {
 // fix_webview2_child_windows (public export)
 // ============================================================================
 
-// The function enumerates child windows of the given top-level HWND. With a
-// bogus handle there are simply no children to enumerate, so the call must
-// return cleanly without panicking. This guards the public signature/export
-// after lifting the function out of NativeBackend into auroraview-core.
+// The function enumerates child windows of the given top-level HWND. A NULL (0)
+// handle is special-cased: `EnumChildWindows(NULL, ...)` would otherwise iterate
+// every top-level window on the desktop and mutate them, so the production guard
+// must short-circuit and return immediately (no panic, no desktop-wide mutation).
 #[test]
-fn fix_webview2_child_windows_invalid_handle_does_not_panic() {
+fn fix_webview2_child_windows_null_handle_returns_immediately() {
     fix_webview2_child_windows(0);
 }
 
