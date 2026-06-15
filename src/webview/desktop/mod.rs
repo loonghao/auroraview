@@ -54,7 +54,8 @@ use crate::ipc::{IpcHandler, MessageQueue};
 #[cfg(target_os = "windows")]
 use auroraview_core::builder::{
     apply_child_window_style, apply_frameless_popup_window_style, apply_owner_window_style,
-    apply_tool_window_style, disable_window_shadow, remove_clip_children_style,
+    apply_tool_window_style, disable_window_shadow, fix_webview2_child_windows,
+    remove_clip_children_style, set_window_class_dark_background, subclass_for_zero_nc_area,
     ChildWindowStyleOptions,
 };
 
@@ -262,6 +263,28 @@ pub fn create_desktop(
         if let Some(hwnd) = cached_hwnd {
             disable_window_shadow(hwnd as isize);
             tracing::info!("[standalone] Disabled window shadow (undecorated_shadow=false)");
+        }
+    }
+
+    // Standalone (top-level) frameless windows need the same anti-white-border
+    // treatment as the embedded path:
+    //   1. dark window class background brush, so the WebView2 content not yet
+    //      covering the client area does not reveal the system white brush;
+    //   2. strip the WebView2 child windows' edge extended styles and subclass
+    //      them to zero the NC area (the main source of the white border);
+    //   3. subclass the top-level WS_POPUP window itself to force WM_NCCALCSIZE
+    //      to return a zero NC area. apply_frameless_popup_window_style only
+    //      strips style bits + SWP_FRAMECHANGED, which on Windows 11 still leaves
+    //      a 1px non-client frame that DefWindowProc paints white. The embedded
+    //      path avoids this because apply_child_window_style already subclasses
+    //      the top-level HWND; the standalone path must do it explicitly.
+    #[cfg(target_os = "windows")]
+    if !config.decorations {
+        if let Some(hwnd) = cached_hwnd {
+            set_window_class_dark_background(hwnd as isize);
+            fix_webview2_child_windows(hwnd as isize);
+            subclass_for_zero_nc_area(hwnd as isize);
+            tracing::info!("[standalone] Applied dark background brush, fixed WebView2 child windows, and zeroed top-level NC area (frameless)");
         }
     }
 
