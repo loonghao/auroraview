@@ -2,6 +2,7 @@
 
 use auroraview_core::builder::{
     compute_frameless_popup_window_styles, compute_frameless_window_styles,
+    fix_webview2_child_windows,
 };
 use rstest::rstest;
 
@@ -530,4 +531,25 @@ fn frameless_popup_with_multiple_bits_sets_popup_clears_child() {
     assert_eq!(new_style & WS_CAPTION, 0);
     assert_eq!(new_style & WS_BORDER, 0);
     assert_ne!(new_style & 0x00000004, 0);
+}
+
+// ============================================================================
+// fix_webview2_child_windows (public export)
+// ============================================================================
+
+// The function enumerates child windows of the given top-level HWND. With a
+// bogus handle there are simply no children to enumerate, so the call must
+// return cleanly without panicking. This guards the public signature/export
+// after lifting the function out of NativeBackend into auroraview-core.
+#[test]
+fn fix_webview2_child_windows_invalid_handle_does_not_panic() {
+    fix_webview2_child_windows(0);
+}
+
+#[rstest]
+#[case(0x1_isize)]
+#[case(0xDEAD_BEEF_isize)]
+#[case(-1_isize)]
+fn fix_webview2_child_windows_arbitrary_handles_do_not_panic(#[case] hwnd: isize) {
+    fix_webview2_child_windows(hwnd);
 }

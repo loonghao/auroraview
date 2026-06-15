@@ -1189,6 +1189,256 @@ pub fn set_window_class_dark_background(_hwnd: isize) {
     // No-op on non-Windows platforms
 }
 
+/// Fix all WebView2 child windows to prevent dragging and remove white borders.
+///
+/// WebView2 creates multiple child windows (Chrome_WidgetWin_0, Intermediate D3D Window, etc.)
+/// that may not inherit proper WS_CHILD styles. This function recursively fixes all child
+/// windows to ensure they cannot be dragged independently and do not draw visible edges.
+///
+/// Additionally, this function subclasses Chrome_WidgetWin_0 and Chrome_WidgetWin_1 windows
+/// to intercept WM_NCHITTEST messages and force them to return HTCLIENT, preventing any
+/// drag behavior from the WebView2's internal window handling.
+///
+/// This is shared by both the embedded (Qt/DCC) path and the standalone top-level path:
+/// stripping `WS_EX_CLIENTEDGE` / `WS_EX_WINDOWEDGE` / `WS_EX_STATICEDGE` plus a dark class
+/// background brush is what removes the one-pixel white border around the WebView2 content.
+///
+/// # Arguments
+/// * `hwnd` - The top-level WebView window handle
+#[cfg(target_os = "windows")]
+pub fn fix_webview2_child_windows(hwnd: isize) {
+    use parking_lot::Mutex;
+    use std::collections::HashMap;
+    use std::ffi::c_void;
+    use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
+    use windows::Win32::UI::WindowsAndMessaging::{
+        CallWindowProcW, DefWindowProcW, EnumChildWindows, GetClassNameW, GetWindowLongPtrW,
+        GetWindowLongW, SetWindowLongPtrW, SetWindowLongW, SetWindowPos, GWLP_WNDPROC,
+        GWL_EXSTYLE, GWL_STYLE, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+        SWP_NOZORDER, WNDPROC, WS_BORDER, WS_CAPTION, WS_CHILD, WS_DLGFRAME, WS_EX_CLIENTEDGE,
+        WS_EX_CONTEXTHELP, WS_EX_DLGMODALFRAME, WS_EX_STATICEDGE, WS_EX_WINDOWEDGE, WS_POPUP,
+        WS_THICKFRAME,
+    };
+
+    // WM_NCHITTEST message constant
+    const WM_NCHITTEST: u32 = 0x0084;
+    // HTCLIENT - indicates the client area (no dragging)
+    const HTCLIENT: isize = 1;
+
+    // Store original window procedures for subclassed windows
+    // Using a static HashMap protected by Mutex for thread safety (parking_lot,
+    // to match subclass_for_zero_nc_area in this module; no poisoning to handle).
+    static ORIGINAL_WNDPROCS: Mutex<Option<HashMap<isize, isize>>> = Mutex::new(None);
+
+    // Initialize the HashMap if needed
+    {
+        let mut guard = ORIGINAL_WNDPROCS.lock();
+        if guard.is_none() {
+            *guard = Some(HashMap::new());
+        }
+    }
+
+    // Custom window procedure that intercepts WM_NCHITTEST
+    unsafe extern "system" fn subclass_wndproc(
+        hwnd: HWND,
+        msg: u32,
+        wparam: WPARAM,
+        lparam: LPARAM,
+    ) -> LRESULT {
+        // Intercept WM_NCHITTEST to prevent dragging
+        if msg == WM_NCHITTEST {
+            // Always return HTCLIENT to indicate we're in the client area
+            // This prevents any part of the window from being treated as a drag handle
+            return LRESULT(HTCLIENT);
+        }
+
+        // Get the original window procedure
+        let original_wndproc = ORIGINAL_WNDPROCS
+            .lock()
+            .as_ref()
+            .and_then(|map| map.get(&(hwnd.0 as isize)).copied());
+
+        if let Some(original) = original_wndproc {
+            // Call the original window procedure for all other messages
+            let wndproc: WNDPROC = std::mem::transmute(original);
+            CallWindowProcW(wndproc, hwnd, msg, wparam, lparam)
+        } else {
+            // Fallback to DefWindowProc if original not found
+            DefWindowProcW(hwnd, msg, wparam, lparam)
+        }
+    }
+
+    // Per-call counters, threaded through EnumChildWindows' LPARAM as a stack
+    // pointer so concurrent calls (e.g. standalone + embedded windows in the same
+    // host process) don't clobber each other's tallies.
+    #[derive(Default)]
+    struct Counters {
+        total: u32,
+        fixed: u32,
+        subclassed: u32,
+    }
+
+    // Callback function for EnumChildWindows
+    // Returns TRUE (non-zero) to continue enumeration, FALSE (0) to stop
+    unsafe extern "system" fn enum_child_proc(
+        child_hwnd: HWND,
+        lparam: LPARAM,
+    ) -> windows::core::BOOL {
+        let counters = &mut *(lparam.0 as *mut Counters);
+        counters.total += 1;
+
+        // Get window class name for logging
+        let mut class_name_buf = [0u16; 256];
+        let class_len = GetClassNameW(child_hwnd, &mut class_name_buf);
+        let class_name = if class_len > 0 {
+            String::from_utf16_lossy(&class_name_buf[..class_len as usize])
+        } else {
+            String::from("<unknown>")
+        };
+
+        // Get current styles
+        let style = GetWindowLongW(child_hwnd, GWL_STYLE);
+        let ex_style = GetWindowLongW(child_hwnd, GWL_EXSTYLE);
+
+        // Check if this window has problematic styles
+        let has_popup = (style & WS_POPUP.0 as i32) != 0;
+        let has_caption = (style & WS_CAPTION.0 as i32) != 0;
+        let has_thickframe = (style & WS_THICKFRAME.0 as i32) != 0;
+        let is_child = (style & WS_CHILD.0 as i32) != 0;
+
+        tracing::debug!(
+            "[fix_webview2_child_windows] Checking child HWND 0x{:X} class='{}' style=0x{:08X} (popup={}, caption={}, thickframe={}, is_child={})",
+            child_hwnd.0 as isize,
+            class_name,
+            style,
+            has_popup,
+            has_caption,
+            has_thickframe,
+            is_child
+        );
+
+        // Subclass Chrome_WidgetWin_0 and Chrome_WidgetWin_1 to intercept WM_NCHITTEST
+        // These are the windows that handle mouse input and may cause dragging
+        if class_name == "Chrome_WidgetWin_0" || class_name == "Chrome_WidgetWin_1" {
+            let already_subclassed = ORIGINAL_WNDPROCS
+                .lock()
+                .as_ref()
+                .map(|map| map.contains_key(&(child_hwnd.0 as isize)))
+                .unwrap_or(false);
+
+            if !already_subclassed {
+                // Get the current window procedure
+                let original_wndproc = GetWindowLongPtrW(child_hwnd, GWLP_WNDPROC);
+                if original_wndproc != 0 {
+                    // Store the original window procedure
+                    if let Some(map) = ORIGINAL_WNDPROCS.lock().as_mut() {
+                        map.insert(child_hwnd.0 as isize, original_wndproc);
+                    }
+
+                    // Set our custom window procedure
+                    SetWindowLongPtrW(
+                        child_hwnd,
+                        GWLP_WNDPROC,
+                        subclass_wndproc as *const () as usize as isize,
+                    );
+
+                    counters.subclassed += 1;
+
+                    tracing::debug!(
+                        "[OK] [fix_webview2_child_windows] Subclassed HWND 0x{:X} class='{}' to intercept WM_NCHITTEST",
+                        child_hwnd.0 as isize,
+                        class_name
+                    );
+                }
+            }
+        }
+
+        // Set dark background brush on every child window to prevent white
+        // edges from appearing when the window is partially painted.
+        set_window_class_dark_background(child_hwnd.0 as isize);
+
+        // Only fix windows that aren't already proper child windows
+        if has_popup || has_caption || has_thickframe || !is_child {
+            // Remove problematic styles and ensure WS_CHILD
+            let new_style = (style
+                & !(WS_POPUP.0 as i32)
+                & !(WS_CAPTION.0 as i32)
+                & !(WS_THICKFRAME.0 as i32)
+                & !(WS_BORDER.0 as i32)
+                & !(WS_DLGFRAME.0 as i32))
+                | (WS_CHILD.0 as i32);
+
+            // Remove extended styles that can cause white borders (match apply_child_window_style)
+            let new_ex_style = ex_style
+                & !(WS_EX_STATICEDGE.0 as i32)
+                & !(WS_EX_CLIENTEDGE.0 as i32)
+                & !(WS_EX_WINDOWEDGE.0 as i32)
+                & !(WS_EX_DLGMODALFRAME.0 as i32)
+                & !(WS_EX_CONTEXTHELP.0 as i32);
+
+            if new_style != style || new_ex_style != ex_style {
+                SetWindowLongW(child_hwnd, GWL_STYLE, new_style);
+                SetWindowLongW(child_hwnd, GWL_EXSTYLE, new_ex_style);
+
+                // Subclass to intercept WM_NCCALCSIZE and force zero NC area
+                subclass_for_zero_nc_area(child_hwnd.0 as isize);
+
+                // Apply changes with SWP_FRAMECHANGED
+                let _ = SetWindowPos(
+                    child_hwnd,
+                    None,
+                    0,
+                    0,
+                    0,
+                    0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+                );
+
+                counters.fixed += 1;
+
+                tracing::debug!(
+                    "[OK] [fix_webview2_child_windows] Fixed child HWND 0x{:X} class='{}' (style 0x{:08X} -> 0x{:08X})",
+                    child_hwnd.0 as isize,
+                    class_name,
+                    style,
+                    new_style
+                );
+            }
+        }
+
+        // Continue enumeration (TRUE = 1)
+        windows::core::BOOL::from(true)
+    }
+
+    // SAFETY: hwnd is a valid top-level window handle provided by the caller.
+    // EnumChildWindows / the Win32 calls inside enum_child_proc operate on live
+    // child HWNDs handed back by the OS or stack-local buffers. `counters` lives
+    // on this stack frame for the full (synchronous) duration of EnumChildWindows,
+    // so the pointer handed through LPARAM stays valid for every callback.
+    let mut counters = Counters::default();
+    unsafe {
+        let hwnd_win = HWND(hwnd as *mut c_void);
+        let _ = EnumChildWindows(
+            Some(hwnd_win),
+            Some(enum_child_proc),
+            LPARAM(&mut counters as *mut Counters as isize),
+        );
+    }
+    tracing::info!(
+        "[OK] Fixed WebView2 child windows for HWND 0x{:X} (total={}, fixed={}, subclassed={})",
+        hwnd,
+        counters.total,
+        counters.fixed,
+        counters.subclassed
+    );
+}
+
+/// Stub for non-Windows platforms
+#[cfg(not(target_os = "windows"))]
+pub fn fix_webview2_child_windows(_hwnd: isize) {
+    // No-op on non-Windows platforms
+}
+
 /// Extend DWM frame into client area for transparent windows.
 ///
 /// This function uses `DwmExtendFrameIntoClientArea` to extend the window frame
