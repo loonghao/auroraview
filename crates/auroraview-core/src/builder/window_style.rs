@@ -1232,6 +1232,10 @@ pub fn fix_webview2_child_windows(hwnd: isize) {
 
     // WM_NCHITTEST message constant
     const WM_NCHITTEST: u32 = 0x0084;
+    // WM_NCDESTROY - last message a window receives; used to self-unsubclass so
+    // the per-HWND entry in ORIGINAL_WNDPROCS does not outlive the window and a
+    // recycled HWND is not mistaken for an already-subclassed one.
+    const WM_NCDESTROY: u32 = 0x0082;
     // HTCLIENT - indicates the client area (no dragging)
     const HTCLIENT: isize = 1;
 
@@ -1267,6 +1271,29 @@ pub fn fix_webview2_child_windows(hwnd: isize) {
             .lock()
             .as_ref()
             .and_then(|map| map.get(&(hwnd.0 as isize)).copied());
+
+        // On WM_NCDESTROY (the final message a window receives) restore the
+        // original wndproc and drop our map entry. Without this the entry leaks
+        // and, since the OS recycles HWND values, a freshly created window can
+        // land on a stale HWND key — hitting the `already_subclassed` short
+        // circuit (so it never gets fixed) or routing messages to a dangling
+        // CallWindowProcW target. We forward the message first, then clean up.
+        if msg == WM_NCDESTROY {
+            let result = if let Some(original) = original_wndproc {
+                let wndproc: WNDPROC = std::mem::transmute(original);
+                let r = CallWindowProcW(wndproc, hwnd, msg, wparam, lparam);
+                // Best-effort restore so any later messages on a recycled HWND
+                // reach the real default proc rather than ours.
+                SetWindowLongPtrW(hwnd, GWLP_WNDPROC, original);
+                r
+            } else {
+                DefWindowProcW(hwnd, msg, wparam, lparam)
+            };
+            if let Some(map) = ORIGINAL_WNDPROCS.lock().as_mut() {
+                map.remove(&(hwnd.0 as isize));
+            }
+            return result;
+        }
 
         if let Some(original) = original_wndproc {
             // Call the original window procedure for all other messages

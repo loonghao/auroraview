@@ -285,6 +285,8 @@ pub fn create_desktop(
             fix_webview2_child_windows(hwnd as isize);
             subclass_for_zero_nc_area(hwnd as isize);
             tracing::info!("[standalone] Applied dark background brush, fixed WebView2 child windows, and zeroed top-level NC area (frameless)");
+        } else {
+            tracing::warn!("[standalone] frameless window requested but no cached HWND is available; skipping white-border fix (dark background, child-window fix, NC-area zeroing)");
         }
     }
 
