@@ -535,6 +535,90 @@ exclude = [
 ]
 ```
 
+## Headless CLI Mode
+
+A packed executable is a GUI app by default — double-clicking it (or launching
+with no arguments) opens the window exactly as before. It can *also* run your
+registered Python commands from a terminal, without opening a window.
+
+```bash
+my-app.exe                          # GUI window (unchanged)
+my-app.exe -h                       # list CLI-enabled commands
+my-app.exe list                     # list commands (add --json for machine output)
+my-app.exe run export --path ./out  # run one command, print result, exit
+my-app.exe -V                       # print version
+```
+
+Only an explicit reserved verb (`run`, `list`) or flag (`-h`/`--help`,
+`-V`/`--version`) as the **first** argument triggers the CLI path. A bare file
+path (file association, drag-and-drop) always opens the GUI, so nothing existing
+breaks.
+
+### Exposing commands to the CLI
+
+CLI exposure is **opt-in** — commands are GUI-only unless you say otherwise. Set
+`cli` on `@webview.command`:
+
+```python
+@webview.command(name="export", help="Export the project", cli=True)
+def export(path: str, dpi: int = 300) -> dict:
+    return {"written": path, "dpi": dpi}
+
+# Add a short alias:
+@webview.command(name="export-document-image", cli="exi")
+def export_document_image(path: str) -> dict: ...
+
+# Multiple aliases:
+@webview.command(name="validate", cli=["val", "v"])
+def validate() -> dict: ...
+```
+
+The `cli` value doubles as the on/off switch and the alias list:
+
+| `cli` value          | Meaning                          |
+|----------------------|----------------------------------|
+| `False` (default)    | GUI only, not exposed to the CLI |
+| `True`               | exposed, no alias                |
+| `"exi"`              | exposed, alias `exi`             |
+| `["exi", "edi"]`     | exposed, multiple aliases        |
+
+Use `help=` and `args_help={...}` to enrich the `-h` output; both fall back to
+the function docstring / signature when omitted. To bulk-enable existing
+commands, call `webview.commands.enable_cli("export", "validate")` or pass a
+`{name: alias}` mapping.
+
+### Passing arguments
+
+Both keyword and positional forms work, and they can be mixed (positional
+first, keywords after):
+
+```bash
+my-app.exe run export --path ./out --dpi 600   # keyword
+my-app.exe run export ./out 600                 # positional (signature order)
+my-app.exe run export ./out --dpi 600           # mixed
+```
+
+Values are coerced from the parameter's type annotation (`int`, `float`, `bool`,
+`str`); anything else is parsed as JSON (`--config '{"a":1}'`). Booleans accept
+`--flag` / `--no-flag`. Exit codes follow: `0` success, `1` the command raised,
+`2` command not found or bad arguments.
+
+### How it works
+
+The command list shown by `-h`/`list` is collected **at pack time** and embedded
+in the overlay, so those commands return instantly without starting Python. The
+collection runs the bundled entry point once with `AURORAVIEW_CLI_DUMP=1`. This
+requires running the bundled interpreter on the build host, so it is skipped
+(with a warning) when cross-platform packing or when not using the `standalone`
+Python strategy — `-h`/`list` then show no commands until repacked on a matching
+host. `run` extracts the Python runtime on first use (cached afterwards) and
+invokes the command in a one-shot process — it does not reuse the GUI's
+persistent backend.
+
+On Windows the packed exe attaches to the parent console at startup so CLI
+output reaches the terminal (a double-click still shows no console). On
+macOS/Linux there is no GUI-subsystem stdio isolation, so output works directly.
+
 ## Best Practices
 
 1. **Use `site-packages` for dependencies**: All third-party packages go to `python/site-packages/`

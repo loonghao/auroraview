@@ -72,9 +72,9 @@ where
 /// [`classify_packed_invocation`] (the reserved verb/flag followed by its
 /// arguments, without argv[0]).
 ///
-/// This currently implements the step-2 skeleton: console attach, `-V`/
-/// `--version`, and a placeholder `-h`. `run` / `list` rendering and command
-/// invocation land in later RFC steps.
+/// Handles `-V`/`--version` and `-h`/`--help`/`list` (rendered purely from the
+/// overlay's embedded command table — no Python launch, §13.4). `run` extracts
+/// Python and invokes the command in-process (§7 / §15.2).
 pub fn run_packed_cli(cli_args: Vec<String>) -> Result<()> {
     // Reconnect stdio to the launching terminal before printing anything
     // (§3.2). Harmless if there is no parent console.
@@ -88,15 +88,21 @@ pub fn run_packed_cli(cli_args: Vec<String>) -> Result<()> {
             Ok(())
         }
         "-h" | "--help" => {
-            // Placeholder until §13.4 overlay-driven rendering lands (step 6).
-            print_help_placeholder();
+            let commands = read_cli_commands();
+            print!("{}", super::render::render_help(&commands));
             Ok(())
         }
-        "run" | "list" => {
-            // Wired in later RFC steps (7 and 6 respectively).
-            eprintln!("auroraview: '{first}' is not implemented yet");
-            std::process::exit(2);
+        "list" => {
+            let json = cli_args.iter().skip(1).any(|a| a == "--json");
+            let commands = read_cli_commands();
+            if json {
+                println!("{}", super::render::render_list_json(&commands));
+            } else {
+                print!("{}", super::render::render_list(&commands));
+            }
+            Ok(())
         }
+        "run" => super::run::run_command(&cli_args[1..]),
         _ => {
             eprintln!("auroraview: unknown CLI invocation: {first}");
             std::process::exit(2);
@@ -104,16 +110,22 @@ pub fn run_packed_cli(cli_args: Vec<String>) -> Result<()> {
     }
 }
 
-/// Minimal help text shown until the overlay-driven command list is wired up.
-fn print_help_placeholder() {
-    println!("AuroraView packed application");
-    println!();
-    println!("USAGE:");
-    println!("    app.exe                       Launch the GUI window");
-    println!("    app.exe run <command> [args]  Run a registered command");
-    println!("    app.exe list [--json]         List available commands");
-    println!("    app.exe -h, --help            Show this help");
-    println!("    app.exe -V, --version         Show version");
+/// Read the embedded CLI command table from the packed executable's overlay.
+///
+/// Returns an empty list on any read failure — `-h`/`list` then show no
+/// commands rather than aborting, matching the best-effort pack-time embed.
+fn read_cli_commands() -> Vec<auroraview_pack::CliCommandMeta> {
+    let Ok(exe_path) = std::env::current_exe() else {
+        return Vec::new();
+    };
+    match auroraview_pack::OverlayReader::read(&exe_path) {
+        Ok(Some(overlay)) => overlay.config.cli_commands,
+        Ok(None) => Vec::new(),
+        Err(e) => {
+            eprintln!("auroraview: failed to read overlay: {e}");
+            Vec::new()
+        }
+    }
 }
 
 #[cfg(test)]

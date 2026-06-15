@@ -294,6 +294,60 @@ pub struct ExtensionRemoteSource {
     pub strip_components: usize,
 }
 
+/// CLI parameter metadata embedded in the overlay (RFC 0018 §13.2).
+///
+/// Mirrors the per-parameter dict produced by the Python
+/// `CliCommandMeta.params()` introspection so the runtime `-h`/`list` path can
+/// render argument help without starting Python.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CliParamMeta {
+    /// Parameter name (as declared in the Python signature).
+    pub name: String,
+
+    /// Annotation name (`str`/`int`/...), or `"any"` when unannotated.
+    #[serde(default = "default_param_type")]
+    pub r#type: String,
+
+    /// Whether the parameter is required (no default value).
+    #[serde(default)]
+    pub required: bool,
+
+    /// Default value when the parameter is optional (`null` when required).
+    #[serde(default)]
+    pub default: serde_json::Value,
+
+    /// Per-parameter help text (from `args_help`), empty when absent.
+    #[serde(default)]
+    pub help: String,
+}
+
+fn default_param_type() -> String {
+    "any".to_string()
+}
+
+/// CLI command metadata embedded in the overlay (RFC 0018 §13.2).
+///
+/// Collected at pack time by running the bundled entry point with
+/// `AURORAVIEW_CLI_DUMP=1` and serialized into [`PackConfig::cli_commands`].
+/// The runtime `-h`/`list` path reads this verbatim — no Python launch.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CliCommandMeta {
+    /// Canonical command name.
+    pub name: String,
+
+    /// CLI aliases (`cli="x"` / `cli=["x","y"]`); empty for `cli=True`.
+    #[serde(default)]
+    pub aliases: Vec<String>,
+
+    /// Help text; the Python side falls back to the docstring first line.
+    #[serde(default)]
+    pub help: String,
+
+    /// Ordered parameter metadata.
+    #[serde(default)]
+    pub params: Vec<CliParamMeta>,
+}
+
 /// Complete pack configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PackConfig {
@@ -401,6 +455,16 @@ pub struct PackConfig {
     /// trade-off.
     #[serde(default)]
     pub capture_file_drop: bool,
+
+    /// CLI command metadata collected at pack time (RFC 0018 §13.3).
+    ///
+    /// Populated by running the bundled entry point with
+    /// `AURORAVIEW_CLI_DUMP=1` during packing. The runtime `-h`/`list` path
+    /// renders directly from this, so no Python is started. Empty when the app
+    /// exposes no CLI commands or when the pack-time dump could not run (e.g.
+    /// cross-platform packing).
+    #[serde(default)]
+    pub cli_commands: Vec<CliCommandMeta>,
 }
 
 /// Default compression level (19 = high compression, good for releases)
@@ -472,6 +536,7 @@ impl PackConfig {
             extensions: ExtensionsRuntimeConfig::default(),
             content_security_policy: None,
             capture_file_drop: false,
+            cli_commands: Vec::new(),
         }
     }
 
@@ -787,6 +852,8 @@ impl PackConfig {
                 .as_ref()
                 .and_then(|s| s.capture_file_drop)
                 .unwrap_or(false),
+            // RFC 0018: populated later in the pack flow by the pack-time dump.
+            cli_commands: Vec::new(),
         };
 
         Ok(config)

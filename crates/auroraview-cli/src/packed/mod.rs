@@ -27,6 +27,8 @@ mod console;
 mod events;
 mod extract;
 mod license;
+mod render;
+mod run;
 mod utils;
 mod warmup;
 mod webview;
