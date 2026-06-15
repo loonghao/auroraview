@@ -57,6 +57,26 @@ pub fn run_inspect(args: InspectArgs) -> Result<()> {
         println!("  Strategy: {:?}", python.strategy);
     }
 
+    // Display CLI commands embedded at pack time (RFC 0018 §5)
+    if !overlay.config.cli_commands.is_empty() {
+        println!(
+            "\n[CLI Commands] ({} total)",
+            overlay.config.cli_commands.len()
+        );
+        for cmd in &overlay.config.cli_commands {
+            let aliases = if cmd.aliases.is_empty() {
+                String::new()
+            } else {
+                format!(" ({})", cmd.aliases.join(", "))
+            };
+            println!("  {}{}  {}", cmd.name, aliases, cmd.help);
+            for param in &cmd.params {
+                let req = if param.required { "required" } else { "optional" };
+                println!("      --{} <{}> [{}]", param.name, param.r#type, req);
+            }
+        }
+    }
+
     // Display assets
     println!("\n[Assets] ({} total)", overlay.assets.len());
 

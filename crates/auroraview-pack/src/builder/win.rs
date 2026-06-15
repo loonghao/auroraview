@@ -152,6 +152,13 @@ impl Builder for WinBuilder {
             overlay.add_asset(path.clone(), content.clone());
         }
 
+        // RFC 0018 §5: harvest CLI command metadata into the overlay so the
+        // runtime `-h`/`list` path is zero-latency. Best-effort — a skip just
+        // leaves `cli_commands` empty (see `collect_cli_metadata`).
+        if let PackMode::FullStack { ref python, .. } = &overlay_config.mode {
+            self.embed_cli_metadata(&mut overlay, python)?;
+        }
+
         // Apply Windows resources
         #[cfg(target_os = "windows")]
         self.apply_resources(ctx, &output_path)?;
@@ -428,6 +435,33 @@ impl WinBuilder {
 
         tracing::info!("Python runtime added to overlay");
         Ok(())
+    }
+
+    /// Collect CLI command metadata and embed it into the overlay config
+    /// (RFC 0018 §5). Best-effort: a skip leaves `cli_commands` empty and only
+    /// logs a warning; a §12.4 alias conflict in a successful dump is fatal.
+    fn embed_cli_metadata(
+        &self,
+        overlay: &mut OverlayData,
+        python: &PythonBundleConfig,
+    ) -> BuildResult<()> {
+        match crate::collect_cli_metadata(overlay, python) {
+            Ok(crate::CliDumpOutcome::Collected(commands)) => {
+                tracing::info!("Embedded {} CLI command(s) into overlay", commands.len());
+                overlay.config.cli_commands = commands;
+                Ok(())
+            }
+            Ok(crate::CliDumpOutcome::Skipped(reason)) => {
+                tracing::warn!(
+                    "Skipped CLI metadata collection ({reason}); \
+                     `-h`/`list` will list no commands until repacked"
+                );
+                Ok(())
+            }
+            Err(conflict) => Err(PackError::Config(format!(
+                "CLI command alias conflict: {conflict}"
+            ))),
+        }
     }
 
     /// Add Python source files from include_paths to overlay

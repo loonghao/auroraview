@@ -391,6 +391,67 @@ exclude = [
 ]
 ```
 
+## 命令行模式（Headless CLI）
+
+打包后的可执行文件默认是 GUI 应用——双击（或无参数启动）照常打开窗口。它**同时**支持在终端里直接运行已注册的 Python 命令，无需打开窗口。
+
+```bash
+my-app.exe                          # 打开 GUI 窗口（行为不变）
+my-app.exe -h                       # 列出已开启 CLI 的命令
+my-app.exe list                     # 列出命令（加 --json 输出机器可读格式）
+my-app.exe run export --path ./out  # 执行单个命令，打印结果后退出
+my-app.exe -V                       # 打印版本
+```
+
+只有当**首个参数**是保留动词（`run`、`list`）或保留标志（`-h`/`--help`、`-V`/`--version`）时才进入 CLI 路径。裸文件路径（文件关联、拖拽）一律打开 GUI，因此不会破坏既有行为。
+
+### 把命令暴露给 CLI
+
+CLI 暴露是**显式开启**的——命令默认仅 GUI 可用。通过 `@webview.command` 的 `cli` 参数开启：
+
+```python
+@webview.command(name="export", help="导出工程", cli=True)
+def export(path: str, dpi: int = 300) -> dict:
+    return {"written": path, "dpi": dpi}
+
+# 指定短别名：
+@webview.command(name="export-document-image", cli="exi")
+def export_document_image(path: str) -> dict: ...
+
+# 多个别名：
+@webview.command(name="validate", cli=["val", "v"])
+def validate() -> dict: ...
+```
+
+`cli` 取值同时承担开关与别名两个职责：
+
+| `cli` 取值           | 含义                       |
+|----------------------|----------------------------|
+| `False`（默认）      | 仅 GUI，不暴露到命令行     |
+| `True`               | 暴露，无别名               |
+| `"exi"`              | 暴露，别名 `exi`           |
+| `["exi", "edi"]`     | 暴露，多个别名             |
+
+用 `help=` 和 `args_help={...}` 丰富 `-h` 输出；缺省时回退到 docstring / 签名。批量开启已有命令可调用 `webview.commands.enable_cli("export", "validate")`，或传入 `{名称: 别名}` 映射。
+
+### 传参
+
+支持关键字与位置两种形态，可混用（位置在前，关键字在后）：
+
+```bash
+my-app.exe run export --path ./out --dpi 600   # 关键字
+my-app.exe run export ./out 600                 # 位置（按签名顺序）
+my-app.exe run export ./out --dpi 600           # 混用
+```
+
+参数按类型注解（`int`/`float`/`bool`/`str`）转换，其余按 JSON 解析（`--config '{"a":1}'`）。布尔支持 `--flag` / `--no-flag`。退出码：`0` 成功，`1` 命令抛异常，`2` 命令未找到或参数错误。
+
+### 实现原理
+
+`-h`/`list` 显示的命令清单在**打包期**采集并嵌入 overlay，因此这两个命令毫秒级返回、完全不启动 Python。采集时以 `AURORAVIEW_CLI_DUMP=1` 跑一次打包的入口。由于需要在构建主机上运行打包的解释器，跨平台打包或非 `standalone` 策略时会跳过（并打印警告）——此时 `-h`/`list` 不列出任何命令，需在匹配的主机上重新打包。`run` 首次执行时解压 Python 运行时（之后缓存复用），在一次性进程中调用命令——不复用 GUI 的常驻后端。
+
+Windows 上打包 exe 启动时会附着到父控制台，使 CLI 输出能回到终端（双击仍无黑窗）。macOS/Linux 无 GUI 子系统的 stdio 隔离问题，输出直接生效。
+
 ## 最佳实践
 
 1. **使用 `site-packages` 存放依赖**: 所有第三方包放到 `python/site-packages/`

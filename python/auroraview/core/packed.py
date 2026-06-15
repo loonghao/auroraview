@@ -32,6 +32,11 @@ PACKED_MODE = os.environ.get("AURORAVIEW_PACKED", "0") == "1"
 # of opening a window or starting the JSON-RPC server.
 CLI_DUMP_MODE = os.environ.get("AURORAVIEW_CLI_DUMP", "0") == "1"
 
+# RFC 0018 §7: headless command invocation. When set, the entry point builds the
+# WebView/commands (without calling show()), invokes the named command, prints
+# the JSON result, and exits with the §4.4 exit code.
+CLI_INVOKE_COMMAND = os.environ.get("AURORAVIEW_CLI_INVOKE") or None
+
 # Windows error codes
 _ERROR_NO_DATA = 232  # Pipe is being closed
 _ERROR_BROKEN_PIPE = 109  # The pipe has been ended
@@ -124,6 +129,11 @@ def is_packed_mode() -> bool:
 def is_cli_dump_mode() -> bool:
     """Check if running in pack-time CLI metadata dump mode (RFC 0018 §13.3)."""
     return CLI_DUMP_MODE
+
+
+def is_cli_invoke_mode() -> bool:
+    """Check if running in headless CLI invoke mode (RFC 0018 §7)."""
+    return CLI_INVOKE_COMMAND is not None
 
 
 def is_pipe_closed() -> bool:
@@ -267,6 +277,31 @@ def dump_cli_metadata(webview: "WebView") -> None:
     # Write directly to stdout (not the StdioWriter pipe-detection path) so the
     # packer subprocess captures clean JSON regardless of packed-mode state.
     print(json.dumps(payload, ensure_ascii=False), flush=True)
+
+
+def invoke_cli_command(webview: "WebView") -> None:
+    """Invoke a single command headlessly and exit (RFC 0018 §7).
+
+    Called at runtime (under ``AURORAVIEW_CLI_INVOKE=<name>``) after the entry
+    point builds the WebView/commands but before ``show()`` would open a
+    window. Reads the raw argument tokens from ``AURORAVIEW_CLI_ARGS`` (a JSON
+    list), runs the command, and exits with the §4.4 exit code.
+
+    The window / JSON-RPC server is never started in this mode.
+    """
+    from .cli_invoke import run_cli_invoke
+
+    command = CLI_INVOKE_COMMAND or ""
+    raw = os.environ.get("AURORAVIEW_CLI_ARGS", "[]")
+    try:
+        args = json.loads(raw)
+        if not isinstance(args, list):
+            args = []
+    except (ValueError, json.JSONDecodeError):
+        args = []
+
+    exit_code = run_cli_invoke(webview, command, [str(a) for a in args])
+    sys.exit(exit_code)
 
 
 def run_api_server(webview: "WebView") -> None:
