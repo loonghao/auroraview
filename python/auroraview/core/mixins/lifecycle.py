@@ -79,7 +79,15 @@ class WebViewLifecycleMixin:
             >>> # to API server mode. All bind_call() handlers work seamlessly.
         """
         # Check for packed mode first - transparent to developers
-        from ..packed import is_packed_mode, run_api_server
+        from ..packed import dump_cli_metadata, is_cli_dump_mode, is_packed_mode, run_api_server
+
+        # RFC 0018 (section 13.3): pack-time metadata dump short-circuits
+        # before any window/server work. The packer runs the entry point with
+        # AURORAVIEW_CLI_DUMP=1 purely to harvest CLI command metadata.
+        if is_cli_dump_mode():
+            logger.info("CLI dump mode detected: emitting command metadata and exiting")
+            dump_cli_metadata(self)
+            return
 
         if is_packed_mode():
             logger.info("Packed mode detected: running as API server")
