@@ -22,6 +22,8 @@
 //! - Enables verbose logging
 
 mod backend;
+mod cli;
+mod console;
 mod events;
 mod extract;
 mod license;
@@ -44,6 +46,14 @@ pub use utils::{
 // Exposed for integration tests only; not part of the public API surface.
 #[doc(hidden)]
 pub use webview::resolve_packed_capture_file_drop;
+
+// RFC 0018 §3: attach the packed (GUI-subsystem) process to its parent console
+// so the headless CLI path can print to the launching terminal.
+pub use console::attach_parent_console;
+
+// RFC 0018 §4: classify a packed invocation (GUI vs headless CLI) and run the
+// CLI path. Exposed for integration tests covering the trigger convention.
+pub use cli::{classify_packed_invocation, run_packed_cli, PackedInvocation};
 
 // Re-export from auroraview-core
 pub use auroraview_core::assets::build_packed_init_script_with_csp;

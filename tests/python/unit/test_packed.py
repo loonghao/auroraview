@@ -464,3 +464,104 @@ class TestPackedModeIntegration:
         assert error["ok"] is False
         assert "name" in error["error"]
         assert "message" in error["error"]
+
+
+class TestCliMetadataCollection:
+    """Test RFC 0018 CLI metadata collection (iter/collect/dump)."""
+
+    def _registry_webview(self):
+        """Build a lightweight object exposing a real CommandRegistry as
+        `_commands`, mirroring WebView's attribute layout."""
+        from auroraview.core.commands import CommandRegistry
+
+        class _FakeWebView:
+            pass
+
+        wv = _FakeWebView()
+        wv._commands = CommandRegistry()
+        return wv
+
+    def test_iter_collects_only_cli_commands(self):
+        import auroraview.core.packed as packed_module
+
+        wv = self._registry_webview()
+        reg = wv._commands
+
+        @reg.register("export", cli="exp", help="Export data")
+        def export(path: str, dpi: int = 300) -> dict:
+            return {}
+
+        @reg.register("internal")  # not CLI-exposed
+        def internal() -> None:
+            pass
+
+        commands = packed_module.iter_cli_commands(wv)
+        assert len(commands) == 1
+        meta = commands[0]
+        assert meta["name"] == "export"
+        assert meta["aliases"] == ["exp"]
+        assert meta["help"] == "Export data"
+        assert [p["name"] for p in meta["params"]] == ["path", "dpi"]
+
+    def test_iter_empty_when_no_registry(self):
+        import auroraview.core.packed as packed_module
+
+        class _Bare:
+            pass
+
+        assert packed_module.iter_cli_commands(_Bare()) == []
+
+    def test_collect_matches_iter(self):
+        import auroraview.core.packed as packed_module
+
+        wv = self._registry_webview()
+
+        @wv._commands.register("sync", cli=True)
+        def sync() -> None:
+            pass
+
+        assert packed_module.collect_cli_commands(wv) == packed_module.iter_cli_commands(wv)
+
+    def test_dump_cli_metadata_writes_json(self):
+        import auroraview.core.packed as packed_module
+
+        wv = self._registry_webview()
+
+        @wv._commands.register("export", cli="exp")
+        def export(path: str) -> dict:
+            return {}
+
+        buf = StringIO()
+        with patch("sys.stdout", buf):
+            packed_module.dump_cli_metadata(wv)
+
+        payload = json.loads(buf.getvalue())
+        assert payload["type"] == "cli_metadata"
+        assert payload["commands"][0]["name"] == "export"
+        assert payload["commands"][0]["aliases"] == ["exp"]
+
+
+class TestIsCliDumpMode:
+    """Test is_cli_dump_mode() env detection."""
+
+    def test_false_when_unset(self):
+        with patch.dict(os.environ, {}, clear=True):
+            import auroraview.core.packed as packed_module
+
+            original = packed_module.CLI_DUMP_MODE
+            packed_module.CLI_DUMP_MODE = os.environ.get("AURORAVIEW_CLI_DUMP", "0") == "1"
+            try:
+                assert packed_module.is_cli_dump_mode() is False
+            finally:
+                packed_module.CLI_DUMP_MODE = original
+
+    def test_true_when_one(self):
+        with patch.dict(os.environ, {"AURORAVIEW_CLI_DUMP": "1"}):
+            import auroraview.core.packed as packed_module
+
+            original = packed_module.CLI_DUMP_MODE
+            packed_module.CLI_DUMP_MODE = os.environ.get("AURORAVIEW_CLI_DUMP", "0") == "1"
+            try:
+                assert packed_module.is_cli_dump_mode() is True
+            finally:
+                packed_module.CLI_DUMP_MODE = original
