@@ -70,6 +70,34 @@ user32.SetLayeredWindowAttributes.argtypes = [
 ]
 user32.SetLayeredWindowAttributes.restype = wintypes.BOOL
 
+# Whether the current process is 64-bit (pointer width == 8 bytes).
+# On 64-bit Windows, HWND/handles and WndProc pointers exceed the C int range,
+# so any Win32 function receiving them MUST declare argtypes with pointer-wide
+# types. Otherwise ctypes defaults to marshalling Python int as C int (32-bit)
+# and raises "OverflowError: int too long to convert".
+_IS_64BIT = ctypes.sizeof(ctypes.c_void_p) == 8
+
+# EnumChildWindows callback prototype (module level so the signature is reused
+# and the BOOL/HWND/LPARAM types stay consistent across calls).
+WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+
+# Configure EnumChildWindows function signature.
+# Without argtypes, the HWND argument overflows C int on 64-bit Windows.
+user32.EnumChildWindows.argtypes = [wintypes.HWND, WNDENUMPROC, wintypes.LPARAM]
+user32.EnumChildWindows.restype = wintypes.BOOL
+
+# Configure CallWindowProcW function signature.
+# lpPrevWndFunc is a function pointer (pointer-wide); WPARAM/LPARAM follow the
+# process bitness. Without argtypes the pointer overflows C int on 64-bit.
+user32.CallWindowProcW.argtypes = [
+    ctypes.c_void_p,  # lpPrevWndFunc
+    wintypes.HWND,  # hWnd
+    wintypes.UINT,  # Msg
+    ctypes.c_ulonglong if _IS_64BIT else wintypes.WPARAM,  # wParam
+    ctypes.c_longlong if _IS_64BIT else wintypes.LPARAM,  # lParam
+]
+user32.CallWindowProcW.restype = ctypes.c_longlong if _IS_64BIT else ctypes.c_long
+
 # Window style constants
 GWL_STYLE = -16
 GWL_EXSTYLE = -20
@@ -269,9 +297,7 @@ class WindowsPlatformBackend(PlatformBackend):
             return 0
 
         try:
-            # EnumChildWindows callback
-            WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
-
+            # EnumChildWindows callback (WNDENUMPROC is defined at module level)
             child_windows = []
 
             def enum_callback(hwnd, lparam):
@@ -454,10 +480,7 @@ class WindowsPlatformBackend(PlatformBackend):
             _GetWndProc = user32.GetWindowLongW
             _SetWndProc = user32.SetWindowLongW
 
-        user32.CallWindowProcW.restype = (
-            ctypes.c_longlong if ctypes.sizeof(ctypes.c_void_p) == 8 else ctypes.c_long
-        )
-
+        # CallWindowProcW argtypes/restype are configured at module level.
         original_wndproc = _GetWndProc(hwnd, GWLP_WNDPROC)
         if not original_wndproc:
             logger.warning(f"[Win32] GetWindowLongPtrW returned 0 for HWND 0x{hwnd:X}")
