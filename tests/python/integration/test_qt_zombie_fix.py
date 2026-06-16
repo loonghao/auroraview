@@ -190,6 +190,7 @@ class TestZombieReferenceFix:
         from unittest.mock import MagicMock
 
         from qtpy.QtCore import QSize
+        from qtpy.QtGui import QResizeEvent
 
         from auroraview import QtWebView
 
@@ -202,11 +203,13 @@ class TestZombieReferenceFix:
             )
             webview._webview_container = mock_container
 
-            mock_event = MagicMock()
-            mock_event.size.return_value = QSize(800, 600)
+            # Use a real QResizeEvent: PySide6/PyQt strictly type-check the
+            # argument to QWidget.resizeEvent(), so a MagicMock is rejected
+            # before our dead-container handling is reached.
+            resize_event = QResizeEvent(QSize(800, 600), QSize(640, 480))
 
             with caplog.at_level(logging.WARNING):
-                webview.resizeEvent(mock_event)
+                webview.resizeEvent(resize_event)
 
             # Container should be cleared
             assert webview._webview_container is None

@@ -16,8 +16,15 @@ class MockWebView:
         self._should_close = False
         self._process_events_called = 0
         self._is_valid = True
-        self._core = MagicMock()
-        self._core.is_window_valid.return_value = True
+
+    @property
+    def is_ready(self) -> bool:
+        """EventTimer reads this as the single source of truth for readiness."""
+        return True
+
+    def is_window_valid(self) -> bool:
+        """EventTimer's validity probe (replaces the old ``_core`` path)."""
+        return self._is_valid
 
     def process_events(self):
         """Mock process_events method."""
@@ -31,7 +38,6 @@ class MockWebView:
     def invalidate_window(self):
         """Simulate window becoming invalid."""
         self._is_valid = False
-        self._core.is_window_valid.return_value = False
 
 
 class TestEventTimer:
@@ -452,8 +458,6 @@ class TestEventTimer:
 
     def test_backend_stop_called(self):
         """Test that backend.stop() is called when timer stops."""
-        from unittest.mock import MagicMock
-
         from auroraview.utils.timer_backends import ThreadTimerBackend
 
         webview = MockWebView()
@@ -477,8 +481,6 @@ class TestEventTimer:
 
     def test_backend_stop_error_handling(self):
         """Test error handling when backend.stop() raises exception."""
-        from unittest.mock import MagicMock
-
         from auroraview.utils.timer_backends import ThreadTimerBackend
 
         webview = MockWebView()

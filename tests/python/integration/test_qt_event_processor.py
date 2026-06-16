@@ -42,7 +42,7 @@ class TestQtEventProcessor(unittest.TestCase):
         processor = QtEventProcessor(webview)
 
         # Mock Qt and WebView process_events
-        with patch("auroraview.integration.qt.QCoreApplication") as mock_qt:
+        with patch("auroraview.integration.qt.event_processor.QCoreApplication") as mock_qt:
             # Call process
             processor.process()
 
@@ -73,10 +73,12 @@ class TestQtEventProcessor(unittest.TestCase):
         """Test WebView without processor uses default implementation."""
         webview = WebView()
 
-        # Mock _core.process_events
-        webview._core.process_events = MagicMock()
+        # Replace the native Rust core with a mock so we can observe the
+        # default-path call. The real `_core` is a builtins.WebView whose
+        # attributes can't be reassigned, so swap the whole object.
+        webview._core = MagicMock()
 
-        # Emit event (should use default implementation)
+        # Emit event (should use default implementation via _auto_process_events)
         webview.emit("test_event", {"data": 123})
 
         # Verify default implementation was called

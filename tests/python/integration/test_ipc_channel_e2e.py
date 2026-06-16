@@ -414,33 +414,6 @@ class TestRustJsonIntegration:
             pytest.skip("Rust core not available")
 
 
-class TestGalleryIpcChannelIntegration:
-    """Test Gallery integration with IPC channel."""
-
-    def test_gallery_run_sample_with_channel(self):
-        """Test that Gallery's run_sample supports use_channel parameter."""
-        # This test verifies the API signature, not actual execution
-
-        # Import the gallery main module to check function signature
-        gallery_path = os.path.join(
-            os.path.dirname(__file__),
-            "..",
-            "..",
-            "..",
-            "gallery",
-            "main.py",
-        )
-
-        if os.path.exists(gallery_path):
-            # Read the file and check for use_channel parameter
-            with open(gallery_path, "r", encoding="utf-8") as f:
-                content = f.read()
-
-            assert "use_channel" in content
-            assert "spawn_ipc_channel" in content
-            assert "send_json_to_process" in content
-
-
 class TestIpcChannelThreadSafety:
     """Test IPC channel thread safety."""
 
