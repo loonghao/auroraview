@@ -166,6 +166,26 @@ impl Builder for WinBuilder {
         // Write overlay
         OverlayWriter::write(&output_path, &overlay)?;
 
+        // RFC 0018 §3: the packed exe is GUI-subsystem so a double-click never
+        // flashes a console. The downside is that cmd.exe / PowerShell do NOT
+        // wait for a GUI-subsystem process, so `app.exe run ...` returns to the
+        // prompt before the command's output lands. When the pack exposes CLI
+        // commands (and isn't already console-subsystem), drop a `<name>.cmd`
+        // shim beside the exe that runs it via `start /wait` so terminals block
+        // and the exit code propagates. Best-effort: a write failure only logs.
+        let console = ctx
+            .config
+            .platform
+            .windows
+            .as_ref()
+            .map(|w| w.console)
+            .unwrap_or(false);
+        if !console && !overlay.config.cli_commands.is_empty() {
+            if let Err(e) = self.write_cli_shim(&output_path, &exe_name) {
+                tracing::warn!("Failed to write CLI .cmd shim: {}", e);
+            }
+        }
+
         let size = fs::metadata(&output_path)?.len();
         tracing::info!(
             "Build complete: {} ({:.2} MB)",
@@ -434,6 +454,36 @@ impl WinBuilder {
         overlay.add_asset("python_runtime.tar.gz", archive_bytes);
 
         tracing::info!("Python runtime added to overlay");
+        Ok(())
+    }
+
+    /// Write a `<name>.cmd` shim beside the packed exe (RFC 0018 §3).
+    ///
+    /// A GUI-subsystem exe doesn't make the shell wait, so terminal users get
+    /// the prompt back before output appears. The shim forces synchronous
+    /// execution and forwards every argument and the exit code:
+    ///
+    /// ```bat
+    /// @echo off
+    /// start "" /wait /b "%~dp0app.exe" %*
+    /// exit /b %ERRORLEVEL%
+    /// ```
+    ///
+    /// `%~dp0` is the shim's own directory (trailing slash included), so the
+    /// shim resolves the exe relative to itself regardless of the caller's CWD.
+    fn write_cli_shim(&self, exe_path: &Path, exe_name: &str) -> BuildResult<()> {
+        let stem = exe_name.strip_suffix(".exe").unwrap_or(exe_name);
+        let shim_path = exe_path.with_file_name(format!("{stem}.cmd"));
+
+        // CRLF line endings: this is a Windows batch file.
+        let contents = format!(
+            "@echo off\r\n\
+             start \"\" /wait /b \"%~dp0{exe_name}\" %*\r\n\
+             exit /b %ERRORLEVEL%\r\n"
+        );
+
+        fs::write(&shim_path, contents)?;
+        tracing::info!("Wrote CLI shim: {}", shim_path.display());
         Ok(())
     }
 
@@ -735,5 +785,40 @@ impl WinBuilder {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn shim_runs_exe_via_start_wait_and_forwards_exit_code() {
+        let dir = tempdir().unwrap();
+        let exe_path = dir.path().join("packed-cli-demo.exe");
+        WinBuilder::new()
+            .write_cli_shim(&exe_path, "packed-cli-demo.exe")
+            .unwrap();
+
+        let shim = dir.path().join("packed-cli-demo.cmd");
+        assert!(shim.exists(), "shim should be written beside the exe");
+
+        let body = fs::read_to_string(&shim).unwrap();
+        // Synchronous launch so the terminal waits for the GUI-subsystem exe.
+        assert!(body.contains("start \"\" /wait /b \"%~dp0packed-cli-demo.exe\" %*"));
+        // Exit code propagation and CRLF line endings (it's a .bat-style file).
+        assert!(body.contains("exit /b %ERRORLEVEL%"));
+        assert!(body.contains("\r\n"));
+    }
+
+    #[test]
+    fn shim_path_drops_exe_suffix() {
+        let dir = tempdir().unwrap();
+        let exe_path = dir.path().join("myapp.exe");
+        WinBuilder::new()
+            .write_cli_shim(&exe_path, "myapp.exe")
+            .unwrap();
+        assert!(dir.path().join("myapp.cmd").exists());
     }
 }
