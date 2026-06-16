@@ -113,7 +113,7 @@ pub fn destroy_window_by_hwnd(hwnd: u64) -> PyResult<bool> {
 pub fn fix_webview2_child_windows(hwnd: u64) -> PyResult<bool> {
     #[cfg(target_os = "windows")]
     {
-        crate::webview::backend::native::NativeBackend::fix_webview2_child_windows(hwnd as isize);
+        auroraview_core::builder::fix_webview2_child_windows(hwnd as isize);
         Ok(true)
     }
     #[cfg(not(target_os = "windows"))]
