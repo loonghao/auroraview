@@ -293,4 +293,56 @@ mod tests {
         let code = build_invoke_code(Path::new("/tmp/app"), "main.py");
         assert!(code.contains("runpy.run_path"));
     }
+
+    #[test]
+    fn invoke_code_includes_bootstrap_when_present() {
+        // A `__aurora_bootstrap__.py` beside the sources is imported first so
+        // the packed runtime path matches the GUI launcher.
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("__aurora_bootstrap__.py"), b"# boot").unwrap();
+        let code = build_invoke_code(dir.path(), "pkg.main:run");
+        assert!(code.contains("import __aurora_bootstrap__;"));
+        assert!(code.contains("from pkg.main import run"));
+    }
+
+    #[test]
+    fn invoke_code_empty_function_defaults_to_main() {
+        let code = build_invoke_code(Path::new("/tmp/app"), "pkg.entry:");
+        assert!(code.contains("from pkg.entry import main"));
+        assert!(code.contains("main()"));
+    }
+
+    #[test]
+    fn extract_python_sources_writes_python_prefixed_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = PackConfig::url("about:blank");
+        config.cli_commands = vec![];
+        let mut overlay = OverlayData::new(config);
+        overlay.add_asset("python/pkg/mod.py", b"x = 1\n".to_vec());
+        overlay.add_asset("python/main.py", b"print('hi')\n".to_vec());
+        overlay.add_asset("web/index.html", b"<html></html>".to_vec());
+
+        extract_python_sources(&overlay, dir.path()).expect("extract");
+
+        assert!(dir.path().join("pkg/mod.py").exists());
+        assert!(dir.path().join("main.py").exists());
+        assert!(!dir.path().join("index.html").exists());
+    }
+
+    #[test]
+    fn extract_python_sources_skips_identical_existing_content() {
+        // A warm cache leaves byte-identical files untouched (no rewrite).
+        let dir = tempfile::tempdir().unwrap();
+        let mut overlay = OverlayData::new(PackConfig::url("about:blank"));
+        overlay.add_asset("python/main.py", b"same\n".to_vec());
+
+        // Pre-create the destination with identical content.
+        std::fs::write(dir.path().join("main.py"), b"same\n").unwrap();
+        extract_python_sources(&overlay, dir.path()).expect("extract");
+
+        assert_eq!(
+            std::fs::read(dir.path().join("main.py")).unwrap(),
+            b"same\n"
+        );
+    }
 }

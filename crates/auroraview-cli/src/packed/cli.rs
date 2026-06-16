@@ -226,4 +226,40 @@ mod tests {
             PackedInvocation::Gui
         );
     }
+
+    #[test]
+    fn program_name_is_non_empty() {
+        // Derived from the test binary's own path; never the "app" fallback here.
+        let name = program_name();
+        assert!(!name.is_empty());
+        assert!(!name.ends_with(".exe"), "exe suffix should be stripped");
+    }
+
+    #[test]
+    fn read_cli_commands_empty_without_overlay() {
+        // The test binary has no overlay, so the embedded table reads as empty
+        // rather than aborting (best-effort contract).
+        assert!(read_cli_commands().is_empty());
+    }
+
+    #[test]
+    fn run_packed_cli_version_prints_and_succeeds() {
+        // -V / --version render purely from the crate version, no overlay needed.
+        assert!(run_packed_cli(vec!["-V".to_string()]).is_ok());
+        assert!(run_packed_cli(vec!["--version".to_string()]).is_ok());
+    }
+
+    #[test]
+    fn run_packed_cli_help_succeeds_without_overlay() {
+        // -h reads the (empty) command table from this test binary and renders
+        // help text; it must not error when no overlay is present.
+        assert!(run_packed_cli(vec!["-h".to_string()]).is_ok());
+        assert!(run_packed_cli(vec!["--help".to_string()]).is_ok());
+    }
+
+    #[test]
+    fn run_packed_cli_list_succeeds_text_and_json() {
+        assert!(run_packed_cli(vec!["list".to_string()]).is_ok());
+        assert!(run_packed_cli(vec!["list".to_string(), "--json".to_string()]).is_ok());
+    }
 }
