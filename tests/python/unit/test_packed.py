@@ -15,6 +15,8 @@ from io import StringIO
 from typing import Any, Callable, Dict
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 
 class TestIsPackedMode:
     """Test is_packed_mode() function."""
@@ -540,6 +542,140 @@ class TestCliMetadataCollection:
         assert payload["commands"][0]["name"] == "export"
         assert payload["commands"][0]["aliases"] == ["exp"]
 
+    def test_iter_skips_command_with_missing_func(self):
+        """A CLI-listed name whose callable vanished is skipped (§13.2 guard)."""
+        import auroraview.core.packed as packed_module
+
+        wv = self._registry_webview()
+        reg = wv._commands
+
+        @reg.register("export", cli="exp")
+        def export(path: str) -> dict:
+            return {}
+
+        # Drop the underlying callable while leaving CLI metadata in place.
+        reg._commands.pop("export", None)
+
+        assert packed_module.iter_cli_commands(wv) == []
+
+
+class TestInvokeCliCommand:
+    """Test invoke_cli_command() headless dispatch (RFC 0018 §7)."""
+
+    def _registry_webview(self):
+        from auroraview.core.commands import CommandRegistry
+
+        class _FakeWebView:
+            pass
+
+        wv = _FakeWebView()
+        wv._commands = CommandRegistry()
+        wv._bound_functions = {}
+        return wv
+
+    def test_runs_command_and_exits_with_code(self):
+        import auroraview.core.packed as packed_module
+
+        wv = self._registry_webview()
+        with patch.object(packed_module, "CLI_INVOKE_COMMAND", "greet"), patch.dict(
+            os.environ, {"AURORAVIEW_CLI_ARGS": '["world"]'}
+        ):
+            with patch(
+                "auroraview.core.cli_invoke.run_cli_invoke", return_value=0
+            ) as mock_run:
+                with __import__("pytest").raises(SystemExit) as exc:
+                    packed_module.invoke_cli_command(wv)
+        assert exc.value.code == 0
+        mock_run.assert_called_once_with(wv, "greet", ["world"])
+
+    def test_non_list_args_become_empty(self):
+        import auroraview.core.packed as packed_module
+
+        wv = self._registry_webview()
+        with patch.object(packed_module, "CLI_INVOKE_COMMAND", "ping"), patch.dict(
+            os.environ, {"AURORAVIEW_CLI_ARGS": '{"not": "a list"}'}
+        ):
+            with patch(
+                "auroraview.core.cli_invoke.run_cli_invoke", return_value=2
+            ) as mock_run:
+                with __import__("pytest").raises(SystemExit) as exc:
+                    packed_module.invoke_cli_command(wv)
+        assert exc.value.code == 2
+        mock_run.assert_called_once_with(wv, "ping", [])
+
+    def test_invalid_json_args_become_empty(self):
+        import auroraview.core.packed as packed_module
+
+        wv = self._registry_webview()
+        with patch.object(packed_module, "CLI_INVOKE_COMMAND", "ping"), patch.dict(
+            os.environ, {"AURORAVIEW_CLI_ARGS": "not-json"}
+        ):
+            with patch(
+                "auroraview.core.cli_invoke.run_cli_invoke", return_value=1
+            ) as mock_run:
+                with __import__("pytest").raises(SystemExit) as exc:
+                    packed_module.invoke_cli_command(wv)
+        assert exc.value.code == 1
+        mock_run.assert_called_once_with(wv, "ping", [])
+
+    def test_missing_args_env_defaults_to_empty_list(self):
+        import auroraview.core.packed as packed_module
+
+        wv = self._registry_webview()
+        with patch.object(packed_module, "CLI_INVOKE_COMMAND", "run"), patch.dict(
+            os.environ, {}, clear=True
+        ):
+            with patch(
+                "auroraview.core.cli_invoke.run_cli_invoke", return_value=0
+            ) as mock_run:
+                with __import__("pytest").raises(SystemExit):
+                    packed_module.invoke_cli_command(wv)
+        mock_run.assert_called_once_with(wv, "run", [])
+
+    def test_none_command_falls_back_to_empty_string(self):
+        import auroraview.core.packed as packed_module
+
+        wv = self._registry_webview()
+        with patch.object(packed_module, "CLI_INVOKE_COMMAND", None), patch.dict(
+            os.environ, {"AURORAVIEW_CLI_ARGS": "[]"}
+        ):
+            with patch(
+                "auroraview.core.cli_invoke.run_cli_invoke", return_value=2
+            ) as mock_run:
+                with __import__("pytest").raises(SystemExit):
+                    packed_module.invoke_cli_command(wv)
+        mock_run.assert_called_once_with(wv, "", [])
+
+    def test_args_coerced_to_strings(self):
+        import auroraview.core.packed as packed_module
+
+        wv = self._registry_webview()
+        with patch.object(packed_module, "CLI_INVOKE_COMMAND", "calc"), patch.dict(
+            os.environ, {"AURORAVIEW_CLI_ARGS": "[1, 2, true]"}
+        ):
+            with patch(
+                "auroraview.core.cli_invoke.run_cli_invoke", return_value=0
+            ) as mock_run:
+                with __import__("pytest").raises(SystemExit):
+                    packed_module.invoke_cli_command(wv)
+        mock_run.assert_called_once_with(wv, "calc", ["1", "2", "True"])
+
+
+class TestIsCliInvokeMode:
+    """Test is_cli_invoke_mode() detection (RFC 0018 §7)."""
+
+    def test_false_when_command_none(self):
+        import auroraview.core.packed as packed_module
+
+        with patch.object(packed_module, "CLI_INVOKE_COMMAND", None):
+            assert packed_module.is_cli_invoke_mode() is False
+
+    def test_true_when_command_set(self):
+        import auroraview.core.packed as packed_module
+
+        with patch.object(packed_module, "CLI_INVOKE_COMMAND", "greet"):
+            assert packed_module.is_cli_invoke_mode() is True
+
 
 class TestIsCliDumpMode:
     """Test is_cli_dump_mode() env detection."""
@@ -565,3 +701,102 @@ class TestIsCliDumpMode:
                 assert packed_module.is_cli_dump_mode() is True
             finally:
                 packed_module.CLI_DUMP_MODE = original
+
+
+class TestIsCliInvokeMode:
+    """Test is_cli_invoke_mode() env detection (RFC 0018 §7)."""
+
+    def test_false_when_unset(self, monkeypatch):
+        import auroraview.core.packed as packed_module
+
+        monkeypatch.setattr(packed_module, "CLI_INVOKE_COMMAND", None)
+        assert packed_module.is_cli_invoke_mode() is False
+
+    def test_true_when_command_set(self, monkeypatch):
+        import auroraview.core.packed as packed_module
+
+        monkeypatch.setattr(packed_module, "CLI_INVOKE_COMMAND", "export")
+        assert packed_module.is_cli_invoke_mode() is True
+
+
+class TestInvokeCliCommand:
+    """Test invoke_cli_command() headless dispatch (RFC 0018 §7)."""
+
+    def test_parses_args_and_exits_with_run_code(self, monkeypatch):
+        """Reads command + JSON args, forwards to run_cli_invoke, exits with
+        the returned code."""
+        import auroraview.core.packed as packed_module
+
+        monkeypatch.setattr(packed_module, "CLI_INVOKE_COMMAND", "export")
+        monkeypatch.setenv("AURORAVIEW_CLI_ARGS", '["./out", "600"]')
+
+        captured: Dict[str, Any] = {}
+
+        def fake_run(webview, command, args):
+            captured["command"] = command
+            captured["args"] = args
+            return 0
+
+        monkeypatch.setattr(
+            "auroraview.core.cli_invoke.run_cli_invoke", fake_run
+        )
+
+        wv = MagicMock()
+        with pytest.raises(SystemExit) as exc:
+            packed_module.invoke_cli_command(wv)
+
+        assert exc.value.code == 0
+        assert captured["command"] == "export"
+        assert captured["args"] == ["./out", "600"]
+
+    def test_propagates_nonzero_exit_code(self, monkeypatch):
+        """A command error (exit 1) from run_cli_invoke is propagated."""
+        import auroraview.core.packed as packed_module
+
+        monkeypatch.setattr(packed_module, "CLI_INVOKE_COMMAND", "boom")
+        monkeypatch.setenv("AURORAVIEW_CLI_ARGS", "[]")
+        monkeypatch.setattr(
+            "auroraview.core.cli_invoke.run_cli_invoke", lambda *a: 1
+        )
+
+        with pytest.raises(SystemExit) as exc:
+            packed_module.invoke_cli_command(MagicMock())
+        assert exc.value.code == 1
+
+    def test_malformed_args_fall_back_to_empty_list(self, monkeypatch):
+        """Invalid JSON in AURORAVIEW_CLI_ARGS degrades to no args, not a crash."""
+        import auroraview.core.packed as packed_module
+
+        monkeypatch.setattr(packed_module, "CLI_INVOKE_COMMAND", "ping")
+        monkeypatch.setenv("AURORAVIEW_CLI_ARGS", "not-json{")
+
+        seen: Dict[str, Any] = {}
+
+        def fake_run(webview, command, args):
+            seen["args"] = args
+            return 0
+
+        monkeypatch.setattr(
+            "auroraview.core.cli_invoke.run_cli_invoke", fake_run
+        )
+
+        with pytest.raises(SystemExit):
+            packed_module.invoke_cli_command(MagicMock())
+        assert seen["args"] == []
+
+    def test_non_list_json_args_fall_back_to_empty_list(self, monkeypatch):
+        """A JSON object (not a list) in CLI_ARGS degrades to no args."""
+        import auroraview.core.packed as packed_module
+
+        monkeypatch.setattr(packed_module, "CLI_INVOKE_COMMAND", "ping")
+        monkeypatch.setenv("AURORAVIEW_CLI_ARGS", '{"a": 1}')
+
+        seen: Dict[str, Any] = {}
+        monkeypatch.setattr(
+            "auroraview.core.cli_invoke.run_cli_invoke",
+            lambda wv, cmd, args: seen.update(args=args) or 0,
+        )
+
+        with pytest.raises(SystemExit):
+            packed_module.invoke_cli_command(MagicMock())
+        assert seen["args"] == []

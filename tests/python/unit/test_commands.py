@@ -439,6 +439,26 @@ class TestCliRegistration:
             def blank_cmd() -> None:
                 pass
 
+    def test_cli_list_non_str_item_raises(self):
+        """A non-string item inside the cli list raises ValueError."""
+        registry = CommandRegistry()
+
+        with pytest.raises(ValueError, match="cli alias must be a string"):
+
+            @registry.register("bad", cli=["ok", 123])
+            def bad_cmd() -> None:
+                pass
+
+    def test_cli_list_blank_item_raises(self):
+        """A blank string inside the cli list raises ValueError."""
+        registry = CommandRegistry()
+
+        with pytest.raises(ValueError, match="must not be empty"):
+
+            @registry.register("bad", cli=["ok", "  "])
+            def bad_cmd() -> None:
+                pass
+
 
 class TestCommandRegisteredEmitSuppression:
     """RFC 0018 §7/§13.3: __command_registered__ must not hit stdout in the
@@ -525,6 +545,53 @@ class TestCliParamIntrospection:
 
         params = registry.cli_meta("anyp").params(registry._commands["anyp"])
         assert params[0]["type"] == "any"
+
+    def test_params_non_type_annotation_uses_str_repr(self):
+        """A typing construct (not a plain class) falls back to str()."""
+        from typing import Optional
+
+        registry = CommandRegistry()
+
+        @registry.register("opt", cli=True)
+        def opt(x: Optional[str] = None) -> None:
+            pass
+
+        params = registry.cli_meta("opt").params(registry._commands["opt"])
+        assert params[0]["name"] == "x"
+        # Optional[str] is not a bare ``type``; the introspector stringifies it.
+        assert "str" in params[0]["type"]
+
+    def test_params_skips_var_args_and_self(self):
+        """*args/**kwargs and self are excluded from the param table."""
+        registry = CommandRegistry()
+
+        @registry.register("varp", cli=True)
+        def varp(self, a: int, *args, **kwargs) -> None:
+            pass
+
+        params = registry.cli_meta("varp").params(registry._commands["varp"])
+        assert [p["name"] for p in params] == ["a"]
+
+    def test_params_empty_on_uninspectable_callable(self):
+        """A callable whose signature can't be read yields an empty table."""
+        registry = CommandRegistry()
+
+        @registry.register("builtin", cli=True)
+        def builtin_wrap() -> None:
+            pass
+
+        meta = registry.cli_meta("builtin")
+
+        # Force inspect.signature to raise to exercise the defensive guard.
+        from unittest.mock import patch
+
+        with patch(
+            "auroraview.core.commands.inspect.signature",
+            side_effect=ValueError("no signature"),
+        ):
+            assert meta.params(builtin_wrap) == []
+
+
 
     def test_to_dict_structure(self):
         registry = CommandRegistry()
@@ -637,6 +704,28 @@ class TestEnableCli:
 
         with pytest.raises(KeyError):
             registry.enable_cli("nope")
+
+    def test_enable_cli_invalid_arg_type_raises(self):
+        registry = CommandRegistry()
+
+        @registry.register("export")
+        def export() -> None:
+            pass
+
+        with pytest.raises(ValueError, match="enable_cli arguments must be str or dict"):
+            registry.enable_cli(123)
+
+    def test_enable_cli_disabled_value_skips(self):
+        registry = CommandRegistry()
+
+        @registry.register("export")
+        def export() -> None:
+            pass
+
+        # A dict value of False normalizes to "not enabled" -> command stays
+        # off the CLI table without raising.
+        registry.enable_cli({"export": False})
+        assert "export" not in registry.list_cli_commands()
 
     def test_unregister_clears_cli_meta(self):
         registry = CommandRegistry()
