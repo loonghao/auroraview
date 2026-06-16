@@ -24,9 +24,10 @@ Note:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, List, Dict
 
 import maya.OpenMayaUI as omui
+import maya.cmds as cmds
 from qtpy.QtWidgets import QDialog, QVBoxLayout, QWidget
 from shiboken2 import wrapInstance
 
@@ -52,7 +53,7 @@ class _ShelfAPI:
     when bound via :class:`AuroraView` / ``bind_api``.
     """
 
-    def rename_selected(self, prefix: str = "av_") -> dict[str, Any]:
+    def rename_selected(self, prefix: str = "av_") -> Dict[str, Any]:
         """Rename the currently selected Maya objects and print to Script Editor.
 
         Args:
@@ -61,25 +62,24 @@ class _ShelfAPI:
         Returns:
             A dictionary with summary information for debugging in DevTools.
         """
-
-        import maya.cmds as cmds
-
         sel = cmds.ls(selection=True, long=False) or []
         if not sel:
             msg = "[AuroraView] No objects selected to rename."
             print(msg)
             return {"ok": False, "message": msg, "renamed": []}
 
-        renamed: list[dict[str, str]] = []
+        renamed: List[Dict[str, str]] = []
         for index, obj in enumerate(sel, start=1):
             new_name = f"{prefix}{index:02d}"
             try:
                 actual_new = cmds.rename(obj, new_name)
                 renamed.append({"old": obj, "new": actual_new})
-            except Exception as exc:  # pragma: no cover - runs only inside Maya
+            except RuntimeError as exc:  # pragma: no cover - runs only inside Maya
                 print(f"[AuroraView] Failed to rename {obj}: {exc}")
 
-        msg = f"[AuroraView] Renamed {len(renamed)}/{len(sel)} selected objects."
+        success_count = len(renamed)
+        total_count = len(sel)
+        msg = f"[AuroraView] Renamed {success_count}/{total_count} selected objects."
         print(msg)
         return {"ok": True, "message": msg, "renamed": renamed}
 
@@ -143,22 +143,16 @@ class AuroraViewMayaDialog(QDialog):
         def _log_event(name: str, payload: Any) -> None:
             print(f"[AuroraView Demo] {name}: {payload!r}")
 
-        def _handle_viewport_orbit(data: Any) -> None:
-            _log_event("viewport.orbit", data)
+        # Register event handlers with consistent logging
+        event_handlers = {
+            "viewport.orbit": _log_event,
+            "viewport.zoom": _log_event,
+            "ui.view.pan": _log_event,
+            "ui.view.zoom": _log_event,
+        }
 
-        def _handle_viewport_zoom(data: Any) -> None:
-            _log_event("viewport.zoom", data)
-
-        def _handle_ui_pan(data: Any) -> None:
-            _log_event("ui.view.pan", data)
-
-        def _handle_ui_zoom(data: Any) -> None:
-            _log_event("ui.view.zoom", data)
-
-        self.webview.on("viewport.orbit")(_handle_viewport_orbit)
-        self.webview.on("viewport.zoom")(_handle_viewport_zoom)
-        self.webview.on("ui.view.pan")(_handle_ui_pan)
-        self.webview.on("ui.view.zoom")(_handle_ui_zoom)
+        for event_name, handler in event_handlers.items():
+            self.webview.on(event_name)(lambda data, name=event_name: handler(name, data))
 
         # Load HTML from an external file next to this module and feed it
         # via load_html() so we avoid `file://` restrictions in embedded
