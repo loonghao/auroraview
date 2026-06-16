@@ -57,6 +57,22 @@ F = TypeVar("F", bound=Callable[..., Any])
 _RESERVED_CLI_VERBS = frozenset({"run", "list", "help", "version"})
 
 
+def _is_headless_cli_mode() -> bool:
+    """Whether we're in a packed headless CLI mode (RFC 0018 §7/§13.3).
+
+    In CLI invoke and pack-time dump modes there is no front-end and stdout is
+    reserved for the command result / metadata table, so internal events like
+    ``__command_registered__`` must not be emitted (it would go straight to
+    stdout via the packed-mode path and corrupt the output). Imported lazily to
+    avoid a circular import with :mod:`auroraview.core.packed`.
+    """
+    try:
+        from .packed import is_cli_dump_mode, is_cli_invoke_mode
+    except Exception:  # noqa: BLE001 - never let a probe break registration
+        return False
+    return is_cli_invoke_mode() or is_cli_dump_mode()
+
+
 def _normalize_cli(cli: "Union[bool, str, List[str]]") -> "tuple[bool, List[str]]":
     """Normalize a decorator ``cli`` value into ``(enabled, aliases)``.
 
@@ -446,8 +462,11 @@ class CommandRegistry:
             if enabled:
                 self._register_cli_meta(cmd_name, func, aliases, help, args_help)
 
-            # Emit registration to JS if webview is attached
-            if self._webview:
+            # Emit registration to JS if webview is attached. Skipped in the
+            # headless CLI modes (RFC 0018 §7/§13.3): there is no front-end to
+            # consume the event, and stdout is reserved for the command result
+            # (invoke) or the metadata table (dump) — emitting would corrupt it.
+            if self._webview and not _is_headless_cli_mode():
                 self._webview.emit(
                     "__command_registered__",
                     {"name": cmd_name, "params": list(inspect.signature(func).parameters.keys())},

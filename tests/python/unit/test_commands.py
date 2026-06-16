@@ -440,6 +440,61 @@ class TestCliRegistration:
                 pass
 
 
+class TestCommandRegisteredEmitSuppression:
+    """RFC 0018 §7/§13.3: __command_registered__ must not hit stdout in the
+    headless CLI modes, where stdout is reserved for the command result /
+    metadata table and there is no front-end to consume the event."""
+
+    def _registry_with_fake_webview(self):
+        class FakeWebView:
+            def __init__(self) -> None:
+                self.events: list = []
+
+            def emit(self, name, data) -> None:
+                self.events.append((name, data))
+
+        registry = CommandRegistry()
+        webview = FakeWebView()
+        registry._webview = webview
+        return registry, webview
+
+    def test_emits_registration_event_in_normal_mode(self):
+        """Outside headless CLI mode the front-end still gets the event."""
+        registry, webview = self._registry_with_fake_webview()
+
+        @registry.register("greet", cli=True)
+        def greet(name: str) -> str:
+            return name
+
+        assert [e[0] for e in webview.events] == ["__command_registered__"]
+
+    def test_suppressed_in_cli_invoke_mode(self, monkeypatch):
+        """cli invoke mode skips the emit so stdout stays clean."""
+        import auroraview.core.commands as commands_mod
+
+        monkeypatch.setattr(commands_mod, "_is_headless_cli_mode", lambda: True)
+        registry, webview = self._registry_with_fake_webview()
+
+        @registry.register("greet", cli=True)
+        def greet(name: str) -> str:
+            return name
+
+        assert webview.events == []
+
+    def test_helper_reads_packed_flags(self, monkeypatch):
+        """_is_headless_cli_mode reflects the packed invoke/dump flags."""
+        import auroraview.core.packed as packed
+
+        monkeypatch.setattr(packed, "CLI_INVOKE_COMMAND", "get-time")
+        monkeypatch.setattr(packed, "CLI_DUMP_MODE", False)
+        from auroraview.core.commands import _is_headless_cli_mode
+
+        assert _is_headless_cli_mode() is True
+
+        monkeypatch.setattr(packed, "CLI_INVOKE_COMMAND", None)
+        assert _is_headless_cli_mode() is False
+
+
 class TestCliParamIntrospection:
     """Test CliCommandMeta parameter introspection (§13.2)."""
 
