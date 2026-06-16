@@ -1223,11 +1223,10 @@ pub fn fix_webview2_child_windows(hwnd: isize) {
     use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
     use windows::Win32::UI::WindowsAndMessaging::{
         CallWindowProcW, DefWindowProcW, EnumChildWindows, GetClassNameW, GetWindowLongPtrW,
-        GetWindowLongW, SetWindowLongPtrW, SetWindowLongW, SetWindowPos, GWLP_WNDPROC,
-        GWL_EXSTYLE, GWL_STYLE, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
-        SWP_NOZORDER, WNDPROC, WS_BORDER, WS_CAPTION, WS_CHILD, WS_DLGFRAME, WS_EX_CLIENTEDGE,
-        WS_EX_CONTEXTHELP, WS_EX_DLGMODALFRAME, WS_EX_STATICEDGE, WS_EX_WINDOWEDGE, WS_POPUP,
-        WS_THICKFRAME,
+        GetWindowLongW, SetWindowLongPtrW, SetWindowLongW, SetWindowPos, GWLP_WNDPROC, GWL_EXSTYLE,
+        GWL_STYLE, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WNDPROC,
+        WS_BORDER, WS_CAPTION, WS_CHILD, WS_DLGFRAME, WS_EX_CLIENTEDGE, WS_EX_CONTEXTHELP,
+        WS_EX_DLGMODALFRAME, WS_EX_STATICEDGE, WS_EX_WINDOWEDGE, WS_POPUP, WS_THICKFRAME,
     };
 
     // WM_NCHITTEST message constant
@@ -1730,13 +1729,13 @@ mod windows_real_window_tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use windows::core::PCWSTR;
     use windows::Win32::Foundation::HWND;
+    use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
     use windows::Win32::System::LibraryLoader::GetModuleHandleW;
     use windows::Win32::UI::WindowsAndMessaging::{
-        CreateWindowExW, DefWindowProcW, DestroyWindow, PostMessageW, RegisterClassW,
-        SendMessageW, UnregisterClassW, GWL_EXSTYLE, GWL_STYLE, HMENU, WINDOW_EX_STYLE,
-        WNDCLASSW, WS_CHILD, WS_CLIPCHILDREN, WS_OVERLAPPEDWINDOW, WS_POPUP,
+        CreateWindowExW, DefWindowProcW, DestroyWindow, PostMessageW, RegisterClassW, SendMessageW,
+        UnregisterClassW, GWL_EXSTYLE, GWL_STYLE, HMENU, WINDOW_EX_STYLE, WNDCLASSW, WS_CHILD,
+        WS_CLIPCHILDREN, WS_OVERLAPPEDWINDOW, WS_POPUP,
     };
-    use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
 
     const WM_NULL: u32 = 0x0000;
     const WM_NCHITTEST: u32 = 0x0084;
@@ -1856,10 +1855,7 @@ mod windows_real_window_tests {
             // SAFETY: hwnd was created by this struct and not yet destroyed.
             unsafe {
                 let _ = DestroyWindow(self.hwnd);
-                let _ = UnregisterClassW(
-                    PCWSTR(self.class_wide.as_ptr()),
-                    Some(module_instance()),
-                );
+                let _ = UnregisterClassW(PCWSTR(self.class_wide.as_ptr()), Some(module_instance()));
             }
         }
     }
@@ -1867,9 +1863,7 @@ mod windows_real_window_tests {
     // `WS_OVERLAPPEDWINDOW`/`WS_POPUP` etc. are `WINDOW_STYLE(u32)` newtypes;
     // this builds one from raw bits for `CreateWindowExW`.
     #[allow(non_snake_case)]
-    fn WINDOW_STYLE_FROM_BITS(
-        bits: u32,
-    ) -> windows::Win32::UI::WindowsAndMessaging::WINDOW_STYLE {
+    fn WINDOW_STYLE_FROM_BITS(bits: u32) -> windows::Win32::UI::WindowsAndMessaging::WINDOW_STYLE {
         windows::Win32::UI::WindowsAndMessaging::WINDOW_STYLE(bits)
     }
 
@@ -1934,14 +1928,12 @@ mod windows_real_window_tests {
         let owned_tool = TestWindow::new_popup();
         let owned_plain = TestWindow::new_popup();
 
-        let res_tool =
-            apply_owner_window_style(owned_tool.raw(), owner.raw() as u64, true);
+        let res_tool = apply_owner_window_style(owned_tool.raw(), owner.raw() as u64, true);
         assert!(res_tool.tool_window);
         assert_ne!(res_tool.new_ex_style, res_tool.old_ex_style);
 
         // tool_window=false leaves ex_style untouched (new == old).
-        let res_plain =
-            apply_owner_window_style(owned_plain.raw(), owner.raw() as u64, false);
+        let res_plain = apply_owner_window_style(owned_plain.raw(), owner.raw() as u64, false);
         assert!(!res_plain.tool_window);
         assert_eq!(res_plain.new_ex_style, res_plain.old_ex_style);
     }
@@ -1955,8 +1947,8 @@ mod windows_real_window_tests {
     #[test]
     fn apply_frameless_window_style_real_window() {
         let w = TestWindow::new_with(None, WS_OVERLAPPEDWINDOW.0, "AvTestFrameless");
-        let res = apply_frameless_window_style(w.raw())
-            .expect("apply_frameless_window_style failed");
+        let res =
+            apply_frameless_window_style(w.raw()).expect("apply_frameless_window_style failed");
         // WS_CAPTION (0x00C00000) must be cleared from an overlapped window.
         assert_eq!(res.new_style & 0x00C00000, 0);
     }
@@ -2000,8 +1992,7 @@ mod windows_real_window_tests {
     #[test]
     fn remove_clip_children_style_present_and_absent() {
         // Window WITH WS_CLIPCHILDREN -> the strip branch runs.
-        let with_clip =
-            TestWindow::new_with(None, WS_POPUP.0 | WS_CLIPCHILDREN.0, "AvTestClip");
+        let with_clip = TestWindow::new_with(None, WS_POPUP.0 | WS_CLIPCHILDREN.0, "AvTestClip");
         remove_clip_children_style(with_clip.raw());
         // SAFETY: valid hwnd; reading style back to confirm the bit is gone.
         let style = unsafe {
