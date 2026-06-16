@@ -4,9 +4,9 @@
 When the Rust launcher sets ``AURORAVIEW_CLI_INVOKE=<name>`` and
 ``AURORAVIEW_CLI_ARGS=<json-list>``, the entry point calls :func:`run_cli_invoke`
 instead of opening a window. It parses the raw argument tokens against the
-target callable's signature (§6.3), invokes the command in-process using the
-unified lookup order (§15.2), serializes the JSON result to stdout, and returns
-the §4.4 exit code.
+target callable's signature (§6.3), invokes the command in-process — resolving
+only CLI-exposed commands (§15.2) — serializes the JSON result to stdout, and
+returns the §4.4 exit code.
 
 Exit codes (§4.4):
     0  success
@@ -60,18 +60,35 @@ def run_cli_invoke(webview: "WebView", command: str, raw_args: List[str]) -> int
 
 
 def _lookup_command(webview: "WebView", command: str) -> Optional[Callable[..., Any]]:
-    """Resolve a canonical command name via the unified order (§15.2).
+    """Resolve a CLI-exposed command by canonical name or alias (§15.2).
 
-    1. ``CommandRegistry`` (``@webview.command`` / ``commands.register``)
-    2. fallback to ``_bound_functions`` (``bind_call`` / ``bind_api``)
+    Only commands that opted into the CLI via ``cli != False`` are resolvable,
+    mirroring the Rust ``resolve_command`` gate (which matches against the
+    embedded ``cli_commands`` table — itself sourced solely from ``_cli_meta``).
+    This is defense in depth: the Rust launcher already normalizes alias →
+    canonical name before setting ``AURORAVIEW_CLI_INVOKE``, but gating here too
+    means a hand-set ``AURORAVIEW_CLI_INVOKE`` can never reach a command that was
+    never CLI-exposed (e.g. a ``bind_call``/``bind_api`` handler, which carries
+    no CLI metadata).
+
+    Accepts either the canonical name or any registered alias, matching Rust.
     """
     registry = getattr(webview, "_commands", None)
-    if registry is not None and command in registry:
+    if registry is None:
+        return None
+
+    cli_meta = getattr(registry, "_cli_meta", None)
+    if not isinstance(cli_meta, dict):
+        return None
+
+    # Exact canonical-name match.
+    if command in cli_meta:
         return registry._commands.get(command)
 
-    bound = getattr(webview, "_bound_functions", None)
-    if isinstance(bound, dict) and command in bound:
-        return bound[command]
+    # Alias match → resolve to the owning canonical name.
+    for name, meta in cli_meta.items():
+        if command in getattr(meta, "aliases", ()):
+            return registry._commands.get(name)
 
     return None
 
