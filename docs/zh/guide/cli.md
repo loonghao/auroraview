@@ -96,6 +96,31 @@ auroraview-cli pack --frontend ./dist --output myapp
 auroraview-cli pack --config auroraview.pack.toml
 ```
 
+## 打包应用 CLI（Headless 模式）
+
+除了上面两个 CLI，**打包后的应用**本身就是第三个命令行界面。打包 exe 默认是 GUI 应用——双击即打开窗口——但它**同时**支持在终端里直接运行已注册的 Python 命令，无需打开窗口：
+
+```bash
+my-app.exe                          # 打开 GUI 窗口（行为不变）
+my-app.exe -h                       # 列出已开启 CLI 的命令
+my-app.exe list                     # 列出命令（--json 输出机器可读格式）
+my-app.exe run export --path ./out  # 执行单个命令，打印结果后退出
+my-app.exe -V                       # 打印版本
+```
+
+只有当**首个参数**是保留动词（`run`、`list`）或保留标志（`-h`/`--help`、`-V`/`--version`）时才进入 CLI 路径——裸文件路径（文件关联、拖拽）一律打开 GUI。
+
+暴露是逐命令显式开启的，通过 `@webview.command(cli=...)`：
+
+```python
+@webview.command(name="export", help="导出工程", cli=True)
+def export(path: str, dpi: int = 300) -> dict:
+    return {"written": path, "dpi": dpi}
+```
+
+退出码：`0` 成功，`1` 命令抛异常，`2` 命令未找到或参数错误。Windows 上请在终端里调用生成的 `my-app.cmd` 包装脚本，输出与退出码才会正确传递。完整参考（别名、传参、`.cmd` 包装脚本、命令清单如何在打包期采集）见
+[应用打包指南](/zh/guide/packing)的「命令行模式」一节。
+
 ## 示例
 
 ### 快速 Web 预览 (Python)
