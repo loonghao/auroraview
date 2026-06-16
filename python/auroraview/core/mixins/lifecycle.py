@@ -79,7 +79,30 @@ class WebViewLifecycleMixin:
             >>> # to API server mode. All bind_call() handlers work seamlessly.
         """
         # Check for packed mode first - transparent to developers
-        from ..packed import is_packed_mode, run_api_server
+        from ..packed import (
+            dump_cli_metadata,
+            invoke_cli_command,
+            is_cli_dump_mode,
+            is_cli_invoke_mode,
+            is_packed_mode,
+            run_api_server,
+        )
+
+        # RFC 0018 (section 13.3): pack-time metadata dump short-circuits
+        # before any window/server work. The packer runs the entry point with
+        # AURORAVIEW_CLI_DUMP=1 purely to harvest CLI command metadata.
+        if is_cli_dump_mode():
+            logger.info("CLI dump mode detected: emitting command metadata and exiting")
+            dump_cli_metadata(self)
+            return
+
+        # RFC 0018 (section 7): headless CLI invoke short-circuits before any
+        # window/server work. The Rust launcher sets AURORAVIEW_CLI_INVOKE to
+        # run one command and exit, without opening a window.
+        if is_cli_invoke_mode():
+            logger.info("CLI invoke mode detected: running command headlessly")
+            invoke_cli_command(self)
+            return
 
         if is_packed_mode():
             logger.info("Packed mode detected: running as API server")

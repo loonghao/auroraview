@@ -7,6 +7,7 @@
 # path without explaining why safe Rust cannot express that boundary.
 
 crates/auroraview-browser/src/browser.rs | 3 | Win32 child window enumeration callback and HWND FFI for browser embedding.
+crates/auroraview-cli/src/packed/console.rs | 2 | Win32 console attach (AttachConsole/SetConsoleOutputCP) and std stream reopen (CreateFileW/SetStdHandle) for packed headless CLI stdio.
 crates/auroraview-cli/src/packed/mod.rs | 1 | Windows handle and process setup for packed executable launch.
 crates/auroraview-cli/src/packed/warmup.rs | 2 | Optional Windows WebView2 DLL warmup through dynamically loaded native symbols.
 crates/auroraview-cli/tests/packed_env_var_tests.rs | 4 | Forward-compatible env-var mutation for Rust 2024 edition; serialized via Mutex per std::env::set_var safety contract.

@@ -57,6 +57,30 @@ pub fn run_inspect(args: InspectArgs) -> Result<()> {
         println!("  Strategy: {:?}", python.strategy);
     }
 
+    // Display CLI commands embedded at pack time (RFC 0018 §5)
+    if !overlay.config.cli_commands.is_empty() {
+        println!(
+            "\n[CLI Commands] ({} total)",
+            overlay.config.cli_commands.len()
+        );
+        for cmd in &overlay.config.cli_commands {
+            let aliases = if cmd.aliases.is_empty() {
+                String::new()
+            } else {
+                format!(" ({})", cmd.aliases.join(", "))
+            };
+            println!("  {}{}  {}", cmd.name, aliases, cmd.help);
+            for param in &cmd.params {
+                let req = if param.required {
+                    "required"
+                } else {
+                    "optional"
+                };
+                println!("      --{} <{}> [{}]", param.name, param.r#type, req);
+            }
+        }
+    }
+
     // Display assets
     println!("\n[Assets] ({} total)", overlay.assets.len());
 
@@ -173,4 +197,119 @@ pub fn run_inspect(args: InspectArgs) -> Result<()> {
     println!("Inspection complete.");
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use auroraview_pack::{CliCommandMeta, CliParamMeta, OverlayData, OverlayWriter, PackConfig};
+    use std::fs;
+    use tempfile::NamedTempFile;
+
+    /// Write an overlay onto a fake "executable" temp file and return the handle.
+    /// The `NamedTempFile` must be kept alive by the caller so the path stays valid.
+    fn packed_exe(config: PackConfig, assets: &[(&str, &[u8])]) -> NamedTempFile {
+        let temp = NamedTempFile::new().unwrap();
+        fs::write(temp.path(), b"fake-exe-bytes").unwrap();
+        let mut data = OverlayData::new(config);
+        for (path, content) in assets {
+            data.add_asset((*path).to_string(), content.to_vec());
+        }
+        OverlayWriter::write(temp.path(), &data).unwrap();
+        temp
+    }
+
+    fn cli_cmd(name: &str, aliases: &[&str]) -> CliCommandMeta {
+        CliCommandMeta {
+            name: name.to_string(),
+            aliases: aliases.iter().map(|s| s.to_string()).collect(),
+            help: "Help text".to_string(),
+            params: vec![CliParamMeta {
+                name: "path".to_string(),
+                r#type: "str".to_string(),
+                required: true,
+                default: serde_json::Value::Null,
+                help: "Output path".to_string(),
+            }],
+        }
+    }
+
+    #[test]
+    fn inspect_missing_file_errors() {
+        let args = InspectArgs {
+            exe_path: PathBuf::from("/no/such/packed-exe-xyz"),
+            show_content: false,
+            filter: None,
+        };
+        let err = run_inspect(args).unwrap_err();
+        assert!(err.to_string().contains("File not found"));
+    }
+
+    #[test]
+    fn inspect_plain_file_reports_no_overlay() {
+        let temp = NamedTempFile::new().unwrap();
+        fs::write(temp.path(), b"not a packed exe").unwrap();
+        let args = InspectArgs {
+            exe_path: temp.path().to_path_buf(),
+            show_content: false,
+            filter: None,
+        };
+        let err = run_inspect(args).unwrap_err();
+        assert!(err.to_string().contains("No overlay data"));
+    }
+
+    #[test]
+    fn inspect_url_overlay_with_assets_succeeds() {
+        let config = PackConfig::url("https://example.com").with_title("Inspect Me");
+        let temp = packed_exe(
+            config,
+            &[
+                ("index.html", b"<html><body>hi</body></html>"),
+                ("style.css", b"body{}"),
+            ],
+        );
+        let args = InspectArgs {
+            exe_path: temp.path().to_path_buf(),
+            show_content: true,
+            filter: None,
+        };
+        // run_inspect prints to stdout; we only assert it walks the whole path Ok.
+        run_inspect(args).expect("inspect should succeed on a valid URL overlay");
+    }
+
+    #[test]
+    fn inspect_fullstack_with_cli_commands_and_filter() {
+        // FullStack mode + embedded CLI commands + python asset exercises the
+        // Python-backend, CLI-commands, and diagnostics branches.
+        let config = PackConfig::fullstack("./dist", "app.main:run");
+        let mut data_config = config;
+        data_config.cli_commands = vec![cli_cmd("export", &["exp"]), cli_cmd("sync", &[])];
+        let temp = packed_exe(
+            data_config,
+            &[
+                ("frontend/index.html", b"<html></html>"),
+                ("python/main.py", b"print('x')"),
+                ("loading/index.html", b"<p>loading</p>"),
+            ],
+        );
+        let args = InspectArgs {
+            exe_path: temp.path().to_path_buf(),
+            show_content: false,
+            filter: Some("*.html".to_string()),
+        };
+        run_inspect(args).expect("inspect should succeed on a FullStack overlay");
+    }
+
+    #[test]
+    fn inspect_warns_when_index_missing() {
+        // No index.html anywhere -> the white-screen diagnostics branch runs.
+        let config = PackConfig::url("https://example.com");
+        let temp = packed_exe(config, &[("about.html", b"<html></html>")]);
+        let args = InspectArgs {
+            exe_path: temp.path().to_path_buf(),
+            show_content: false,
+            filter: None,
+        };
+        run_inspect(args).expect("inspect should still succeed (warning only)");
+    }
 }

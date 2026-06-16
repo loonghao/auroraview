@@ -125,7 +125,12 @@ enum Commands {
 fn main() -> Result<()> {
     // Check if this is a packed executable first
     if is_packed() {
-        return packed::run_packed_app();
+        // RFC 0018 §4: a packed exe is GUI by default, but an explicit reserved
+        // verb/flag as the first argument routes to the headless CLI path.
+        return match packed::classify_packed_invocation(std::env::args()) {
+            packed::PackedInvocation::Gui => packed::run_packed_app(),
+            packed::PackedInvocation::Cli(cli_args) => packed::run_packed_cli(cli_args),
+        };
     }
 
     let cli = Cli::parse();

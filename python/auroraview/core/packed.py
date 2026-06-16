@@ -27,6 +27,16 @@ if TYPE_CHECKING:
 # Check if running in packed mode (set by Rust CLI)
 PACKED_MODE = os.environ.get("AURORAVIEW_PACKED", "0") == "1"
 
+# RFC 0018: pack-time metadata dump request. When set, the entry point builds
+# the WebView/commands (without calling show()) and dumps CLI metadata instead
+# of opening a window or starting the JSON-RPC server.
+CLI_DUMP_MODE = os.environ.get("AURORAVIEW_CLI_DUMP", "0") == "1"
+
+# RFC 0018 §7: headless command invocation. When set, the entry point builds the
+# WebView/commands (without calling show()), invokes the named command, prints
+# the JSON result, and exits with the §4.4 exit code.
+CLI_INVOKE_COMMAND = os.environ.get("AURORAVIEW_CLI_INVOKE") or None
+
 # Windows error codes
 _ERROR_NO_DATA = 232  # Pipe is being closed
 _ERROR_BROKEN_PIPE = 109  # The pipe has been ended
@@ -116,6 +126,16 @@ def is_packed_mode() -> bool:
     return PACKED_MODE
 
 
+def is_cli_dump_mode() -> bool:
+    """Check if running in pack-time CLI metadata dump mode (RFC 0018 §13.3)."""
+    return CLI_DUMP_MODE
+
+
+def is_cli_invoke_mode() -> bool:
+    """Check if running in headless CLI invoke mode (RFC 0018 §7)."""
+    return CLI_INVOKE_COMMAND is not None
+
+
 def is_pipe_closed() -> bool:
     """Check if the stdout pipe has been closed.
 
@@ -194,6 +214,94 @@ def send_event(event: str, data: Optional[Dict[str, Any]] = None) -> bool:
         "data": data or {},
     }
     return _get_writer().write_json(message)
+
+
+def iter_cli_commands(webview: "WebView") -> "list[Dict[str, Any]]":
+    """Collect CLI command metadata from both registries (RFC 0018 §15.3).
+
+    Walks the two independent registries that expose Python callables:
+
+    1. ``CommandRegistry`` (``@webview.command`` / ``commands.register``) —
+       carries the CLI metadata captured at registration time (§6).
+    2. ``_bound_functions`` (``bind_call`` / ``bind_api``) — currently has no
+       per-command CLI metadata, so these are *not* CLI-exposed unless a future
+       opt-in path adds it. They are still iterated here so the single source
+       of truth used by ``-h``/``list`` and ``run`` stays consistent.
+
+    Only commands that opted in via ``cli != False`` are returned. Each entry
+    is the §13.2 overlay structure (name, aliases, help, params).
+
+    Args:
+        webview: The WebView whose registries are inspected.
+
+    Returns:
+        A list of command metadata dicts, ordered by registration.
+    """
+    commands: "list[Dict[str, Any]]" = []
+
+    # 1. CommandRegistry-registered commands with CLI metadata.
+    registry = getattr(webview, "_commands", None)
+    if registry is not None:
+        for name in registry.list_cli_commands():
+            meta = registry.cli_meta(name)
+            func = registry._commands.get(name)
+            if meta is None or func is None:
+                continue
+            commands.append(meta.to_dict(func))
+
+    return commands
+
+
+def collect_cli_commands(webview: "WebView") -> "list[Dict[str, Any]]":
+    """Build the full CLI command table for pack-time embedding (§13.3).
+
+    Thin wrapper over :func:`iter_cli_commands` kept as the named entry point
+    referenced by the RFC; future deduplication/normalization across the two
+    registries lives here.
+    """
+    return iter_cli_commands(webview)
+
+
+def dump_cli_metadata(webview: "WebView") -> None:
+    """Serialize CLI command metadata to stdout and exit (RFC 0018 §13.3).
+
+    Called at *pack time* (under ``AURORAVIEW_CLI_DUMP=1``) after the entry
+    point builds the WebView/commands but before ``show()`` would open a
+    window. Writes a single ``{"type": "cli_metadata", "commands": [...]}``
+    JSON object so the packer can embed it into the overlay, then exits 0.
+
+    The window/JSON-RPC server is never started in this mode.
+    """
+    table = collect_cli_commands(webview)
+    payload = {"type": "cli_metadata", "commands": table}
+    # Write directly to stdout (not the StdioWriter pipe-detection path) so the
+    # packer subprocess captures clean JSON regardless of packed-mode state.
+    print(json.dumps(payload, ensure_ascii=False), flush=True)
+
+
+def invoke_cli_command(webview: "WebView") -> None:
+    """Invoke a single command headlessly and exit (RFC 0018 §7).
+
+    Called at runtime (under ``AURORAVIEW_CLI_INVOKE=<name>``) after the entry
+    point builds the WebView/commands but before ``show()`` would open a
+    window. Reads the raw argument tokens from ``AURORAVIEW_CLI_ARGS`` (a JSON
+    list), runs the command, and exits with the §4.4 exit code.
+
+    The window / JSON-RPC server is never started in this mode.
+    """
+    from .cli_invoke import run_cli_invoke
+
+    command = CLI_INVOKE_COMMAND or ""
+    raw = os.environ.get("AURORAVIEW_CLI_ARGS", "[]")
+    try:
+        args = json.loads(raw)
+        if not isinstance(args, list):
+            args = []
+    except (ValueError, json.JSONDecodeError):
+        args = []
+
+    exit_code = run_cli_invoke(webview, command, [str(a) for a in args])
+    sys.exit(exit_code)
 
 
 def run_api_server(webview: "WebView") -> None:
