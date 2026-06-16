@@ -576,6 +576,9 @@ jobs:
           tools: 'just bun'
           cache: 'false'
 
+      - name: Install llvm-tools-preview (vx managed Rust)
+        run: vx rustup component add llvm-tools-preview
+
       - name: Build frontend assets (required by auroraview-assets)
         run: vx just ci-assets-build
 
