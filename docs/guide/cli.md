@@ -96,6 +96,40 @@ auroraview-cli pack --frontend ./dist --output myapp
 auroraview-cli pack --config auroraview.pack.toml
 ```
 
+## Packed App CLI (Headless Mode)
+
+Beyond the two CLIs above, a **packed application** is itself a third command-line
+interface. A packed exe is a GUI app by default — double-clicking it opens the
+window — but it can *also* run your registered Python commands from a terminal
+without opening a window:
+
+```bash
+my-app.exe                          # GUI window (unchanged)
+my-app.exe -h                       # list CLI-enabled commands
+my-app.exe list                     # list commands (--json for machine output)
+my-app.exe run export --path ./out  # run one command, print result, exit
+my-app.exe -V                       # print version
+```
+
+Only an explicit reserved verb (`run`, `list`) or flag (`-h`/`--help`,
+`-V`/`--version`) as the **first** argument triggers the CLI path — a bare file
+path (file association, drag-and-drop) always opens the GUI.
+
+Exposure is opt-in per command via `@webview.command(cli=...)`:
+
+```python
+@webview.command(name="export", help="Export the project", cli=True)
+def export(path: str, dpi: int = 300) -> dict:
+    return {"written": path, "dpi": dpi}
+```
+
+Exit codes follow `0` success, `1` the command raised, `2` not found / bad args.
+On Windows, invoke the generated `my-app.cmd` shim in a terminal so output and
+exit codes propagate correctly. See the
+[Packing guide](/guide/packing#headless-cli-mode) for the full reference
+(aliases, argument passing, the `.cmd` shim, and how the command list is
+collected at pack time).
+
 ## Examples
 
 ### Quick Web Preview (Python)

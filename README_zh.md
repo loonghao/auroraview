@@ -175,6 +175,7 @@ AuroraView 为专业DCC应用程序（如Maya、3ds Max、Houdini、Blender、Ph
 - [OK] **示例运行器**: 运行任意示例，实时显示 stdout/stderr 输出
 - [OK] **分类浏览器**: 按类别组织示例，支持搜索
 - [OK] **Pack 命令**: 通过 `auroraview pack` 构建独立 Gallery 可执行文件
+- [OK] **命令行模式 (Headless CLI)**: 在终端里直接运行打包应用已注册的 Python 命令（`app.exe run <cmd>`、`-h`、`list`），无需打开窗口——通过 `@webview.command(cli=...)` 逐命令显式开启。详见[应用打包指南](docs/zh/guide/packing.md)的「命令行模式」一节。
 
 ### 安全
 - [OK] **CSP 配置**: 内容安全策略支持

@@ -452,6 +452,30 @@ my-app.exe run export ./out --dpi 600           # 混用
 
 Windows 上打包 exe 启动时会附着到父控制台，使 CLI 输出能回到终端（双击仍无黑窗）。macOS/Linux 无 GUI 子系统的 stdio 隔离问题，输出直接生效。
 
+### Windows `.cmd` 包装脚本
+
+打包 exe 是 GUI 子系统的，双击不会闪出黑窗。代价是 `cmd.exe` 和 PowerShell **不会等待** GUI 子系统进程——`app.exe run export ...` 会在命令输出落地之前就返回提示符，退出码也会丢失。
+
+为此，当打包产物暴露了 CLI 命令、且**不是**以 console 子系统构建（默认情况）时，打包器会在 exe 旁生成一个 `<name>.cmd` 包装脚本：
+
+```bat
+@echo off
+start "" /wait /b "%~dp0app.exe" %*
+exit /b %ERRORLEVEL%
+```
+
+`start /wait` 同步运行 exe，使终端阻塞到其结束；`%*` 透传所有参数；`exit /b %ERRORLEVEL%` 传递退出码。`%~dp0` 以脚本自身所在目录解析 exe，因此与调用方当前目录无关。
+
+在终端里请调用 `.cmd`，输出与退出码才会正确：
+
+```bash
+app.cmd -h                       # 阻塞，打印帮助后返回
+app.cmd run export --path ./out  # 阻塞直到命令结束
+app.exe                          # 双击 / GUI 启动仍使用 exe
+```
+
+该脚本是 best-effort 的：若无法写入（例如输出目录只读），构建仍会成功，只打印一条警告。console 子系统构建（`[bundle.platform.windows] console = true`）不会生成它——此时 exe 本身就会阻塞终端。
+
 ## 最佳实践
 
 1. **使用 `site-packages` 存放依赖**: 所有第三方包放到 `python/site-packages/`

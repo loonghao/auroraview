@@ -196,6 +196,7 @@ server.stop()
 - [OK] **Example Runner**: Run any example with live stdout/stderr output
 - [OK] **Category Browser**: Organized examples by category with search
 - [OK] **Pack Command**: Build standalone Gallery executable with `auroraview pack`
+- [OK] **Headless CLI Mode**: Run a packed app's registered Python commands straight from a terminal (`app.exe run <cmd>`, `-h`, `list`) without opening a window — opt-in per command via `@webview.command(cli=...)`. See the [Packing guide](docs/guide/packing.md#headless-cli-mode).
 
 ### Security
 - [OK] **CSP Configuration**: Content Security Policy support

@@ -619,6 +619,41 @@ On Windows the packed exe attaches to the parent console at startup so CLI
 output reaches the terminal (a double-click still shows no console). On
 macOS/Linux there is no GUI-subsystem stdio isolation, so output works directly.
 
+### The Windows `.cmd` shim
+
+The packed exe is GUI-subsystem so a double-click never flashes a console. The
+trade-off is that `cmd.exe` and PowerShell do **not** wait for a GUI-subsystem
+process — `app.exe run export ...` would return to the prompt before the
+command's output lands, and the exit code would be lost.
+
+To fix this, when the pack exposes CLI commands and is **not** built
+console-subsystem (the default), the builder drops a `<name>.cmd` shim beside
+the exe:
+
+```bat
+@echo off
+start "" /wait /b "%~dp0app.exe" %*
+exit /b %ERRORLEVEL%
+```
+
+`start /wait` runs the exe synchronously so the terminal blocks until it
+finishes, `%*` forwards every argument, and `exit /b %ERRORLEVEL%` propagates
+the exit code. `%~dp0` resolves the exe relative to the shim's own directory, so
+it works regardless of the caller's current directory.
+
+In a terminal, invoke the shim so output and exit codes behave correctly:
+
+```bash
+app.cmd -h                       # blocks, prints help, then returns
+app.cmd run export --path ./out  # blocks until the command finishes
+app.exe                          # double-click / GUI launch still uses the exe
+```
+
+The shim is best-effort: if it can't be written (e.g. a read-only output
+directory) the build still succeeds and only logs a warning. It is not produced
+for console-subsystem builds (`[bundle.platform.windows] console = true`), where
+the exe already blocks the terminal on its own.
+
 ## Best Practices
 
 1. **Use `site-packages` for dependencies**: All third-party packages go to `python/site-packages/`
