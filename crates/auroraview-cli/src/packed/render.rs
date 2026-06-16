@@ -9,13 +9,16 @@ use auroraview_pack::CliCommandMeta;
 
 /// Render the `-h` / `--help` view: usage banner plus every command with its
 /// aliases, help text, and per-parameter detail.
-pub fn render_help(commands: &[CliCommandMeta]) -> String {
+///
+/// `program` is the actual executable name (RFC 0018 §4) so the usage lines
+/// match what the user typed, instead of a hardcoded `app`.
+pub fn render_help(program: &str, commands: &[CliCommandMeta]) -> String {
     let mut out = String::new();
     out.push_str("USAGE:\n");
-    out.push_str("    app run <command> [--key value ...]\n");
-    out.push_str("    app list [--json]\n");
-    out.push_str("    app -h | --help\n");
-    out.push_str("    app -V | --version\n");
+    out.push_str(&format!("    {program} run <command> [--key value ...]\n"));
+    out.push_str(&format!("    {program} list [--json]\n"));
+    out.push_str(&format!("    {program} -h | --help\n"));
+    out.push_str(&format!("    {program} -V | --version\n"));
 
     if commands.is_empty() {
         out.push_str("\nNo CLI commands are available in this application.\n");
@@ -123,8 +126,10 @@ mod tests {
 
     #[test]
     fn help_includes_command_aliases_and_params() {
-        let out = render_help(&sample());
+        let out = render_help("myapp", &sample());
         assert!(out.contains("USAGE:"));
+        // The usage banner uses the real program name, not a hardcoded `app`.
+        assert!(out.contains("myapp run <command>"));
         assert!(out.contains("export-document-image (exi)"));
         assert!(out.contains("--path <str>  [required]"));
         assert!(out.contains("--dpi <int>  [default 300]"));
@@ -133,7 +138,7 @@ mod tests {
 
     #[test]
     fn help_handles_empty_table() {
-        let out = render_help(&[]);
+        let out = render_help("myapp", &[]);
         assert!(out.contains("No CLI commands"));
     }
 
