@@ -21,6 +21,7 @@ const WS_EX_DLGMODALFRAME: i32 = 0x00000001;
 const WS_EX_WINDOWEDGE: i32 = 0x00000100;
 const WS_EX_CLIENTEDGE: i32 = 0x00000200;
 const WS_EX_STATICEDGE: i32 = 0x00020000;
+const WS_EX_CONTEXTHELP: i32 = 0x00000400;
 
 // ============================================================================
 // compute_frameless_window_styles
@@ -121,6 +122,7 @@ fn frameless_window_only_maximizebox_bit() {
 #[case(WS_EX_WINDOWEDGE)]
 #[case(WS_EX_CLIENTEDGE)]
 #[case(WS_EX_STATICEDGE)]
+#[case(WS_EX_CONTEXTHELP)]
 fn frameless_window_ex_bits_removed(#[case] ex_bit: i32) {
     let (_, new_ex_style) = compute_frameless_window_styles(0, ex_bit);
     assert_eq!(new_ex_style & ex_bit, 0);
@@ -290,7 +292,11 @@ fn frameless_window_all_style_bits_removed_simultaneously() {
 
 #[test]
 fn frameless_window_all_ex_bits_removed_simultaneously() {
-    let ex_style = WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE;
+    let ex_style = WS_EX_DLGMODALFRAME
+        | WS_EX_WINDOWEDGE
+        | WS_EX_CLIENTEDGE
+        | WS_EX_STATICEDGE
+        | WS_EX_CONTEXTHELP;
     let (_, new_ex) = compute_frameless_window_styles(0, ex_style);
     assert_eq!(new_ex, 0, "All ex frame bits should be cleared");
 }
@@ -332,13 +338,10 @@ fn frameless_popup_removes_all_caption_bits() {
 }
 
 #[rstest]
-#[case(0x00000010_i32, 0)]
-#[case(0x00000020_i32, 0)]
-#[case(0x00000040_i32, 0)]
-fn frameless_window_unrelated_bits_preserved_parametric(
-    #[case] custom_bit: i32,
-    #[case] _zero: i32,
-) {
+#[case(0x00000010_i32)]
+#[case(0x00000020_i32)]
+#[case(0x00000040_i32)]
+fn frameless_window_unrelated_bits_preserved_parametric(#[case] custom_bit: i32) {
     let (new_style, _) = compute_frameless_window_styles(custom_bit, 0);
     assert_ne!(
         new_style & custom_bit,
@@ -360,25 +363,6 @@ fn frameless_popup_unrelated_ex_bits_preserved(#[case] custom_ex: i32) {
         "Ex bit {:#010x} should survive popup transform",
         custom_ex
     );
-}
-
-#[test]
-fn frameless_window_multiple_applications_identical() {
-    let style = WS_CAPTION | WS_THICKFRAME | 0x00000010;
-    let ex = WS_EX_WINDOWEDGE | 0x00000008;
-    let (s1, e1) = compute_frameless_window_styles(style, ex);
-    let (s2, e2) = compute_frameless_window_styles(style, ex);
-    assert_eq!(s1, s2);
-    assert_eq!(e1, e2);
-}
-
-#[test]
-fn frameless_popup_multiple_applications_identical() {
-    let style = WS_CHILD | WS_CAPTION;
-    let (s1, e1) = compute_frameless_popup_window_styles(style, 0);
-    let (s2, e2) = compute_frameless_popup_window_styles(style, 0);
-    assert_eq!(s1, s2);
-    assert_eq!(e1, e2);
 }
 
 #[test]
@@ -503,26 +487,6 @@ fn frameless_window_combined_ex_bits_all_cleared(#[case] ex_a: i32, #[case] ex_b
 }
 
 #[test]
-fn frameless_window_returns_zero_style_when_only_frame_bits() {
-    let style = WS_CAPTION
-        | WS_THICKFRAME
-        | WS_BORDER
-        | WS_DLGFRAME
-        | WS_SYSMENU
-        | WS_MINIMIZEBOX
-        | WS_MAXIMIZEBOX;
-    let (new_style, _) = compute_frameless_window_styles(style, 0);
-    assert_eq!(new_style, 0);
-}
-
-#[test]
-fn frameless_window_returns_zero_ex_when_only_frame_ex_bits() {
-    let ex = WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE;
-    let (_, new_ex) = compute_frameless_window_styles(0, ex);
-    assert_eq!(new_ex, 0);
-}
-
-#[test]
 fn frameless_popup_with_multiple_bits_sets_popup_clears_child() {
     let style = WS_CHILD | WS_CAPTION | WS_BORDER | 0x00000004;
     let (new_style, _) = compute_frameless_popup_window_styles(style, 0);
@@ -551,5 +515,81 @@ fn fix_webview2_child_windows_null_handle_returns_immediately() {
 #[case(0xDEAD_BEEF_isize)]
 #[case(-1_isize)]
 fn fix_webview2_child_windows_arbitrary_handles_do_not_panic(#[case] hwnd: isize) {
+    // Cross-platform note: the two builds verify different code paths under the
+    // same "must not panic" contract. On Linux CI this hits the no-op stub
+    // (window_style.rs), which trivially can't panic. On Windows these invalid
+    // HWNDs reach the real `EnumChildWindows`, which Win32 tolerates by
+    // returning FALSE rather than panicking — so this is where the contract is
+    // genuinely exercised.
     fix_webview2_child_windows(hwnd);
+}
+
+// ============================================================================
+// Non-Windows stub coverage
+//
+// Rust coverage is measured on Linux CI, where every `#[cfg(target_os =
+// "windows")]` styling entry point is compiled out and its non-Windows stub
+// takes its place. The real-window tests in the crate's internal module only
+// run on Windows, so without these the stub bodies — the only versions of
+// these functions that exist on the coverage platform — show up as uncovered.
+//
+// Each stub has a documented contract: the `Result`-returning ones must report
+// the "Windows only" error, `apply_owner_window_style` must hand back an
+// all-zero / false result, and the rest are no-ops that must simply not panic.
+// ============================================================================
+#[cfg(not(target_os = "windows"))]
+mod non_windows_stubs {
+    use auroraview_core::builder::{
+        apply_child_window_style, apply_frameless_popup_window_style, apply_frameless_window_style,
+        apply_owner_window_style, apply_tool_window_style, disable_window_shadow,
+        extend_frame_into_client_area, optimize_transparent_window_resize,
+        remove_clip_children_style, set_window_class_dark_background, subclass_for_zero_nc_area,
+        ChildWindowStyleOptions,
+    };
+
+    #[test]
+    fn apply_child_window_style_is_unsupported() {
+        let err = apply_child_window_style(1, 2, ChildWindowStyleOptions::for_dcc_embedding())
+            .expect_err("non-Windows stub must return Err");
+        assert!(
+            err.contains("only supported on Windows"),
+            "unexpected error message: {err}"
+        );
+    }
+
+    #[test]
+    fn apply_frameless_window_style_is_unsupported() {
+        let err = apply_frameless_window_style(1).expect_err("non-Windows stub must return Err");
+        assert!(err.contains("only supported on Windows"), "{err}");
+    }
+
+    #[test]
+    fn apply_frameless_popup_window_style_is_unsupported() {
+        let err =
+            apply_frameless_popup_window_style(1).expect_err("non-Windows stub must return Err");
+        assert!(err.contains("only supported on Windows"), "{err}");
+    }
+
+    #[test]
+    fn apply_owner_window_style_returns_zeroed_result() {
+        // tool_window=true on the stub is still a no-op: the result is fixed.
+        let res = apply_owner_window_style(1, 2, true);
+        assert_eq!(res.old_ex_style, 0);
+        assert_eq!(res.new_ex_style, 0);
+        assert!(!res.tool_window);
+    }
+
+    #[test]
+    fn noop_stubs_do_not_panic() {
+        // Each of these is a `#[cfg(not(target_os = "windows"))]` no-op; calling
+        // them exercises the stub body and proves the cross-platform surface
+        // stays callable without a Windows handle.
+        subclass_for_zero_nc_area(1);
+        apply_tool_window_style(1);
+        disable_window_shadow(1);
+        set_window_class_dark_background(1);
+        extend_frame_into_client_area(1);
+        optimize_transparent_window_resize(1);
+        remove_clip_children_style(1);
+    }
 }
