@@ -279,6 +279,7 @@ fn check_alias_conflicts(commands: &[CliCommandMeta]) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::PackConfig;
 
     fn cmd(name: &str, aliases: &[&str]) -> CliCommandMeta {
         CliCommandMeta {
@@ -339,5 +340,154 @@ mod tests {
     fn build_code_script_path() {
         let code = build_dump_code(Path::new("/tmp/x"), "main.py");
         assert!(code.contains("runpy.run_path"));
+    }
+
+    #[test]
+    fn build_code_empty_function_defaults_to_main() {
+        // An entry point ending in ':' (no function) falls back to main().
+        let code = build_dump_code(Path::new("/tmp/x"), "app.entry:");
+        assert!(code.contains("from app.entry import main"));
+        assert!(code.contains("main()"));
+    }
+
+    #[test]
+    fn build_code_strips_py_suffix_from_module() {
+        let code = build_dump_code(Path::new("/tmp/x"), "pkg/app.py:run");
+        // Path separators become dots and the .py suffix is trimmed.
+        assert!(code.contains("from pkg.app import run"));
+    }
+
+    #[test]
+    fn normalize_backfills_empty_param_type() {
+        let commands = vec![CliCommandMeta {
+            name: "export".to_string(),
+            aliases: vec![],
+            help: String::new(),
+            params: vec![
+                CliParamMeta {
+                    name: "path".to_string(),
+                    r#type: String::new(),
+                    required: true,
+                    default: serde_json::Value::Null,
+                    help: String::new(),
+                },
+                CliParamMeta {
+                    name: "dpi".to_string(),
+                    r#type: "int".to_string(),
+                    required: false,
+                    default: serde_json::Value::Null,
+                    help: String::new(),
+                },
+            ],
+        }];
+        let out = normalize(commands);
+        assert_eq!(out[0].params[0].r#type, "any");
+        // A populated type is left untouched.
+        assert_eq!(out[0].params[1].r#type, "int");
+    }
+
+    #[test]
+    fn parse_picks_last_matching_payload() {
+        // Two payloads on separate lines; the scanner walks from the end, so
+        // the last valid cli_metadata line wins.
+        let stdout = b"{\"type\":\"cli_metadata\",\"commands\":[{\"name\":\"old\",\"aliases\":[],\"help\":\"\",\"params\":[]}]}\n{\"type\":\"cli_metadata\",\"commands\":[{\"name\":\"new\",\"aliases\":[],\"help\":\"\",\"params\":[]}]}\n";
+        let commands = parse_dump_stdout(stdout).expect("parse");
+        assert_eq!(commands[0].name, "new");
+    }
+
+    #[test]
+    fn parse_skips_non_payload_json_lines() {
+        // A JSON line with the wrong `type` is ignored; parsing falls through
+        // to the error path.
+        let stdout = b"{\"type\":\"something_else\",\"commands\":[]}\n";
+        assert!(parse_dump_stdout(stdout).is_err());
+    }
+
+    #[test]
+    fn collect_skips_non_fullstack() {
+        // URL/Frontend apps have no Python commands to dump.
+        let overlay = OverlayData::new(PackConfig::url("about:blank"));
+        let python = PythonBundleConfig::new("main:run");
+        match collect_cli_metadata(&overlay, &python) {
+            Ok(CliDumpOutcome::Skipped(reason)) => assert!(reason.contains("FullStack")),
+            _ => panic!("expected Skipped for a non-FullStack app"),
+        }
+    }
+
+    #[test]
+    fn collect_skips_non_standalone_strategy() {
+        // Only Standalone bundles an interpreter that can run at pack time.
+        let overlay = OverlayData::new(PackConfig::fullstack("./dist", "main:run"));
+        let mut python = PythonBundleConfig::new("main:run");
+        python.strategy = BundleStrategy::System;
+        match collect_cli_metadata(&overlay, &python) {
+            Ok(CliDumpOutcome::Skipped(reason)) => assert!(reason.contains("System")),
+            _ => panic!("expected Skipped for a non-Standalone strategy"),
+        }
+    }
+
+    #[test]
+    fn runtime_target_reads_target_field() {
+        let mut overlay = OverlayData::new(PackConfig::fullstack("./dist", "main:run"));
+        overlay.add_asset(
+            "python_runtime.json",
+            br#"{"target":"x86_64-pc-windows-msvc"}"#.to_vec(),
+        );
+        assert_eq!(
+            runtime_target(&overlay).as_deref(),
+            Some("x86_64-pc-windows-msvc")
+        );
+    }
+
+    #[test]
+    fn runtime_target_none_when_absent() {
+        let overlay = OverlayData::new(PackConfig::fullstack("./dist", "main:run"));
+        assert!(runtime_target(&overlay).is_none());
+    }
+
+    #[test]
+    fn collect_skips_cross_platform_pack() {
+        // A Standalone FullStack app whose embedded runtime targets a different
+        // triple than the host cannot be executed here -> Skipped.
+        let mut overlay = OverlayData::new(PackConfig::fullstack("./dist", "main:run"));
+        overlay.add_asset(
+            "python_runtime.json",
+            br#"{"target":"definitely-not-a-real-host-triple"}"#.to_vec(),
+        );
+        let mut python = PythonBundleConfig::new("main:run");
+        python.strategy = BundleStrategy::Standalone;
+        match collect_cli_metadata(&overlay, &python) {
+            Ok(CliDumpOutcome::Skipped(reason)) => assert!(reason.contains("cross-platform")),
+            _ => panic!("expected cross-platform Skipped"),
+        }
+    }
+
+    #[test]
+    fn extract_python_sources_writes_only_python_prefixed_assets() {
+        let dir = TempDir::new().unwrap();
+        let root = dir.path();
+        let mut overlay = OverlayData::new(PackConfig::fullstack("./dist", "main:run"));
+        overlay.add_asset("python/pkg/mod.py", b"x = 1\n".to_vec());
+        overlay.add_asset("python/main.py", b"print('hi')\n".to_vec());
+        // A non-python asset must be ignored by the extractor.
+        overlay.add_asset("web/index.html", b"<html></html>".to_vec());
+
+        extract_python_sources(&overlay, root).expect("extract");
+
+        assert!(root.join("pkg/mod.py").exists());
+        assert!(root.join("main.py").exists());
+        assert!(!root.join("index.html").exists());
+        assert_eq!(
+            std::fs::read_to_string(root.join("main.py")).unwrap(),
+            "print('hi')\n"
+        );
+    }
+
+    #[test]
+    fn extract_runtime_errors_without_archive() {
+        let dir = TempDir::new().unwrap();
+        let overlay = OverlayData::new(PackConfig::fullstack("./dist", "main:run"));
+        let err = extract_runtime(&overlay, dir.path()).unwrap_err();
+        assert!(err.contains("no python_runtime.tar.gz"));
     }
 }

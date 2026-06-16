@@ -52,6 +52,29 @@ fn overlay_cli_commands_default_empty() {
 }
 
 #[test]
+fn cli_param_meta_type_defaults_to_any() {
+    // A param JSON that omits `type` must deserialize to "any" via the
+    // `default_param_type` serde default (RFC 0018 §13.2).
+    use auroraview_pack::CliParamMeta;
+
+    let param: CliParamMeta =
+        serde_json::from_str(r#"{"name": "path"}"#).expect("deserialize param");
+    assert_eq!(param.name, "path");
+    assert_eq!(param.r#type, "any");
+    assert!(!param.required);
+    assert!(param.help.is_empty());
+}
+
+#[test]
+fn cli_param_meta_type_preserved_when_present() {
+    use auroraview_pack::CliParamMeta;
+
+    let param: CliParamMeta = serde_json::from_str(r#"{"name": "dpi", "type": "int"}"#)
+        .expect("deserialize param");
+    assert_eq!(param.r#type, "int");
+}
+
+#[test]
 fn overlay_roundtrip() {
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"fake executable content").unwrap();
