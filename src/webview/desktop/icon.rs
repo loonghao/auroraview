@@ -18,7 +18,7 @@ const DEFAULT_ICON_PNG_BYTES: &[u8] = include_bytes!("../../../assets/icons/auro
 /// - **Recommended sizes**: 32x32 (taskbar), 64x64 (alt-tab), 256x256 (high-DPI)
 /// - **Color depth**: 32-bit RGBA recommended for transparency support
 pub fn load_window_icon(custom_icon: Option<&PathBuf>) -> Option<tao::window::Icon> {
-    use ::image::GenericImageView;
+    use image::GenericImageView;
 
     // Try custom icon first
     if let Some(icon_path) = custom_icon {
