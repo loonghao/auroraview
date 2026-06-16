@@ -559,8 +559,7 @@ mod non_windows_stubs {
 
     #[test]
     fn apply_frameless_window_style_is_unsupported() {
-        let err =
-            apply_frameless_window_style(1).expect_err("non-Windows stub must return Err");
+        let err = apply_frameless_window_style(1).expect_err("non-Windows stub must return Err");
         assert!(err.contains("only supported on Windows"), "{err}");
     }
 
