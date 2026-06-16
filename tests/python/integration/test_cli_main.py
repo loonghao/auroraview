@@ -17,7 +17,10 @@ def test_main_success():
     # Mock run_standalone to avoid actual window creation
     with patch("auroraview._core.run_standalone") as mock_run_standalone:
         with patch.object(sys, "argv", ["auroraview", "--url", "https://example.com"]):
-            main()
+            # main() calls sys.exit(0) on the success path
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+            assert exc_info.value.code == 0
 
             # Verify run_standalone was called with correct parameters
             mock_run_standalone.assert_called_once()
@@ -46,7 +49,9 @@ def test_main_with_arguments():
         # Mock run_standalone to avoid actual window creation
         with patch("auroraview._core.run_standalone") as mock_run_standalone:
             with patch.object(sys, "argv", test_args):
-                main()
+                with pytest.raises(SystemExit) as exc_info:
+                    main()
+                assert exc_info.value.code == 0
 
                 # Verify run_standalone was called with debug flag
                 mock_run_standalone.assert_called_once()
@@ -98,7 +103,9 @@ def test_main_with_html_auto_asset_root():
 
         with patch("auroraview._core.run_standalone") as mock_run_standalone:
             with patch.object(sys, "argv", test_args):
-                main()
+                with pytest.raises(SystemExit) as exc_info:
+                    main()
+                assert exc_info.value.code == 0
 
                 call_kwargs = mock_run_standalone.call_args.kwargs
                 # asset_root should be the directory containing the HTML file
@@ -126,7 +133,9 @@ def test_main_with_explicit_assets_root():
 
         with patch("auroraview._core.run_standalone") as mock_run_standalone:
             with patch.object(sys, "argv", test_args):
-                main()
+                with pytest.raises(SystemExit) as exc_info:
+                    main()
+                assert exc_info.value.code == 0
 
                 call_kwargs = mock_run_standalone.call_args.kwargs
                 # asset_root should be the explicitly provided directory
@@ -198,8 +207,11 @@ def test_main_module_execution():
         # Mock run_standalone to avoid actual window creation
         with patch("auroraview._core.run_standalone") as mock_run_standalone:
             with patch.object(sys, "argv", ["auroraview", "--url", "https://example.com"]):
-                # Execute the module
-                spec.loader.exec_module(module)
+                # Execute the module — the __main__ block calls main(),
+                # which exits with code 0 on the success path.
+                with pytest.raises(SystemExit) as exc_info:
+                    spec.loader.exec_module(module)
+                assert exc_info.value.code == 0
 
                 # Verify run_standalone was called
                 mock_run_standalone.assert_called_once()
@@ -215,7 +227,9 @@ def test_main_url_normalization():
             "auroraview.normalize_url", return_value="https://example.com/"
         ) as mock_normalize:
             with patch.object(sys, "argv", ["auroraview", "--url", "example.com"]):
-                main()
+                with pytest.raises(SystemExit) as exc_info:
+                    main()
+                assert exc_info.value.code == 0
 
                 # Verify normalize_url was called
                 mock_normalize.assert_called_once_with("example.com")
@@ -245,7 +259,9 @@ def test_main_html_rewriting():
         # Mock run_standalone to verify parameters
         with patch("auroraview._core.run_standalone") as mock_run_standalone:
             with patch.object(sys, "argv", ["auroraview", "--html", html_path]):
-                main()
+                with pytest.raises(SystemExit) as exc_info:
+                    main()
+                assert exc_info.value.code == 0
 
                 # Verify run_standalone was called with correct parameters
                 mock_run_standalone.assert_called_once()
