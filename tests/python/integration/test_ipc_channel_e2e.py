@@ -414,24 +414,6 @@ class TestRustJsonIntegration:
             pytest.skip("Rust core not available")
 
 
-class TestGalleryIpcChannelIntegration:
-    """Test Gallery integration with IPC channel."""
-
-    def test_gallery_run_sample_with_channel(self):
-        """Gallery's run_sample no longer wires up the IPC channel directly.
-
-        The gallery sample was refactored and no longer references
-        ``use_channel`` / ``spawn_ipc_channel`` / ``send_json_to_process`` in
-        ``gallery/main.py`` — that source-scraping check is stale. The real
-        channel-spawn behaviour is covered end-to-end by
-        ``TestIpcChannelSpawn`` instead, so this assertion is retired.
-        """
-        pytest.skip(
-            "gallery/main.py no longer demonstrates the IPC channel API; "
-            "channel spawning is covered by TestIpcChannelSpawn"
-        )
-
-
 class TestIpcChannelThreadSafety:
     """Test IPC channel thread safety."""
 
