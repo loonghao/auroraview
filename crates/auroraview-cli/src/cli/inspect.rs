@@ -71,7 +71,11 @@ pub fn run_inspect(args: InspectArgs) -> Result<()> {
             };
             println!("  {}{}  {}", cmd.name, aliases, cmd.help);
             for param in &cmd.params {
-                let req = if param.required { "required" } else { "optional" };
+                let req = if param.required {
+                    "required"
+                } else {
+                    "optional"
+                };
                 println!("      --{} <{}> [{}]", param.name, param.r#type, req);
             }
         }
@@ -198,9 +202,7 @@ pub fn run_inspect(args: InspectArgs) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use auroraview_pack::{
-        CliCommandMeta, CliParamMeta, OverlayData, OverlayWriter, PackConfig,
-    };
+    use auroraview_pack::{CliCommandMeta, CliParamMeta, OverlayData, OverlayWriter, PackConfig};
     use std::fs;
     use tempfile::NamedTempFile;
 

@@ -197,7 +197,11 @@ fn build_dump_code(root: &Path, entry_point: &str) -> String {
     if let Some((module, function)) = entry_point.split_once(':') {
         let module = module.replace(['/', '\\'], ".");
         let module = module.trim_end_matches(".py");
-        let function = if function.is_empty() { "main" } else { function };
+        let function = if function.is_empty() {
+            "main"
+        } else {
+            function
+        };
         format!(
             "import sys; sys.path.insert(0, r'{root_str}'); from {module} import {function}; {function}()"
         )
@@ -312,15 +316,13 @@ mod tests {
 
     #[test]
     fn conflict_detects_alias_vs_name() {
-        let err =
-            check_alias_conflicts(&[cmd("export", &["sync"]), cmd("sync", &[])]).unwrap_err();
+        let err = check_alias_conflicts(&[cmd("export", &["sync"]), cmd("sync", &[])]).unwrap_err();
         assert!(err.contains("command name"));
     }
 
     #[test]
     fn conflict_detects_duplicate_alias() {
-        let err =
-            check_alias_conflicts(&[cmd("export", &["e"]), cmd("edit", &["e"])]).unwrap_err();
+        let err = check_alias_conflicts(&[cmd("export", &["e"]), cmd("edit", &["e"])]).unwrap_err();
         assert!(err.contains("already used"));
     }
 

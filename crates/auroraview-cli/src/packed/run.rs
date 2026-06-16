@@ -229,7 +229,11 @@ fn build_invoke_code(temp_dir: &Path, entry_point: &str) -> String {
     if let Some((module, function)) = entry_point.split_once(':') {
         let module = module.replace(['/', '\\'], ".");
         let module = module.trim_end_matches(".py");
-        let function = if function.is_empty() { "main" } else { function };
+        let function = if function.is_empty() {
+            "main"
+        } else {
+            function
+        };
         format!(
             "import sys; sys.path.insert(0, r'{dir}'); {bootstrap}from {module} import {function}; {function}()"
         )

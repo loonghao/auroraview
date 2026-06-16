@@ -69,8 +69,8 @@ fn cli_param_meta_type_defaults_to_any() {
 fn cli_param_meta_type_preserved_when_present() {
     use auroraview_pack::CliParamMeta;
 
-    let param: CliParamMeta = serde_json::from_str(r#"{"name": "dpi", "type": "int"}"#)
-        .expect("deserialize param");
+    let param: CliParamMeta =
+        serde_json::from_str(r#"{"name": "dpi", "type": "int"}"#).expect("deserialize param");
     assert_eq!(param.r#type, "int");
 }
 
