@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Packed CLI Demo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 720px;
+            margin: 40px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+        h1 { color: #333; margin-top: 0; }
+        p { color: #666; }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; border: none; padding: 12px 20px;
+            border-radius: 6px; cursor: pointer; font-size: 14px; margin: 5px;
+        }
+        button:hover { opacity: 0.9; }
+        #output {
+            background: #1e1e1e; color: #f8f8f2; border-radius: 8px;
+            padding: 16px; font-family: 'Consolas', monospace; font-size: 13px;
+            white-space: pre-wrap; margin-top: 12px;
+        }
+        code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Packed CLI Demo</h1>
+        <p>The same commands below are callable from this packed exe's command
+           line, e.g. <code>packed-cli-demo.exe run get-time</code>. Try the
+           buttons, then call them from a terminal.</p>
+        <button onclick="callStatus()">get-app-status (cli=False, GUI only)</button>
+        <button onclick="callTime()">get-time (CLI-enabled)</button>
+        <div id="output">Ready.</div>
+    </div>
+
+    <script>
+        function show(obj) {
+            document.getElementById('output').textContent =
+                typeof obj === 'object' ? JSON.stringify(obj, null, 2) : String(obj);
+        }
+        async function callStatus() {
+            try { show(await auroraview.invoke('get-app-status')); }
+            catch (e) { show('Error: ' + e.message); }
+        }
+        async function callTime() {
+            try { show(await auroraview.invoke('get-time', {})); }
+            catch (e) { show('Error: ' + e.message); }
+        }
+    </script>
+</body>
+</html>
