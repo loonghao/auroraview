@@ -185,18 +185,51 @@ class TestRunCliInvoke:
         assert code == EXIT_OK
         assert json.loads(out.getvalue()) == {"written": "./out"}
 
-    def test_falls_back_to_bound_functions(self):
-        def handler(name: str) -> dict:
-            return {"hello": name}
+    def test_invokes_by_alias(self):
+        wv = _registry_webview()
 
-        wv = _FakeWebView(bound={"greet": handler})
+        @wv._commands.register("export", cli=["exp", "e"])
+        def export(path: str) -> dict:
+            return {"written": path}
 
         out = StringIO()
         with patch("sys.stdout", out):
-            code = run_cli_invoke(wv, "greet", ["--name", "world"])
+            code = run_cli_invoke(wv, "exp", ["--path", "./out"])
 
         assert code == EXIT_OK
-        assert json.loads(out.getvalue()) == {"hello": "world"}
+        assert json.loads(out.getvalue()) == {"written": "./out"}
+
+    def test_non_cli_command_is_not_resolvable(self):
+        # Registered but NOT CLI-exposed (cli defaults to False): a hand-set
+        # AURORAVIEW_CLI_INVOKE must not be able to reach it (defense in depth,
+        # mirroring the Rust resolve_command gate).
+        wv = _registry_webview()
+
+        @wv._commands.register("internal")
+        def internal() -> dict:
+            return {"ran": True}
+
+        err = StringIO()
+        with patch("sys.stderr", err):
+            code = run_cli_invoke(wv, "internal", [])
+
+        assert code == EXIT_USAGE
+        assert "command not found" in err.getvalue()
+
+    def test_bound_functions_are_not_cli_resolvable(self):
+        # bind_call/bind_api handlers carry no CLI metadata, so they are never
+        # CLI-exposed and must not be invocable via the headless CLI path.
+        def handler(name: str) -> dict:
+            return {"hello": name}
+
+        wv = _FakeWebView(registry=CommandRegistry(), bound={"greet": handler})
+
+        err = StringIO()
+        with patch("sys.stderr", err):
+            code = run_cli_invoke(wv, "greet", ["--name", "world"])
+
+        assert code == EXIT_USAGE
+        assert "command not found" in err.getvalue()
 
     def test_command_not_found_exit_2(self):
         wv = _registry_webview()
