@@ -439,6 +439,10 @@ class TestCrossPanelCommunication:
 
         wm = get_window_manager()
         received_events: List[Any] = []
+        # WindowManager stores only a weakref to each window. Hold strong
+        # references here so the mocks aren't GC'd before broadcast_event()
+        # runs (otherwise _on_window_gc removes them and the count is flaky).
+        windows: List[Any] = []
 
         # Create windows that track received events
         for i in range(3):
@@ -452,6 +456,7 @@ class TestCrossPanelCommunication:
 
             wv.emit = make_handler(i)
             wm.register(wv)
+            windows.append(wv)
 
         # Broadcast state update
         state_data = {
