@@ -579,6 +579,29 @@ jobs:
       - name: Install llvm-tools-preview (vx managed Rust)
         run: vx rustup component add llvm-tools-preview
 
+      - name: Fix llvm-profdata in vx toolchain
+        if: runner.os == 'Linux'
+        run: |
+          VX_PROFDATA="$(vx rustc --print sysroot)/lib/rustlib/$(vx rustc -vV | awk '/host:/ {print $2}')/bin/llvm-profdata"
+          if [ ! -f "$VX_PROFDATA" ]; then
+            echo "llvm-profdata not found at $VX_PROFDATA, linking from system toolchain..."
+            SYS_RUSTC="$HOME/.cargo/bin/rustc"
+            if [ -x "$SYS_RUSTC" ]; then
+              SYS_PROFDATA="$("$SYS_RUSTC" --print sysroot)/lib/rustlib/$("$SYS_RUSTC" -vV | awk '/host:/ {print $2}')/bin/llvm-profdata"
+              if [ -f "$SYS_PROFDATA" ]; then
+                mkdir -p "$(dirname "$VX_PROFDATA")"
+                ln -sf "$SYS_PROFDATA" "$VX_PROFDATA"
+                echo "Linked system llvm-profdata to vx toolchain"
+              else
+                echo "WARNING: system llvm-profdata not found at $SYS_PROFDATA"
+              fi
+            else
+              echo "WARNING: system rustc not found at $SYS_RUSTC"
+            fi
+          else
+            echo "llvm-profdata already present in vx toolchain"
+          fi
+
       - name: Build frontend assets (required by auroraview-assets)
         run: vx just ci-assets-build
 
