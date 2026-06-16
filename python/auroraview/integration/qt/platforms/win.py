@@ -361,8 +361,7 @@ class WindowsPlatformBackend(PlatformBackend):
 
             if fixed_count > 0:
                 logger.info(
-                    f"[Win32] Fixed {fixed_count} child windows "
-                    f"for parent 0x{parent_hwnd:X}"
+                    f"[Win32] Fixed {fixed_count} child windows for parent 0x{parent_hwnd:X}"
                 )
 
         except Exception as e:
