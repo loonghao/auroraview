@@ -75,21 +75,21 @@ def register_commands(view: WebView) -> None:
     @view.command(
         name="import-image",
         cli="imp",
-        help="导入一张本地图片",
-        args_help={"path": "图片的本地绝对路径"},
+        help="Import a local image",
+        args_help={"path": "Absolute local path to the image"},
     )
     def import_image(path: str) -> Dict[str, Any]:
-        """导入一张本地图片，成功后返回导入信息。"""
+        """Import a local image and return its info on success."""
         if not os.path.isfile(path):
             raise CommandError(
                 CommandErrorCode.INVALID_ARGUMENTS,
-                f"图片不存在: {path}",
+                f"Image not found: {path}",
                 {"path": path},
             )
         size = os.path.getsize(path)
         return {
             "ok": True,
-            "message": "导入成功",
+            "message": "Imported successfully",
             "path": os.path.abspath(path),
             "size_bytes": size,
         }
@@ -98,18 +98,18 @@ def register_commands(view: WebView) -> None:
     @view.command(
         name="process-image",
         cli="proc",
-        help="处理图片：在原路径旁复制一份带后缀的副本",
+        help="Process an image: copy it beside the original with a name suffix",
         args_help={
-            "path": "源图片的本地绝对路径",
-            "suffix": "追加到文件名(扩展名前)的后缀",
+            "path": "Absolute local path to the source image",
+            "suffix": "Suffix appended to the file name (before the extension)",
         },
     )
     def process_image(path: str, suffix: str = "_processed") -> Dict[str, Any]:
-        """复制原图片并追加名字后缀，输出到原图片旁边。"""
+        """Copy the source image with a name suffix, beside the original."""
         if not os.path.isfile(path):
             raise CommandError(
                 CommandErrorCode.INVALID_ARGUMENTS,
-                f"图片不存在: {path}",
+                f"Image not found: {path}",
                 {"path": path},
             )
         root, ext = os.path.splitext(os.path.abspath(path))
@@ -117,7 +117,7 @@ def register_commands(view: WebView) -> None:
         shutil.copy2(path, dest)
         return {
             "ok": True,
-            "message": "处理完成",
+            "message": "Processed successfully",
             "source": os.path.abspath(path),
             "output": dest,
         }
@@ -126,11 +126,11 @@ def register_commands(view: WebView) -> None:
     @view.command(
         name="write-text",
         cli=["wt", "txt"],
-        help="把文本内容写入本地 txt 文件",
-        args_help={"path": "输出文件路径", "content": "要写入的文本内容"},
+        help="Write text content to a local txt file",
+        args_help={"path": "Output file path", "content": "Text content to write"},
     )
     def write_text(path: str, content: str) -> Dict[str, Any]:
-        """在本地写入一个 txt 文件。"""
+        """Write a txt file locally."""
         out = os.path.abspath(path)
         parent = os.path.dirname(out)
         if parent:
@@ -139,7 +139,7 @@ def register_commands(view: WebView) -> None:
             fh.write(content)
         return {
             "ok": True,
-            "message": "写入成功",
+            "message": "Written successfully",
             "path": out,
             "bytes_written": len(content.encode("utf-8")),
         }
@@ -148,11 +148,11 @@ def register_commands(view: WebView) -> None:
     @view.command(
         name="get-time",
         cli=["now"],
-        help="获取当前日期和时间",
-        args_help={"utc": "为 true 时返回 UTC 时间，否则返回本地时间"},
+        help="Get the current date and time",
+        args_help={"utc": "Return UTC time when true, otherwise local time"},
     )
     def get_time(utc: bool = False) -> Dict[str, Any]:
-        """返回现在的日期和时间。"""
+        """Return the current date and time."""
         now = datetime.datetime.utcnow() if utc else datetime.datetime.now()
         return {
             "date": now.strftime("%Y-%m-%d"),
@@ -164,7 +164,7 @@ def register_commands(view: WebView) -> None:
     # Default cli=False: front-end callable, hidden from the CLI (safe default).
     @view.command(name="get-app-status")
     def get_app_status() -> Dict[str, Any]:
-        """返回应用状态，仅供前端调用，不暴露给命令行。"""
+        """Return app status; front-end only, not exposed to the CLI."""
         return {"status": "running", "cli_exposed": False}
 
 
