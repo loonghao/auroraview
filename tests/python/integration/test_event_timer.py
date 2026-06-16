@@ -458,8 +458,6 @@ class TestEventTimer:
 
     def test_backend_stop_called(self):
         """Test that backend.stop() is called when timer stops."""
-        from unittest.mock import MagicMock
-
         from auroraview.utils.timer_backends import ThreadTimerBackend
 
         webview = MockWebView()
@@ -483,8 +481,6 @@ class TestEventTimer:
 
     def test_backend_stop_error_handling(self):
         """Test error handling when backend.stop() raises exception."""
-        from unittest.mock import MagicMock
-
         from auroraview.utils.timer_backends import ThreadTimerBackend
 
         webview = MockWebView()
