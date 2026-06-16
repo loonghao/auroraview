@@ -292,6 +292,109 @@ class TestShowWindowAfterInit:
         assert result is False
 
 
+class TestFixAllChildWindows:
+    """Tests for _fix_all_child_windows method."""
+
+    def test_enumerates_children_via_enum_child_windows(self, mock_win32_apis):
+        """Test that EnumChildWindows is called with the parent HWND.
+
+        Regression guard for the 64-bit handle overflow bug: the parent HWND
+        must reach EnumChildWindows unchanged (argtypes declared at module
+        level), and the call must use the module-level WNDENUMPROC prototype.
+        """
+        from auroraview.integration.qt.platforms.win import WindowsPlatformBackend
+
+        backend = WindowsPlatformBackend()
+
+        # No children enumerated -> callback never invoked, loop body skipped.
+        mock_win32_apis["user32"].EnumChildWindows.return_value = 1
+
+        fixed = backend._fix_all_child_windows(0x1234ABCD)
+
+        assert fixed == 0
+        mock_win32_apis["user32"].EnumChildWindows.assert_called_once()
+        # First positional argument is the parent HWND, passed through intact.
+        call_args = mock_win32_apis["user32"].EnumChildWindows.call_args
+        assert call_args[0][0] == 0x1234ABCD
+
+    def test_fixes_non_child_window(self, mock_win32_apis):
+        """Test that a window missing WS_CHILD gets the style applied."""
+        from auroraview.integration.qt.platforms.win import (
+            WS_CHILD,
+            WindowsPlatformBackend,
+        )
+
+        backend = WindowsPlatformBackend()
+
+        # Simulate one enumerated child by invoking the registered callback.
+        def fake_enum(parent_hwnd, callback, lparam):
+            callback(0x9999, 0)
+            return 1
+
+        mock_win32_apis["user32"].EnumChildWindows.side_effect = fake_enum
+        # Child style lacks WS_CHILD so it should be fixed.
+        mock_win32_apis["GetWindowLong"].return_value = 0
+        mock_win32_apis["SetWindowLong"].return_value = 1
+
+        fixed = backend._fix_all_child_windows(0x1234)
+
+        assert fixed == 1
+        # WS_CHILD must be added to the enumerated child's style.
+        style_call = mock_win32_apis["SetWindowLong"].call_args_list[0]
+        new_style = style_call[0][2]
+        assert new_style & WS_CHILD
+
+    def test_fixes_all_descendants_in_single_enumeration(self, mock_win32_apis):
+        """Test that every descendant from a single EnumChildWindows call is fixed.
+
+        EnumChildWindows walks the whole descendant tree (children +
+        grandchildren) in one call, so the method must not recurse — it fixes
+        all of them from one enumeration without re-enumerating per child.
+        """
+        from auroraview.integration.qt.platforms.win import WindowsPlatformBackend
+
+        backend = WindowsPlatformBackend()
+
+        # Simulate a 3-level hierarchy delivered in one enumeration pass.
+        def fake_enum(parent_hwnd, callback, lparam):
+            callback(0xAAAA, 0)  # child
+            callback(0xBBBB, 0)  # grandchild
+            callback(0xCCCC, 0)  # great-grandchild
+            return 1
+
+        mock_win32_apis["user32"].EnumChildWindows.side_effect = fake_enum
+        mock_win32_apis["GetWindowLong"].return_value = 0  # none has WS_CHILD
+        mock_win32_apis["SetWindowLong"].return_value = 1
+
+        fixed = backend._fix_all_child_windows(0x1234)
+
+        # All three descendants fixed from a single enumeration, no recursion.
+        assert fixed == 3
+        mock_win32_apis["user32"].EnumChildWindows.assert_called_once()
+
+    def test_skips_window_already_child(self, mock_win32_apis):
+        """Test that a descendant already carrying WS_CHILD is left untouched."""
+        from auroraview.integration.qt.platforms.win import (
+            WS_CHILD,
+            WindowsPlatformBackend,
+        )
+
+        backend = WindowsPlatformBackend()
+
+        def fake_enum(parent_hwnd, callback, lparam):
+            callback(0x9999, 0)
+            return 1
+
+        mock_win32_apis["user32"].EnumChildWindows.side_effect = fake_enum
+        # Child already has WS_CHILD -> nothing to fix.
+        mock_win32_apis["GetWindowLong"].return_value = WS_CHILD
+
+        fixed = backend._fix_all_child_windows(0x1234)
+
+        assert fixed == 0
+        mock_win32_apis["SetWindowLong"].assert_not_called()
+
+
 class TestEnsureNativeChildStyle:
     """Tests for ensure_native_child_style method."""
 

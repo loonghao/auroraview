@@ -162,7 +162,7 @@ class TestScheduleChildWindowFixes:
         backend = MagicMock()
         with patch("auroraview.integration.qt.platforms.get_backend", return_value=backend):
             EmbeddingMixin._schedule_child_window_fixes(host, 0xABCD)
-        backend._fix_all_child_windows_recursive.assert_not_called()
+        backend._fix_all_child_windows.assert_not_called()
         # The synchronous call returned early but two follow-up timers are
         # still scheduled (each will also see _is_closing=True at fire-time
         # and bail out).  We assert the schedule pattern matches the docstring:
@@ -176,16 +176,16 @@ class TestScheduleChildWindowFixes:
         with patch("auroraview.integration.qt.platforms.get_backend", return_value=backend):
             EmbeddingMixin._schedule_child_window_fixes(host, 0xABCD)
         # Must not call into the backend while the peer holds the flag
-        backend._fix_all_child_windows_recursive.assert_not_called()
+        backend._fix_all_child_windows.assert_not_called()
 
     def test_synchronous_fix_runs_first(self, monkeypatch):
         host = _Host()
         monkeypatch.setattr(embedding.QTimer, "singleShot", staticmethod(lambda d, c: None))
         backend = MagicMock()
-        backend._fix_all_child_windows_recursive.return_value = 5
+        backend._fix_all_child_windows.return_value = 5
         with patch("auroraview.integration.qt.platforms.get_backend", return_value=backend):
             EmbeddingMixin._schedule_child_window_fixes(host, 0xABCD)
-        backend._fix_all_child_windows_recursive.assert_called_once_with(0xABCD)
+        backend._fix_all_child_windows.assert_called_once_with(0xABCD)
 
     def test_schedules_two_catch_up_ticks(self, monkeypatch):
         host = _Host()
@@ -214,7 +214,7 @@ class TestScheduleChildWindowFixes:
         host = _Host()
         monkeypatch.setattr(embedding.QTimer, "singleShot", staticmethod(lambda d, c: None))
         backend = MagicMock()
-        backend._fix_all_child_windows_recursive.side_effect = RuntimeError("boom")
+        backend._fix_all_child_windows.side_effect = RuntimeError("boom")
         with patch("auroraview.integration.qt.platforms.get_backend", return_value=backend):
             # Must not propagate
             EmbeddingMixin._schedule_child_window_fixes(host, 0xABCD)
@@ -224,7 +224,7 @@ class TestScheduleChildWindowFixes:
     def test_handles_backend_without_fix_method(self, monkeypatch):
         host = _Host()
         monkeypatch.setattr(embedding.QTimer, "singleShot", staticmethod(lambda d, c: None))
-        backend = MagicMock(spec=[])  # no _fix_all_child_windows_recursive
+        backend = MagicMock(spec=[])  # no _fix_all_child_windows
         with patch("auroraview.integration.qt.platforms.get_backend", return_value=backend):
             EmbeddingMixin._schedule_child_window_fixes(host, 0xABCD)
         # Just ensure no exception escapes

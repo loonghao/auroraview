@@ -36,6 +36,48 @@ class RECT(ctypes.Structure):
     ]
 
 
+# Configure Win32 function signatures. Without argtypes, ctypes marshals
+# Python int as a 32-bit C int, which overflows on 64-bit Windows when an
+# HWND/handle is passed ("OverflowError: int too long to convert").
+EnumWindows.argtypes = [EnumWindowsProc, wintypes.LPARAM]
+EnumWindows.restype = wintypes.BOOL
+GetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
+GetWindowTextW.restype = ctypes.c_int
+GetWindowTextLengthW.argtypes = [wintypes.HWND]
+GetWindowTextLengthW.restype = ctypes.c_int
+IsWindowVisible.argtypes = [wintypes.HWND]
+IsWindowVisible.restype = wintypes.BOOL
+GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(RECT)]
+GetWindowRect.restype = wintypes.BOOL
+# hWndInsertAfter accepts negative sentinels (HWND_TOPMOST=-1, HWND_NOTOPMOST=-2),
+# so declare it as c_ssize_t to carry both real handles and the negatives.
+SetWindowPos.argtypes = [
+    wintypes.HWND,
+    ctypes.c_ssize_t,
+    ctypes.c_int,
+    ctypes.c_int,
+    ctypes.c_int,
+    ctypes.c_int,
+    wintypes.UINT,
+]
+SetWindowPos.restype = wintypes.BOOL
+ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
+ShowWindow.restype = wintypes.BOOL
+GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+GetWindowThreadProcessId.restype = wintypes.DWORD
+user32.GetSystemMetrics.argtypes = [ctypes.c_int]
+user32.GetSystemMetrics.restype = ctypes.c_int
+user32.MoveWindow.argtypes = [
+    wintypes.HWND,
+    ctypes.c_int,
+    ctypes.c_int,
+    ctypes.c_int,
+    ctypes.c_int,
+    wintypes.BOOL,
+]
+user32.MoveWindow.restype = wintypes.BOOL
+
+
 def get_window_title(hwnd):
     length = GetWindowTextLengthW(hwnd)
     if length == 0:

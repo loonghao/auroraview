@@ -49,10 +49,14 @@ else:
     GetWindowLong = user32.GetWindowLongW
     SetWindowLong = user32.SetWindowLongW
 
-# Configure SetWindowPos function signature
+# Configure SetWindowPos function signature.
+# hWndInsertAfter accepts negative sentinels (HWND_TOP=0, HWND_BOTTOM=1,
+# HWND_TOPMOST=-1, HWND_NOTOPMOST=-2), so declare it as c_ssize_t to carry both
+# real handles and the negatives. wintypes.HWND (a c_void_p) cannot hold a
+# negative value and would raise OverflowError if a sentinel were ever passed.
 user32.SetWindowPos.argtypes = [
     wintypes.HWND,  # hWnd
-    wintypes.HWND,  # hWndInsertAfter
+    ctypes.c_ssize_t,  # hWndInsertAfter
     ctypes.c_int,  # X
     ctypes.c_int,  # Y
     ctypes.c_int,  # cx
@@ -69,6 +73,30 @@ user32.SetLayeredWindowAttributes.argtypes = [
     wintypes.DWORD,  # flags
 ]
 user32.SetLayeredWindowAttributes.restype = wintypes.BOOL
+
+# EnumChildWindows callback prototype (module level so the signature is reused
+# and the BOOL/HWND/LPARAM types stay consistent across calls).
+WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+
+# Configure EnumChildWindows function signature.
+# Without argtypes, the HWND argument overflows C int on 64-bit Windows.
+user32.EnumChildWindows.argtypes = [wintypes.HWND, WNDENUMPROC, wintypes.LPARAM]
+user32.EnumChildWindows.restype = wintypes.BOOL
+
+# Configure CallWindowProcW function signature.
+# lpPrevWndFunc is a function pointer (pointer-wide); without argtypes it
+# overflows C int on 64-bit. wintypes.WPARAM/LPARAM already resolve to the
+# pointer-wide ctype on 64-bit and the narrow one on 32-bit, so no manual
+# bitness branch is needed here. The LRESULT return type is LONG_PTR, identical
+# in width/signedness to LPARAM (wintypes has no LRESULT alias).
+user32.CallWindowProcW.argtypes = [
+    ctypes.c_void_p,  # lpPrevWndFunc
+    wintypes.HWND,  # hWnd
+    wintypes.UINT,  # Msg
+    wintypes.WPARAM,  # wParam
+    wintypes.LPARAM,  # lParam
+]
+user32.CallWindowProcW.restype = wintypes.LPARAM
 
 # Window style constants
 GWL_STYLE = -16
@@ -222,10 +250,10 @@ class WindowsPlatformBackend(PlatformBackend):
             # Step 8: Apply clip styles to parent
             self.apply_clip_styles_to_parent(parent_hwnd)
 
-            # Step 9: CRITICAL - Fix all WebView2 child windows recursively
+            # Step 9: CRITICAL - Fix all WebView2 child windows
             # WebView2 creates multiple child windows (Chrome_WidgetWin_0, etc.)
             # that may still be draggable. We need to fix ALL of them.
-            self._fix_all_child_windows_recursive(child_hwnd)
+            self._fix_all_child_windows(child_hwnd)
 
             if _VERBOSE_LOGGING:
                 logger.info(
@@ -242,8 +270,8 @@ class WindowsPlatformBackend(PlatformBackend):
             logger.error(f"[Win32] embed_window_directly failed: {e}")
             return False
 
-    def _fix_all_child_windows_recursive(self, parent_hwnd: int, depth: int = 0) -> int:
-        """Recursively fix all child windows to prevent independent dragging.
+    def _fix_all_child_windows(self, parent_hwnd: int) -> int:
+        """Fix every descendant window to prevent independent dragging.
 
         WebView2 creates a hierarchy of child windows:
         - Main WebView window
@@ -253,25 +281,20 @@ class WindowsPlatformBackend(PlatformBackend):
               - ...
 
         All of these need WS_CHILD style and proper positioning to prevent
-        them from being dragged independently.
+        them from being dragged independently. EnumChildWindows already walks
+        the entire descendant tree in a single call (not just direct children),
+        so no manual recursion is needed here.
 
         Args:
-            parent_hwnd: The parent window to enumerate children from.
-            depth: Current recursion depth (for logging).
+            parent_hwnd: The parent window to enumerate descendants from.
 
         Returns:
             Number of windows fixed.
         """
         fixed_count = 0
-        max_depth = 10  # Prevent infinite recursion
-
-        if depth > max_depth:
-            return 0
 
         try:
-            # EnumChildWindows callback
-            WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
-
+            # EnumChildWindows callback (WNDENUMPROC is defined at module level)
             child_windows = []
 
             def enum_callback(hwnd, lparam):
@@ -329,7 +352,7 @@ class WindowsPlatformBackend(PlatformBackend):
                         if _VERBOSE_LOGGING:
                             logger.debug(
                                 f"[Win32] Fixed child window: HWND=0x{child_hwnd:X} "
-                                f"(depth={depth}, style=0x{style:08X}->0x{new_style:08X})"
+                                f"(style=0x{style:08X}->0x{new_style:08X})"
                             )
 
                 except Exception as e:
@@ -338,13 +361,12 @@ class WindowsPlatformBackend(PlatformBackend):
 
             if fixed_count > 0:
                 logger.info(
-                    f"[Win32] Fixed {fixed_count} child windows at depth {depth} "
-                    f"for parent 0x{parent_hwnd:X}"
+                    f"[Win32] Fixed {fixed_count} child windows for parent 0x{parent_hwnd:X}"
                 )
 
         except Exception as e:
             if _VERBOSE_LOGGING:
-                logger.debug(f"[Win32] _fix_all_child_windows_recursive failed: {e}")
+                logger.debug(f"[Win32] _fix_all_child_windows failed: {e}")
 
         return fixed_count
 
@@ -454,10 +476,7 @@ class WindowsPlatformBackend(PlatformBackend):
             _GetWndProc = user32.GetWindowLongW
             _SetWndProc = user32.SetWindowLongW
 
-        user32.CallWindowProcW.restype = (
-            ctypes.c_longlong if ctypes.sizeof(ctypes.c_void_p) == 8 else ctypes.c_long
-        )
-
+        # CallWindowProcW argtypes/restype are configured at module level.
         original_wndproc = _GetWndProc(hwnd, GWLP_WNDPROC)
         if not original_wndproc:
             logger.warning(f"[Win32] GetWindowLongPtrW returned 0 for HWND 0x{hwnd:X}")

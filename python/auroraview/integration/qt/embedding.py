@@ -284,8 +284,8 @@ class EmbeddingMixin:
                     return
                 try:
                     backend = get_backend()
-                    if hasattr(backend, "_fix_all_child_windows_recursive"):
-                        count = backend._fix_all_child_windows_recursive(webview_hwnd)
+                    if hasattr(backend, "_fix_all_child_windows"):
+                        count = backend._fix_all_child_windows(webview_hwnd)
                         if count > 0:
                             logger.info(f"[EmbeddingMixin] Fixed {count} WebView2 child windows")
                 except Exception as e:
