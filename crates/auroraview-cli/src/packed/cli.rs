@@ -19,7 +19,26 @@
 //! Everything else falls through to GUI, so a bare path or unknown flag never
 //! gets misread as a command.
 
+use std::path::Path;
+
 use anyhow::Result;
+
+/// Best-effort program name for help/usage text (RFC 0018 §4).
+///
+/// The packed exe name is chosen by the developer at pack time (e.g.
+/// `packed-cli-demo`), so hardcoding `app` in `-h`/error output would tell the
+/// user to type a command that doesn't exist. Derive it from
+/// `std::env::current_exe()`'s file stem, dropping the `.exe` suffix on
+/// Windows. Falls back to `"app"` when the executable path is unavailable.
+pub(crate) fn program_name() -> String {
+    std::env::current_exe()
+        .ok()
+        .as_deref()
+        .and_then(Path::file_stem)
+        .and_then(|s| s.to_str())
+        .map(str::to_string)
+        .unwrap_or_else(|| "app".to_string())
+}
 
 /// How a packed executable was invoked, after classifying argv (§4.2).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -89,7 +108,7 @@ pub fn run_packed_cli(cli_args: Vec<String>) -> Result<()> {
         }
         "-h" | "--help" => {
             let commands = read_cli_commands();
-            print!("{}", super::render::render_help(&commands));
+            print!("{}", super::render::render_help(&program_name(), &commands));
             Ok(())
         }
         "list" => {

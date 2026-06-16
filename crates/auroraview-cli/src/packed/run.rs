@@ -38,9 +38,12 @@ const EXIT_USAGE: i32 = 2;
 pub fn run_command(args: &[String]) -> Result<()> {
     super::attach_parent_console();
 
+    // Real exe name for hint text, so suggestions match what the user typed.
+    let prog = super::cli::program_name();
+
     let Some(requested) = args.first() else {
         eprintln!("auroraview: 'run' requires a command name");
-        eprintln!("Try 'app -h' to list available commands.");
+        eprintln!("Try '{prog} -h' to list available commands.");
         std::process::exit(EXIT_USAGE);
     };
 
@@ -58,7 +61,7 @@ pub fn run_command(args: &[String]) -> Result<()> {
         Some(name) => name,
         None => {
             eprintln!("auroraview: command not found: {requested}");
-            eprintln!("Try 'app list' to see available commands.");
+            eprintln!("Try '{prog} list' to see available commands.");
             std::process::exit(EXIT_USAGE);
         }
     };
