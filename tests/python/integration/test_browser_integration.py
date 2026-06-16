@@ -224,7 +224,14 @@ class TestBrowserHtmlGeneration:
     """Tests for Browser HTML generation."""
 
     def test_html_contains_initial_tabs(self):
-        """Test generated HTML includes initial tabs."""
+        """Test generated HTML returns the browser controller shell.
+
+        The browser UI is now a Vite-built SPA: the Python side serves only
+        the static shell (``<div id="root">`` + the controller bundle), and
+        tabs/title are rendered client-side from IPC state. So we assert the
+        shell document is returned rather than looking for server-rendered
+        tab markup.
+        """
         from auroraview.browser.browser import Browser
 
         browser = Browser(title="Test Browser")
@@ -232,51 +239,53 @@ class TestBrowserHtmlGeneration:
 
         html = browser._get_browser_html()
 
-        assert "Test Browser" in html
-        assert "https://example.com" in html
+        assert "<!DOCTYPE html>" in html
+        assert 'id="root"' in html
+        assert "browser-controller" in html
 
     def test_html_has_required_elements(self):
-        """Test generated HTML has all required UI elements."""
+        """Test generated HTML is the Vite controller shell.
+
+        The hand-written tab-bar/url-bar/iframe markup was replaced by a
+        client-rendered SPA; the shell only needs the root mount point and
+        the controller bundle/stylesheet references.
+        """
         from auroraview.browser.browser import Browser
 
         browser = Browser()
         html = browser._get_browser_html()
 
-        # Tab bar
-        assert 'class="tab-bar"' in html
-        assert 'id="tabBar"' in html
+        # SPA mount point
+        assert 'id="root"' in html
 
-        # Navigation buttons
-        assert 'id="backBtn"' in html
-        assert 'id="forwardBtn"' in html
-        assert 'id="reloadBtn"' in html
-
-        # URL bar
-        assert 'id="urlBar"' in html
-        assert 'class="url-bar"' in html
-
-        # Content frame
-        assert 'id="contentFrame"' in html
-        assert "<iframe" in html
+        # Controller bundle is wired into the shell
+        assert "browser-controller" in html
+        assert "<script" in html
 
 
 class TestBrowserStateSync:
     """Tests for Browser state synchronization."""
 
     def test_sync_tabs_emits_event(self):
-        """Test _sync_tabs_to_ui emits browser:tabs_update event."""
+        """Test _sync_tabs_to_ui emits browser:tabs_changed via the emitter.
+
+        _sync_tabs_to_ui now goes through ``webview.create_emitter()`` and
+        emits ``browser:tabs_changed`` (not a direct ``webview.emit`` call),
+        so we assert against the emitter returned by the mock.
+        """
         from auroraview.browser.browser import Browser
 
         browser = Browser()
         browser._webview = MagicMock()
+        emitter = browser._webview.create_emitter.return_value
 
         browser.new_tab("https://example.com", "Tab 1")
         browser.new_tab("https://github.com", "Tab 2")
 
         browser._sync_tabs_to_ui()
 
-        browser._webview.emit.assert_called_with(
-            "browser:tabs_update",
+        emitter.emit.assert_called_with(
+            "browser:tabs_changed",
             {
                 "tabs": browser._tabs,
                 "activeTabId": browser._active_tab_id,
@@ -284,23 +293,24 @@ class TestBrowserStateSync:
         )
 
     def test_tab_operations_trigger_sync(self):
-        """Test tab operations trigger UI sync."""
+        """Test tab operations trigger UI sync through the emitter."""
         from auroraview.browser.browser import Browser
 
         browser = Browser()
         browser._webview = MagicMock()
+        emitter = browser._webview.create_emitter.return_value
 
         # new_tab should sync
         browser.new_tab("https://example.com")
-        assert browser._webview.emit.call_count >= 1
+        assert emitter.emit.call_count >= 1
 
-        browser._webview.emit.reset_mock()
+        emitter.emit.reset_mock()
 
         # close_tab should sync
         tab = browser.new_tab("https://github.com")
-        browser._webview.emit.reset_mock()
+        emitter.emit.reset_mock()
         browser.close_tab(tab["id"])
-        assert browser._webview.emit.call_count >= 1
+        assert emitter.emit.call_count >= 1
 
 
 class TestBrowserWithTabContainer:

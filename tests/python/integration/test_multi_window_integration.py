@@ -153,6 +153,10 @@ class TestWindowManagerIntegration:
 
         wm = get_window_manager()
         registered_ids: List[str] = []
+        # WindowManager stores only a weakref to each window. Hold strong
+        # references here so the mocks aren't GC'd before count() is checked
+        # (otherwise _on_window_gc removes them and the count is flaky).
+        windows: List[Any] = []
         lock = threading.Lock()
 
         def register_window(idx: int):
@@ -161,6 +165,7 @@ class TestWindowManagerIntegration:
             uid = wm.register(wv)
             with lock:
                 registered_ids.append(uid)
+                windows.append(wv)
 
         # Register concurrently
         threads = [threading.Thread(target=register_window, args=(i,)) for i in range(10)]
@@ -315,7 +320,9 @@ class TestTabContainerIntegration:
             )
 
         assert container.get_tab_count() == 2
-        assert container.get_active_tab_id() == tab1.id
+        # create_tab defaults to activate=True, so the most recently created
+        # tab (tab2) becomes the active one.
+        assert container.get_active_tab_id() == tab2.id
 
         # Switch tabs
         container.activate_tab(tab2.id)

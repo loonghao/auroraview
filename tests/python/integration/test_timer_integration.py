@@ -3,7 +3,6 @@
 import os
 import sys
 import time
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -17,9 +16,16 @@ class MockWebView:
     def __init__(self):
         self._should_close = False
         self._process_events_called = 0
-        self._core = MagicMock()
-        self._core.is_window_valid.return_value = True
-        self._core.hwnd.return_value = 0x12345678  # Mock HWND
+        self._is_valid = True
+
+    @property
+    def is_ready(self) -> bool:
+        """EventTimer reads this as the single source of truth for readiness."""
+        return True
+
+    def is_window_valid(self) -> bool:
+        """EventTimer's validity probe (replaces the old ``_core`` path)."""
+        return self._is_valid
 
     def process_events(self):
         """Mock process_events method."""
