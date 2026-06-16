@@ -542,8 +542,7 @@ class CommandRegistry:
             # Collision with another command's canonical name.
             if alias != cmd_name and alias in self._commands:
                 raise ValueError(
-                    f"alias '{alias}' for command '{cmd_name}' collides with "
-                    f"command name '{alias}'"
+                    f"alias '{alias}' for command '{cmd_name}' collides with command name '{alias}'"
                 )
             # Collision with an alias owned by a different command.
             for other_name, other_meta in self._cli_meta.items():

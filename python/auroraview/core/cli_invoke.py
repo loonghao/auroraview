@@ -107,8 +107,7 @@ def _parse_args(func: Callable[..., Any], raw_args: List[str]) -> Dict[str, Any]
         p
         for p in sig.parameters.values()
         if p.name != "self"
-        and p.kind
-        not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+        and p.kind not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
     ]
     by_name = {p.name: p for p in params}
 
@@ -116,8 +115,7 @@ def _parse_args(func: Callable[..., Any], raw_args: List[str]) -> Dict[str, Any]
 
     if len(positionals) > len(params):
         raise _UsageError(
-            f"too many positional arguments: expected at most {len(params)}, "
-            f"got {len(positionals)}"
+            f"too many positional arguments: expected at most {len(params)}, got {len(positionals)}"
         )
 
     bound: Dict[str, Any] = {}
@@ -191,9 +189,7 @@ def _split_tokens(
             i += 2
         else:
             if seen_keyword:
-                raise _UsageError(
-                    f"positional argument '{token}' must come before keyword options"
-                )
+                raise _UsageError(f"positional argument '{token}' must come before keyword options")
             positionals.append(token)
             i += 1
 
@@ -224,12 +220,12 @@ def _coerce(param: inspect.Parameter, value: Any) -> Any:
         try:
             return int(value)
         except (TypeError, ValueError):
-            raise _UsageError(f"argument '{param.name}': expected int, got '{value}'")
+            raise _UsageError(f"argument '{param.name}': expected int, got '{value}'") from None
     if kind == "float":
         try:
             return float(value)
         except (TypeError, ValueError):
-            raise _UsageError(f"argument '{param.name}': expected float, got '{value}'")
+            raise _UsageError(f"argument '{param.name}': expected float, got '{value}'") from None
 
     # Complex / unknown annotations: parse as JSON, fall back to the raw string.
     try:
@@ -272,7 +268,7 @@ def _signature(func: Callable[..., Any]) -> inspect.Signature:
     try:
         return inspect.signature(func)
     except (ValueError, TypeError) as exc:
-        raise _UsageError(f"cannot introspect command signature: {exc}")
+        raise _UsageError(f"cannot introspect command signature: {exc}") from exc
 
 
 def _print_error(name: str, message: str) -> None:

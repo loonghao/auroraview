@@ -532,7 +532,13 @@ class TestCliParamIntrospection:
         meta = registry.cli_meta("exi")
         params = meta.params(registry._commands["exi"])
         assert params == [
-            {"name": "path", "type": "str", "required": True, "default": None, "help": "output dir"},
+            {
+                "name": "path",
+                "type": "str",
+                "required": True,
+                "default": None,
+                "help": "output dir",
+            },
             {"name": "dpi", "type": "int", "required": False, "default": 300, "help": "resolution"},
         ]
 
@@ -590,8 +596,6 @@ class TestCliParamIntrospection:
             side_effect=ValueError("no signature"),
         ):
             assert meta.params(builtin_wrap) == []
-
-
 
     def test_to_dict_structure(self):
         registry = CommandRegistry()
