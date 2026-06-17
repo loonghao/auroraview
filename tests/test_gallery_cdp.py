@@ -55,7 +55,7 @@ GALLERY_EXE = PROJECT_ROOT / "gallery" / "pack-output" / "auroraview-gallery.exe
 STARTUP_TIMEOUT = 120  # Gallery startup timeout (WebView2 cold-start on CI can be slow)
 API_TIMEOUT = 60  # API call timeout (some DCC samples need more time)
 EXAMPLE_RUN_TIMEOUT = 2  # Example run duration (reduced for faster tests)
-LOADING_TIMEOUT = 90  # Loading screen timeout (WebView2 cold-start on CI runners)
+LOADING_TIMEOUT = 50  # Loading screen timeout before force-navigate (must be < _wait_for_ready timeout)
 
 
 @dataclass
@@ -166,35 +166,46 @@ class GalleryTestClient:
         self._playwright = None
         self._browser = None
         self._page = None
-        self._playwright_loop = None
         self._original_event_loop = None
 
     def _prepare_playwright_loop(self):
         """Prepare a compatible event loop for Playwright sync API.
 
-        Some environments (including CI runners with preload hooks) may have
-        an asyncio loop already running in the main thread. Playwright's sync API
-        cannot start in that situation, so we temporarily isolate it to a
-        dedicated loop.
+        Playwright's sync API calls asyncio.get_running_loop() internally and
+        raises an error if it detects a running loop. Some environments
+        (including CI runners with pytest-asyncio's asyncio_mode=strict) have
+        an asyncio loop already running in the main thread.
+
+        The fix: set the event loop to None so asyncio.get_running_loop()
+        raises RuntimeError (the expected "no running loop" state for sync
+        code). This is safe because the E2E tests use Playwright's sync API
+        and do not need an active asyncio loop.
         """
         try:
-            running_loop = asyncio.get_running_loop()
+            self._original_event_loop = asyncio.get_running_loop()
         except RuntimeError:
+            # No running loop — nothing to do
             return
 
-        # Keep a reference so tests can run without mutating the caller's loop.
-        self._original_event_loop = running_loop
-        self._playwright_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self._playwright_loop)
+        # Save the current loop and unset it so Playwright can initialize.
+        # We must close the old loop that was set via set_event_loop()
+        # but isn't running, to avoid leaks.
+        try:
+            old_loop = asyncio.get_event_loop()
+        except RuntimeError:
+            old_loop = None
+
+        if old_loop is not None and old_loop is not self._original_event_loop:
+            try:
+                old_loop.close()
+            except Exception:
+                pass
+
+        # Unset the event loop so asyncio.get_running_loop() raises RuntimeError
+        asyncio.set_event_loop(None)
 
     def _restore_playwright_loop(self):
         """Restore the original event loop after Playwright operations."""
-        if self._playwright_loop is not None and self._original_event_loop is not None:
-            try:
-                self._playwright_loop.close()
-            except Exception:
-                pass
-        self._playwright_loop = None
         if self._original_event_loop is not None:
             try:
                 asyncio.set_event_loop(self._original_event_loop)
@@ -216,6 +227,11 @@ class GalleryTestClient:
                 self._playwright = None
             self._restore_playwright_loop()
             raise
+
+        # Restore the original event loop now that Playwright is initialized.
+        # Playwright's sync API only needs the "no running loop" state during
+        # sync_playwright().start() — after that it uses its own greenlets.
+        self._restore_playwright_loop()
 
         # Find the correct page (not about:blank)
         self._page = self._find_gallery_page()
@@ -301,11 +317,12 @@ class GalleryTestClient:
         print(f"[CDP] Fallback to first page: {all_pages[0]['url']}")
         return all_pages[0]["page"]
 
-    def _wait_for_ready(self, timeout: int = 30):
+    def _wait_for_ready(self, timeout: int = 60):
         """Wait for gallery to be fully loaded.
 
         This method handles both the loading screen and the main app.
-        It uses the AI automation helper for smart waiting.
+        On Windows CI, WebView2 cold-start can take 30-60s, so we use a
+        generous timeout.
         """
         start = time.time()
 
