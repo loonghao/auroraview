@@ -55,7 +55,9 @@ GALLERY_EXE = PROJECT_ROOT / "gallery" / "pack-output" / "auroraview-gallery.exe
 STARTUP_TIMEOUT = 120  # Gallery startup timeout (WebView2 cold-start on CI can be slow)
 API_TIMEOUT = 60  # API call timeout (some DCC samples need more time)
 EXAMPLE_RUN_TIMEOUT = 2  # Example run duration (reduced for faster tests)
-LOADING_TIMEOUT = 50  # Loading screen timeout before force-navigate (must be < _wait_for_ready timeout)
+LOADING_TIMEOUT = (
+    50  # Loading screen timeout before force-navigate (must be < _wait_for_ready timeout)
+)
 
 
 @dataclass

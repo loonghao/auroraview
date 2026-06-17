@@ -24,10 +24,10 @@ Note:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Optional, List, Dict
+from typing import Any, Dict, List, Optional
 
-import maya.OpenMayaUI as omui
 import maya.cmds as cmds
+import maya.OpenMayaUI as omui
 from qtpy.QtWidgets import QDialog, QVBoxLayout, QWidget
 from shiboken2 import wrapInstance
 
@@ -152,7 +152,7 @@ class AuroraViewMayaDialog(QDialog):
         }
 
         for event_name, handler in event_handlers.items():
-            self.webview.on(event_name)(lambda data, name=event_name: handler(name, data))
+            self.webview.on(event_name)(lambda data, name=event_name, fn=handler: fn(name, data))
 
         # Load HTML from an external file next to this module and feed it
         # via load_html() so we avoid `file://` restrictions in embedded
