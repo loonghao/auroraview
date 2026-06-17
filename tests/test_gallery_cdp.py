@@ -176,42 +176,36 @@ class GalleryTestClient:
         (including CI runners with pytest-asyncio's asyncio_mode=strict) have
         an asyncio loop already running in the main thread.
 
-        The fix: set the event loop to None so asyncio.get_running_loop()
-        raises RuntimeError (the expected "no running loop" state for sync
-        code). This is safe because the E2E tests use Playwright's sync API
-        and do not need an active asyncio loop.
+        The fix: save the current event loop, then set it to None so
+        asyncio.get_running_loop() raises RuntimeError (the expected "no
+        running loop" state for sync code). This is safe because the E2E tests
+        use Playwright's sync API and do not need an active asyncio loop.
+
+        We always save the loop (not just when there's a running one) so that
+        _restore_playwright_loop() always has something to restore, even across
+        multiple client connect/disconnect cycles.
         """
         try:
-            self._original_event_loop = asyncio.get_running_loop()
+            self._original_event_loop = asyncio.get_event_loop()
         except RuntimeError:
-            # No running loop — nothing to do
-            return
-
-        # Save the current loop and unset it so Playwright can initialize.
-        # We must close the old loop that was set via set_event_loop()
-        # but isn't running, to avoid leaks.
-        try:
-            old_loop = asyncio.get_event_loop()
-        except RuntimeError:
-            old_loop = None
-
-        if old_loop is not None and old_loop is not self._original_event_loop:
-            try:
-                old_loop.close()
-            except Exception:
-                pass
+            self._original_event_loop = None
 
         # Unset the event loop so asyncio.get_running_loop() raises RuntimeError
         asyncio.set_event_loop(None)
 
     def _restore_playwright_loop(self):
-        """Restore the original event loop after Playwright operations."""
+        """Restore the original event loop after Playwright operations.
+
+        This is idempotent — safe to call multiple times (connect, disconnect,
+        and teardown paths may all call it). We do NOT consume
+        self._original_event_loop here so that disconnect() can still restore
+        the loop even after connect() already called this method.
+        """
         if self._original_event_loop is not None:
             try:
                 asyncio.set_event_loop(self._original_event_loop)
             except Exception:
                 pass
-            self._original_event_loop = None
 
     def connect(self):
         """Connect to gallery via CDP."""
@@ -233,13 +227,18 @@ class GalleryTestClient:
         # sync_playwright().start() — after that it uses its own greenlets.
         self._restore_playwright_loop()
 
-        # Find the correct page (not about:blank)
-        self._page = self._find_gallery_page()
-        if not self._page:
-            raise RuntimeError("No valid Gallery page found")
+        try:
+            # Find the correct page (not about:blank)
+            self._page = self._find_gallery_page()
+            if not self._page:
+                raise RuntimeError("No valid Gallery page found")
 
-        # Wait for gallery to be ready
-        self._wait_for_ready()
+            # Wait for gallery to be ready
+            self._wait_for_ready()
+        except Exception:
+            # Ensure cleanup on partial connect failure
+            self.disconnect()
+            raise
 
     def _find_gallery_page(self):
         """Find the correct Gallery page from all available pages.
