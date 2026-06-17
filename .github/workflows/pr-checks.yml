@@ -891,7 +891,7 @@ jobs:
   cli-build:
     name: CLI Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: 30
     needs: [path-filter]
     if: needs.path-filter.outputs.needs_rust_checks == 'true'
     strategy:
