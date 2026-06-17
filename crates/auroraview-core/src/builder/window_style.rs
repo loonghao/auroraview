@@ -1213,6 +1213,7 @@ pub fn set_window_class_null_background(hwnd: isize) {
 
 /// Stub for non-Windows platforms
 #[cfg(not(target_os = "windows"))]
+#[allow(dead_code)]
 pub fn set_window_class_null_background(_hwnd: isize) {
     // No-op on non-Windows platforms
 }

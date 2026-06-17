@@ -1,0 +1,3 @@
+fix: export set_window_class_null_background to fix clippy error
+
+Export set_window_class_null_background in crates/auroraview-core/src/builder/mod.rs to prevent a dead code warning on non-Windows platforms where its only caller is stubbed out.
