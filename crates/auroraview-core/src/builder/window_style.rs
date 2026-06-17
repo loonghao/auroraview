@@ -2105,8 +2105,7 @@ mod windows_real_window_tests {
 
         // Transparent path -> NULL brush.
         set_window_class_null_background(w.raw());
-        let after_null =
-            unsafe { GetClassLongPtrW(w.hwnd, GET_CLASS_LONG_INDEX(-10)) }; // GCLP_HBRBACKGROUND
+        let after_null = unsafe { GetClassLongPtrW(w.hwnd, GET_CLASS_LONG_INDEX(-10)) }; // GCLP_HBRBACKGROUND
         assert_eq!(
             after_null, null_brush,
             "transparent windows must use NULL_BRUSH so the background shows through"
