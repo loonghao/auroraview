@@ -106,19 +106,23 @@ pub fn destroy_window_by_hwnd(hwnd: u64) -> PyResult<bool> {
 ///
 /// Args:
 ///     hwnd: The WebView window handle (HWND)
+///     transparent: When True, child windows get a transparent (NULL) class
+///         background instead of the opaque dark brush. Defaults to False.
 ///
 /// Returns:
 ///     True if successful, False otherwise (non-Windows platforms)
 #[pyfunction]
-pub fn fix_webview2_child_windows(hwnd: u64) -> PyResult<bool> {
+#[pyo3(signature = (hwnd, transparent = false))]
+pub fn fix_webview2_child_windows(hwnd: u64, transparent: bool) -> PyResult<bool> {
     #[cfg(target_os = "windows")]
     {
-        auroraview_core::builder::fix_webview2_child_windows(hwnd as isize);
+        auroraview_core::builder::fix_webview2_child_windows(hwnd as isize, transparent);
         Ok(true)
     }
     #[cfg(not(target_os = "windows"))]
     {
         let _ = hwnd;
+        let _ = transparent;
         Ok(false)
     }
 }

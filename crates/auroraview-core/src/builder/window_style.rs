@@ -1173,7 +1173,7 @@ pub fn set_window_class_dark_background(hwnd: isize) {
         let hwnd_win = HWND(hwnd as *mut _);
         // COLORREF uses 0x00bbggrr layout. #020617 => 0x00170602.
         let brush = *DARK_BACKGROUND_BRUSH
-            .get_or_init(|| CreateSolidBrush(COLORREF(0x00170602)).0 as isize);
+            .get_or_init(|| CreateSolidBrush(COLORREF(0x001706CC)).0 as isize);
         // GCLP_HBRBACKGROUND = -10
         let _ = SetClassLongPtrW(hwnd_win, GET_CLASS_LONG_INDEX(-10), brush);
         tracing::debug!(
@@ -1186,6 +1186,34 @@ pub fn set_window_class_dark_background(hwnd: isize) {
 /// Stub for non-Windows platforms
 #[cfg(not(target_os = "windows"))]
 pub fn set_window_class_dark_background(_hwnd: isize) {
+    // No-op on non-Windows platforms
+}
+
+/// Set a transparent (NULL) class background brush on the window.
+///
+/// Used for transparent windows: a solid brush (even the dark theme one) is
+/// opaque and would show through where WebView2 has not yet painted, defeating
+/// `transparent=True`. NULL_BRUSH paints nothing, letting the desktop show
+/// through. The WebView2 content still composites on top normally.
+#[cfg(target_os = "windows")]
+pub fn set_window_class_null_background(hwnd: isize) {
+    use windows::Win32::Graphics::Gdi::{GetStockObject, NULL_BRUSH};
+    use windows::Win32::UI::WindowsAndMessaging::{SetClassLongPtrW, GET_CLASS_LONG_INDEX};
+
+    // SAFETY: hwnd is a valid window handle. GetStockObject(NULL_BRUSH) returns a
+    // valid stock GDI brush. SetClassLongPtrW sets GCLP_HBRBACKGROUND (-10).
+    unsafe {
+        let hwnd_win = HWND(hwnd as *mut _);
+        let brush = GetStockObject(NULL_BRUSH).0 as isize;
+        // GCLP_HBRBACKGROUND = -10
+        let _ = SetClassLongPtrW(hwnd_win, GET_CLASS_LONG_INDEX(-10), brush);
+        tracing::debug!("Set window class NULL background: HWND 0x{:X}", hwnd);
+    }
+}
+
+/// Stub for non-Windows platforms
+#[cfg(not(target_os = "windows"))]
+pub fn set_window_class_null_background(_hwnd: isize) {
     // No-op on non-Windows platforms
 }
 
@@ -1205,8 +1233,11 @@ pub fn set_window_class_dark_background(_hwnd: isize) {
 ///
 /// # Arguments
 /// * `hwnd` - The top-level WebView window handle
+/// * `transparent` - When true, child windows get a NULL (transparent) class
+///   background instead of the opaque dark brush, so `transparent=True` windows
+///   actually show through instead of revealing #020617.
 #[cfg(target_os = "windows")]
-pub fn fix_webview2_child_windows(hwnd: isize) {
+pub fn fix_webview2_child_windows(hwnd: isize, transparent: bool) {
     // Guard against a NULL top-level handle. `EnumChildWindows(NULL, ...)` does
     // NOT no-op: per MSDN it enumerates every *top-level* window on the desktop,
     // and our callback would then strip styles / subclass / repaint every one of
@@ -1312,6 +1343,7 @@ pub fn fix_webview2_child_windows(hwnd: isize) {
         total: u32,
         fixed: u32,
         subclassed: u32,
+        transparent: bool,
     }
 
     // Callback function for EnumChildWindows
@@ -1390,8 +1422,14 @@ pub fn fix_webview2_child_windows(hwnd: isize) {
         }
 
         // Set dark background brush on every child window to prevent white
-        // edges from appearing when the window is partially painted.
-        set_window_class_dark_background(child_hwnd.0 as isize);
+        // edges from appearing when the window is partially painted. For
+        // transparent windows an opaque brush would show through, so use a
+        // NULL (transparent) brush instead.
+        if counters.transparent {
+            set_window_class_null_background(child_hwnd.0 as isize);
+        } else {
+            set_window_class_dark_background(child_hwnd.0 as isize);
+        }
 
         // Only fix windows that aren't already proper child windows
         if has_popup || has_caption || has_thickframe || !is_child {
@@ -1451,7 +1489,10 @@ pub fn fix_webview2_child_windows(hwnd: isize) {
     // child HWNDs handed back by the OS or stack-local buffers. `counters` lives
     // on this stack frame for the full (synchronous) duration of EnumChildWindows,
     // so the pointer handed through LPARAM stays valid for every callback.
-    let mut counters = Counters::default();
+    let mut counters = Counters {
+        transparent,
+        ..Counters::default()
+    };
     unsafe {
         let hwnd_win = HWND(hwnd as *mut c_void);
         let _ = EnumChildWindows(
@@ -1471,7 +1512,7 @@ pub fn fix_webview2_child_windows(hwnd: isize) {
 
 /// Stub for non-Windows platforms
 #[cfg(not(target_os = "windows"))]
-pub fn fix_webview2_child_windows(_hwnd: isize) {
+pub fn fix_webview2_child_windows(_hwnd: isize, _transparent: bool) {
     // No-op on non-Windows platforms
 }
 
@@ -2022,7 +2063,7 @@ mod windows_real_window_tests {
 
         // Enumerates the children above, subclasses the Chrome ones, strips
         // styles + dark background on each, and tallies counters.
-        fix_webview2_child_windows(parent.raw());
+        fix_webview2_child_windows(parent.raw(), false);
 
         // Drive messages through the Chrome subclass (subclass_wndproc):
         // SAFETY: _chrome0.hwnd is a live, now-subclassed child window.
@@ -2040,7 +2081,7 @@ mod windows_real_window_tests {
 
         // Idempotent: Chrome children are now already subclassed -> the
         // already_subclassed short-circuit runs.
-        fix_webview2_child_windows(parent.raw());
+        fix_webview2_child_windows(parent.raw(), false);
     }
 
     #[test]
@@ -2048,7 +2089,36 @@ mod windows_real_window_tests {
         // A real top-level window with zero children: EnumChildWindows finds
         // nothing, counters stay at zero, no panic.
         let parent = TestWindow::new_popup();
-        fix_webview2_child_windows(parent.raw());
+        fix_webview2_child_windows(parent.raw(), false);
+    }
+
+    // Regression: transparent=True must NOT leave an opaque solid brush on the
+    // window class, or the #020617 background shows through and defeats
+    // transparency. The transparent path sets the NULL stock brush instead.
+    #[test]
+    fn set_window_class_null_vs_dark_background() {
+        use windows::Win32::Graphics::Gdi::{GetStockObject, NULL_BRUSH};
+        use windows::Win32::UI::WindowsAndMessaging::{GetClassLongPtrW, GET_CLASS_LONG_INDEX};
+
+        let w = TestWindow::new_popup();
+        let null_brush = unsafe { GetStockObject(NULL_BRUSH).0 as usize };
+
+        // Transparent path -> NULL brush.
+        set_window_class_null_background(w.raw());
+        let after_null =
+            unsafe { GetClassLongPtrW(w.hwnd, GET_CLASS_LONG_INDEX(-10)) }; // GCLP_HBRBACKGROUND
+        assert_eq!(
+            after_null, null_brush,
+            "transparent windows must use NULL_BRUSH so the background shows through"
+        );
+
+        // Opaque path -> a non-NULL solid brush.
+        set_window_class_dark_background(w.raw());
+        let after_dark = unsafe { GetClassLongPtrW(w.hwnd, GET_CLASS_LONG_INDEX(-10)) };
+        assert_ne!(
+            after_dark, null_brush,
+            "opaque windows still get the dark solid brush"
+        );
     }
 
     #[test]

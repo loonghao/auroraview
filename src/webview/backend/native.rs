@@ -765,12 +765,15 @@ impl NativeBackend {
             }
 
             // Fix WebView2 child windows: strip border/edge styles to remove white borders
-            auroraview_core::builder::fix_webview2_child_windows(hwnd_value);
+            auroraview_core::builder::fix_webview2_child_windows(hwnd_value, config.transparent);
 
             // For Child (Qt embedding): apply anti-white-border measures
             if config.embed_mode == EmbedMode::Child {
                 disable_window_shadow(hwnd_value);
-                set_window_class_dark_background(hwnd_value);
+                // Opaque dark brush would show through a transparent window; skip it there.
+                if !config.transparent {
+                    set_window_class_dark_background(hwnd_value);
+                }
 
                 // Only apply DWM frame extension and remove clip children for transparent windows.
                 // For opaque WS_CHILD windows, DwmExtendFrameIntoClientArea with MARGINS{-1,-1,-1,-1}
@@ -784,7 +787,8 @@ impl NativeBackend {
                 }
 
                 tracing::info!(
-                    "[OK] [NativeBackend] Child: DWM shadow disabled, dark background set"
+                    "[OK] [NativeBackend] Child: DWM shadow disabled (dark background brush skipped for transparent={})",
+                    config.transparent
                 );
             } else {
                 // Disable window shadow when requested (non-Child)

@@ -281,10 +281,16 @@ pub fn create_desktop(
     #[cfg(target_os = "windows")]
     if !config.decorations {
         if let Some(hwnd) = cached_hwnd {
-            set_window_class_dark_background(hwnd as isize);
-            fix_webview2_child_windows(hwnd as isize);
+            // Transparent windows must NOT get an opaque dark brush — it would
+            // show through as a solid #020617 background, defeating transparency.
+            // The other frameless fixes (child-window styling, NC-area zeroing)
+            // still apply.
+            if !config.transparent {
+                set_window_class_dark_background(hwnd as isize);
+            }
+            fix_webview2_child_windows(hwnd as isize, config.transparent);
             subclass_for_zero_nc_area(hwnd as isize);
-            tracing::info!("[standalone] Applied dark background brush, fixed WebView2 child windows, and zeroed top-level NC area (frameless)");
+            tracing::info!("[standalone] Applied frameless white-border fix (dark background brush skipped for transparent={}), fixed WebView2 child windows, and zeroed top-level NC area", config.transparent);
         } else {
             tracing::warn!("[standalone] frameless window requested but no cached HWND is available; skipping white-border fix (dark background, child-window fix, NC-area zeroing)");
         }
