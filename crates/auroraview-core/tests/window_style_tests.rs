@@ -507,7 +507,7 @@ fn frameless_popup_with_multiple_bits_sets_popup_clears_child() {
 // must short-circuit and return immediately (no panic, no desktop-wide mutation).
 #[test]
 fn fix_webview2_child_windows_null_handle_returns_immediately() {
-    fix_webview2_child_windows(0);
+    fix_webview2_child_windows(0, false);
 }
 
 #[rstest]
@@ -521,7 +521,7 @@ fn fix_webview2_child_windows_arbitrary_handles_do_not_panic(#[case] hwnd: isize
     // HWNDs reach the real `EnumChildWindows`, which Win32 tolerates by
     // returning FALSE rather than panicking — so this is where the contract is
     // genuinely exercised.
-    fix_webview2_child_windows(hwnd);
+    fix_webview2_child_windows(hwnd, false);
 }
 
 // ============================================================================
