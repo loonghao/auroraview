@@ -281,6 +281,8 @@ nextest-install:
 # Ensure cargo-llvm-cov is available for local Rust coverage runs
 [unix]
 llvm-cov-install:
+    @echo "Ensuring llvm-tools-preview Rust component..."
+    vx rustup component add llvm-tools-preview
     @if vx cargo llvm-cov --version >/dev/null 2>&1; then \
         echo "cargo-llvm-cov already available"; \
     else \
