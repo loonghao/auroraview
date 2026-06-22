@@ -79,7 +79,7 @@ jobs:
           # cache-dependency-path: packages/auroraview-sdk/package-lock.json
 
       - name: Setup vx helpers
-        uses: loonghao/vx@vx-v0.9.23
+        uses: loonghao/vx@vx-v0.9.25
         with:
           github-token: ${{ github.token }}
           tools: 'bun'

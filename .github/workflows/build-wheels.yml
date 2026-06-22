@@ -52,7 +52,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Setup vx helpers
-        uses: loonghao/vx@vx-v0.9.23
+        uses: loonghao/vx@vx-v0.9.25
         with:
           github-token: ${{ github.token }}
           tools: 'just bun'
