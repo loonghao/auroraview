@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.10](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.9...auroraview-v0.5.10) (2026-07-02)
+
+
+### Bug Fixes
+
+* bind loop variable in Maya demo event handler ([0b0e6ad](https://github.com/loonghao/auroraview/commit/0b0e6ada96148779a2b96c69924afe2e0a1c749d))
+* export set_window_class_null_background to fix clippy error ([0b84224](https://github.com/loonghao/auroraview/commit/0b842242f5a8a78348879e85a6196eb7242b849a))
+* install llvm-tools-preview in llvm-cov-install recipe ([9a5c97b](https://github.com/loonghao/auroraview/commit/9a5c97b03484843eca1dbeb7deb7714717f940f9))
+* make event loop management idempotent and add cleanup path ([4c4fca0](https://github.com/loonghao/auroraview/commit/4c4fca0fb4cc686a2adc174dc8844d70cf601a94))
+* resolve Windows E2E test failures from asyncio loop conflict ([b7a9b9c](https://github.com/loonghao/auroraview/commit/b7a9b9c878888ede9a795df52e7a7b91823a0cf7))
+* use NULL brush for transparent WebView2 windows ([2b9c97c](https://github.com/loonghao/auroraview/commit/2b9c97c0d188b6657fa13f6672f97f72c2ab06dc))
+
 ## [0.5.9](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.8...auroraview-v0.5.9) (2026-06-16)
 
 
