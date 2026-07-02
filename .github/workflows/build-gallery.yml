@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup AuroraView Environment
         uses: ./.github/actions/setup-auroraview
@@ -59,7 +59,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup AuroraView Environment
         uses: ./.github/actions/setup-auroraview
@@ -113,7 +113,7 @@ jobs:
             artifact-name: gallery-wheels-macos-universal2-apple-darwin
             maturin-args: '--release --out dist --find-interpreter --features python-bindings,ext-module,abi3-py38'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Download SDK assets
         uses: actions/download-artifact@v8
@@ -170,7 +170,7 @@ jobs:
             wheel-artifact: gallery-wheels-linux-x86_64
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup AuroraView Environment
         uses: ./.github/actions/setup-auroraview
@@ -291,7 +291,7 @@ jobs:
     # Only run on main branch or manual trigger
     if: (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup AuroraView Environment
         uses: ./.github/actions/setup-auroraview
