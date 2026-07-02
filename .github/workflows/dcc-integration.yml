@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup AuroraView Environment
         uses: ./.github/actions/setup-auroraview
@@ -75,7 +75,7 @@ jobs:
             blender-url: 'https://download.blender.org/release/Blender3.6/blender-3.6.21-linux-x64.tar.xz'
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
@@ -141,7 +141,7 @@ jobs:
       inputs.dcc == 'all' || inputs.dcc == 'openscad' || 
       (inputs.dcc == '' && (github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'))
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -185,7 +185,7 @@ jobs:
         godot-version: ['4.4.1']
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -227,7 +227,7 @@ jobs:
     timeout-minutes: 10
     needs: build-wheel
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Python
         uses: actions/setup-python@v6

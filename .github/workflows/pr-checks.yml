@@ -85,7 +85,7 @@ jobs:
       needs_rust_cli: ${{ steps.rust-deps.outputs.needs_cli }}
       needs_rust_pack: ${{ steps.rust-deps.outputs.needs_pack }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Detect file changes
         uses: dorny/paths-filter@v4
@@ -286,7 +286,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -312,7 +312,7 @@ jobs:
     needs: [path-filter]
     if: needs.path-filter.outputs.needs_rust_checks == 'true' || needs.path-filter.outputs.python == 'true'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Free disk space
         run: |
@@ -380,7 +380,7 @@ jobs:
     needs: [path-filter]
     if: needs.path-filter.outputs.needs_rust_checks == 'true'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Free disk space
         run: |
@@ -465,7 +465,7 @@ jobs:
             # Note: --sdist removed to avoid 100MB PyPI limit in releases
             maturin-args: '--release --out dist --find-interpreter --features python-bindings,ext-module,abi3-py38'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Download SDK assets
         if: needs.sdk-build.result == 'success'
@@ -505,7 +505,7 @@ jobs:
             artifact-name: wheels-windows-x64-py37
             maturin-args: '--release --out dist -i python3.7 --features python-bindings,ext-module,win-webview2'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Build Python 3.7 Wheel
         uses: ./.github/actions/build-wheel
@@ -584,7 +584,7 @@ jobs:
       needs.path-filter.outputs.needs_rust_checks == 'true' &&
       (needs.quick-checks.result == 'success' || needs.quick-checks.result == 'skipped')
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Free disk space
         run: |
@@ -769,7 +769,7 @@ jobs:
           - os: macos-latest
             artifact-name: wheels-macos-universal2-apple-darwin
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -851,7 +851,7 @@ jobs:
           - os: macos-latest
             artifact-name: wheels-macos-universal2-apple-darwin
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -889,7 +889,7 @@ jobs:
       (needs.quick-checks.result == 'success' || needs.quick-checks.result == 'skipped') &&
       needs.pre-build.result == 'success'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -941,7 +941,7 @@ jobs:
     needs: [path-filter]
     if: needs.path-filter.outputs.needs_rust_checks == 'true'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -996,7 +996,7 @@ jobs:
             artifact-name: cli-macos-arm64
             exe-name: auroraview-cli
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup AuroraView Environment
         uses: ./.github/actions/setup-auroraview
@@ -1046,7 +1046,7 @@ jobs:
       needs.path-filter.outputs.needs_gallery_tests == 'true' &&
       (needs.sdk-build.result == 'success' || needs.sdk-build.result == 'skipped')
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup AuroraView Environment
         uses: ./.github/actions/setup-auroraview
@@ -1093,7 +1093,7 @@ jobs:
       (needs.sdk-build.result == 'success' || needs.sdk-build.result == 'skipped') &&
       needs.gallery-frontend.result == 'success'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup AuroraView Environment
         uses: ./.github/actions/setup-auroraview
@@ -1257,7 +1257,7 @@ jobs:
             wheel-artifact: wheels-macos-universal2-apple-darwin
             cli-artifact: cli-macos-arm64
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup AuroraView Environment
         uses: ./.github/actions/setup-auroraview
@@ -1474,7 +1474,7 @@ jobs:
     needs: [path-filter]
     if: needs.path-filter.outputs.needs_docs_build == 'true'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup AuroraView Environment
         uses: ./.github/actions/setup-auroraview

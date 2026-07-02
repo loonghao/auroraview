@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup vx
         uses: loonghao/vx@vx-v0.9.26
@@ -68,7 +68,7 @@ jobs:
     timeout-minutes: 15
     needs: lint
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -134,7 +134,7 @@ jobs:
           - os: macos-latest
             python-version: '3.8'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -195,7 +195,7 @@ jobs:
     timeout-minutes: 15
     needs: lint
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -258,7 +258,7 @@ jobs:
     timeout-minutes: 20
     needs: lint
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Python 3.7
         uses: actions/setup-python@v6
