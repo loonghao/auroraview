@@ -84,7 +84,7 @@ jobs:
       needs-root: ${{ steps.deps.outputs.needs-root }}
       any-changes: ${{ steps.deps.outputs.any-changes }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Detect file changes
         uses: dorny/paths-filter@v3
@@ -251,7 +251,7 @@ jobs:
       needs.detect-changes.outputs.needs-plugin-core == 'true' ||
       needs.detect-changes.outputs.needs-extensions == 'true'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -316,7 +316,7 @@ jobs:
       (needs.detect-changes.outputs.needs-plugin-fs == 'true' ||
        needs.detect-changes.outputs.needs-plugins == 'true')
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -365,7 +365,7 @@ jobs:
       (needs.test-plugins.result == 'success' || needs.test-plugins.result == 'skipped') &&
       needs.detect-changes.outputs.needs-core == 'true'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -415,7 +415,7 @@ jobs:
       (needs.test-standalone.result == 'success' || needs.test-standalone.result == 'skipped') &&
       needs.detect-changes.outputs.needs-pack == 'true'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -461,7 +461,7 @@ jobs:
       (needs.test-pack.result == 'success' || needs.test-pack.result == 'skipped') &&
       needs.detect-changes.outputs.needs-cli == 'true'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
