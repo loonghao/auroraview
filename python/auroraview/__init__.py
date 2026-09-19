@@ -351,6 +351,9 @@ from .utils import (
     register_timer_backend,
 )
 
+# Runtime diagnostics (host, dispatcher, thread, Qt)
+from .diagnostics import diagnostics, format_diagnostics
+
 # Browser module for multi-tab support
 from .browser import Browser, TabContainer, TabState
 
@@ -478,6 +481,8 @@ __all__ = [
     # ============================================================
     # Auto-selects WebView/QtWebView based on parent type
     "create_webview",
+    "diagnostics",
+    "format_diagnostics",
     # Convenience function for standalone apps
     "run_app",
     # ============================================================
