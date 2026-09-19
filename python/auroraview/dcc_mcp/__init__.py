@@ -33,14 +33,17 @@ from ._compat import DCC_MCP_CORE_IMPORT_ERROR, HAS_DCC_MCP_CORE, require_core
 
 from . import adapter as adapter  # noqa: E402
 from . import host as host  # noqa: E402
+from . import host_detect as host_detect  # noqa: E402
 from . import server as server  # noqa: E402
 from .adapter import AuroraViewAdapter, WebViewToolSpec  # noqa: E402
 from .host import AuroraViewQtHost  # noqa: E402
+from .host_detect import detect_host_dcc  # noqa: E402
 from .server import start_server  # noqa: E402
 
 __all__ = [
     "DCC_MCP_CORE_IMPORT_ERROR",
     "AuroraViewAdapter",
+    "detect_host_dcc",
     "AuroraViewQtHost",
     "WebViewToolSpec",
     "start_server",

@@ -63,6 +63,26 @@ lingering as a ghost entry.
 These mirror AuroraView's own MCP surface so agents see one consistent tool
 set rather than two competing ones.
 
+## Coexisting with the host DCC's own adapter
+
+An AuroraView panel is usually embedded inside a DCC that also runs its own
+dcc-mcp adapter, so two adapters write to the same FileRegistry. This is
+supported: the registry is keyed by `(dcc_type, instance_id)`, guarded by a
+cross-process file lock, so the two rows do not collide.
+
+What makes the relationship legible is `host_dcc`. It is **auto-detected**
+from the environment (mirroring `DccType::detect()`), so a panel running
+inside Maya registers as belonging to that Maya session with no extra work:
+
+```python
+adapter = AuroraViewAdapter(webview)        # -> host_dcc == "maya" when MAYA_LOCATION is set
+adapter = AuroraViewAdapter(webview, host_dcc="blender")  # explicit override
+```
+
+Set `AURORAVIEW_HOST_DCC` to force a name, or to an empty string to declare
+the window standalone. Recognised hosts: `maya`, `houdini`, `nuke`,
+`blender`, `3dsmax`, `unreal`.
+
 ## Host-thread dispatch
 
 AuroraView runs a Qt event loop. `AuroraViewQtHost` wires the DCC-MCP
@@ -93,3 +113,7 @@ interpreter, so they too must stay 3.7 compatible.
   Policy may block its html2canvas dependency.
 - AuroraView does not currently expose a Chrome DevTools Protocol port, so
   `cdp_port` is reported as `0` unless the host supplies one.
+- Skills are scoped by DCC: `auroraview-webview` is tagged to `auroraview`
+  and exposes only `eval_js`, `screenshot`, `load_url` and `load_html`. It
+  never advertises DCC scene operations, so an agent looking for Maya scene
+  tools is not routed to a WebView panel.

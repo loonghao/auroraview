@@ -549,7 +549,9 @@ jobs:
           CI: 'true'
         run: |
           pytest tests/python/integration/test_dcc_mcp_registration.py \
-            -v --tb=short --timeout=120
+            tests/python/integration/test_dcc_mcp_coexistence.py \
+            tests/python/integration/test_dcc_mcp_skill_isolation.py \
+            -v --tb=short --timeout=180
 
           # Fail loudly if the extra is missing: a skipped DCC-MCP suite must
           # never be mistaken for a passing one.

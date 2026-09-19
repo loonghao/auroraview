@@ -32,6 +32,7 @@ import time
 from typing import Any, Callable, Dict, List, Optional
 
 from ._compat import require_core as _require_core
+from .host_detect import detect_host_dcc
 
 logger = logging.getLogger(__name__)
 
@@ -184,7 +185,11 @@ class AuroraViewAdapter:
     Args:
         view: Live AuroraView WebView or QtWebView instance.
         host_dcc: Name of the DCC embedding this WebView, if any
-            (e.g. ``"maya"``). ``None`` for standalone windows.
+            (e.g. ``"maya"``). When omitted it is **auto-detected** from the
+            environment, so a panel embedded in Maya registers as belonging to
+            that Maya session without the caller having to say so. Pass an
+            explicit value to override detection; see
+            :mod:`auroraview.dcc_mcp.host_detect`.
         cdp_port: Chrome DevTools Protocol port, when the host enabled it.
             ``0``/``None`` when not available.
 
@@ -217,7 +222,10 @@ class AuroraViewAdapter:
         if view is None:
             raise ValueError("AuroraViewAdapter requires a live WebView instance")
         self._view = view
-        self._host_dcc = host_dcc
+        # Auto-detect the embedding DCC when the caller did not name one, so
+        # `host_dcc` actually lands instead of silently disappearing. An
+        # explicit argument (including an explicit None) is respected.
+        self._host_dcc = host_dcc if host_dcc is not None else detect_host_dcc()
         self._cdp_port = cdp_port or 0
         self._audit: List[Dict[str, Any]] = []
 

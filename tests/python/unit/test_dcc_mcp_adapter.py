@@ -234,3 +234,79 @@ def test_fallback_when_core_lacks_js_roundtrip():
     result = adapter.execute("eval_js", {"script": "document.title"})
     assert result["ok"] is True
     assert result["result"] is None
+
+
+# ---------------------------------------------------------------------------
+# Host DCC detection
+# ---------------------------------------------------------------------------
+
+
+def test_detect_host_dcc_returns_none_when_standalone():
+    """No DCC environment variables means no host DCC."""
+    _skip_without_core()
+    from auroraview.dcc_mcp.host_detect import detect_host_dcc
+
+    assert detect_host_dcc(env={}) is None
+
+
+def test_detect_host_dcc_reads_maya_environment():
+    """MAYA_LOCATION identifies a Maya host, mirroring DccType::detect()."""
+    _skip_without_core()
+    from auroraview.dcc_mcp.host_detect import detect_host_dcc
+
+    assert detect_host_dcc(env={"MAYA_LOCATION": "C:/Program Files/Autodesk/Maya2024"}) == "maya"
+
+
+def test_detect_host_dcc_covers_the_documented_dccs():
+    """Every DCC recognised by DccType::detect() is recognised here too."""
+    _skip_without_core()
+    from auroraview.dcc_mcp.host_detect import detect_host_dcc
+
+    cases = {
+        "HFS": "houdini",
+        "NUKE_PATH": "nuke",
+        "BLENDER_SYSTEM_SCRIPTS": "blender",
+        "3DSMAX_LOCATION": "3dsmax",
+        "UE_ROOT": "unreal",
+    }
+    for var, expected in cases.items():
+        assert detect_host_dcc(env={var: "/some/path"}) == expected, var
+
+
+def test_detect_host_dcc_override_wins_and_can_force_standalone():
+    """AURORAVIEW_HOST_DCC overrides detection; empty means standalone."""
+    _skip_without_core()
+    from auroraview.dcc_mcp.host_detect import detect_host_dcc
+
+    env = {"MAYA_LOCATION": "x", "AURORAVIEW_HOST_DCC": "houdini"}
+    assert detect_host_dcc(env=env) == "houdini"
+    env["AURORAVIEW_HOST_DCC"] = ""
+    assert detect_host_dcc(env=env) is None
+
+
+def test_adapter_auto_detects_host_dcc():
+    """A panel inside Maya declares host_dcc without the caller passing it."""
+    _skip_without_core()
+    import auroraview.dcc_mcp.adapter as adapter_mod
+
+    original = adapter_mod.detect_host_dcc
+    adapter_mod.detect_host_dcc = lambda: "maya"
+    try:
+        adapter = AuroraViewAdapter(_FakeWebView())
+    finally:
+        adapter_mod.detect_host_dcc = original
+    assert adapter.get_context()["host_dcc"] == "maya"
+
+
+def test_adapter_explicit_host_dcc_beats_detection():
+    """An explicit argument is never overwritten by detection."""
+    _skip_without_core()
+    import auroraview.dcc_mcp.adapter as adapter_mod
+
+    original = adapter_mod.detect_host_dcc
+    adapter_mod.detect_host_dcc = lambda: "maya"
+    try:
+        adapter = AuroraViewAdapter(_FakeWebView(), host_dcc="blender")
+    finally:
+        adapter_mod.detect_host_dcc = original
+    assert adapter.get_context()["host_dcc"] == "blender"
