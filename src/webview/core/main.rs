@@ -17,35 +17,6 @@ use crate::utils::normalize_url;
 use crate::webview::config::WebViewConfig;
 use crate::webview::webview_inner::WebViewInner;
 
-/// Raw-pointer carrier that lets a `!Send` value cross a `Python::detach`
-/// boundary.
-///
-/// `detach` requires the closure to be `Ungil`, which on stable PyO3 is only
-/// satisfied by `Send` types. The event loop types (wry/tao) are `!Send`, so
-/// they are handed over by pointer instead. The closure is always executed
-/// synchronously on the thread that created the pointer, so no cross-thread
-/// transfer actually happens.
-struct SendPtr<T>(*mut T);
-
-impl<T> SendPtr<T> {
-    /// Re-borrow the pointer as `&mut T`.
-    ///
-    /// Exposed as a method on purpose: a method call makes the closure capture
-    /// the whole `SendPtr` (which is `Send`) instead of the raw field (which is
-    /// not) under edition 2021's disjoint closure captures.
-    ///
-    /// # Safety
-    ///
-    /// The pointee must be alive and uniquely borrowed for the whole borrow.
-    unsafe fn as_mut(&mut self) -> &mut T {
-        &mut *self.0
-    }
-}
-
-// SAFETY: see the type docs - the pointee is only ever dereferenced on the
-// thread that created the `SendPtr`, while the original borrow is still held.
-unsafe impl<T> Send for SendPtr<T> {}
-
 #[pymethods]
 impl AuroraView {
     /// Create a new WebView instance
@@ -362,11 +333,39 @@ impl AuroraView {
         // releasing it here is safe.
         //
         // `WebViewInner` is !Send and therefore cannot cross the `detach`
-        // boundary, so it is handed over by raw pointer. The borrow is kept alive
-        // in this scope for the whole loop and the closure runs on this thread.
+        // boundary, so it is handed over by raw pointer through the local
+        // carrier below. The borrow is kept alive in this scope for the whole
+        // loop and the closure runs synchronously on this thread.
+        //
+        // The carrier is deliberately scoped to this function and bound to
+        // `WebViewInner` rather than generic: it is only sound because
+        // `detach` runs the closure in place, and a reusable `Send` wrapper for
+        // arbitrary `T` would silently become unsound if it ever reached a real
+        // `thread::spawn`.
+        struct LoopTarget(*mut WebViewInner);
+
+        impl LoopTarget {
+            /// Exposed as a method on purpose: a method call makes the closure
+            /// capture the whole `LoopTarget` (which is `Send`) instead of the
+            /// raw field (which is not) under edition 2021's disjoint captures.
+            ///
+            /// # Safety
+            ///
+            /// The pointee must be alive and uniquely borrowed for the whole
+            /// borrow.
+            unsafe fn as_mut(&mut self) -> &mut WebViewInner {
+                &mut *self.0
+            }
+        }
+
+        // SAFETY: the pointee is only ever dereferenced on the thread that
+        // created the `LoopTarget`, while `inner_ref` still holds the unique
+        // borrow. `detach` does not move the closure to another thread.
+        unsafe impl Send for LoopTarget {}
+
         let mut inner_ref = self.inner.borrow_mut();
         if let Some(webview_inner) = inner_ref.as_mut() {
-            let mut loop_target = SendPtr(webview_inner as *mut WebViewInner);
+            let mut loop_target = LoopTarget(webview_inner as *mut WebViewInner);
             py.detach(move || {
                 // SAFETY: `inner_ref` keeps the `WebViewInner` alive and uniquely
                 // borrowed for the duration of this closure, and the closure runs

@@ -46,14 +46,10 @@ def _env_timeout(name: str, default: float) -> float:
     try:
         value = float(raw)
     except (TypeError, ValueError):
-        logger.warning(
-            "Invalid %s=%r, falling back to %ss", name, raw, default
-        )
+        logger.warning("Invalid %s=%r, falling back to %ss", name, raw, default)
         return default
     if value < 0:
-        logger.warning(
-            "Negative %s=%r, falling back to %ss", name, raw, default
-        )
+        logger.warning("Negative %s=%r, falling back to %ss", name, raw, default)
         return default
     return value
 
