@@ -56,23 +56,6 @@ def _builtin_skills_dir():
     return base
 
 
-class _AdapterRunner:
-    """Dispatch callable adapting our adapter to core's executor protocol.
-
-    Core asks an in-process executor to run a named tool; this forwards the
-    call to :meth:`AuroraViewAdapter.execute`.
-    """
-
-    def __init__(self, adapter: Any):
-        self._adapter = adapter
-
-    def __call__(self, tool: str, params: Optional[Dict[str, Any]] = None) -> Any:
-        return self._adapter.execute(tool, params)
-
-    def execute(self, tool: str, params: Optional[Dict[str, Any]] = None) -> Any:
-        return self._adapter.execute(tool, params)
-
-
 def start_server(
     adapter: Any,
     *,
@@ -147,10 +130,18 @@ def start_server(
     # are discoverable and loadable but every invocation fails.
     adapter_registry.register(adapter)
 
-    # Route tool execution through core's official in-process channel so the
-    # adapter's dispatch runs on the host, not on an HTTP worker.
-    if hasattr(adapter, "execute"):
-        server.register_inprocess_executor(_AdapterRunner(adapter))
+    # NOTE: we deliberately do NOT call register_inprocess_executor().
+    # Core's HostExecutionBridge._dispatch_raw requires a dispatcher exposing
+    # `is_host_thread`, `dispatch_callable`, or the post/tick queue API; with
+    # none of those it raises TypeError, which is swallowed into an error
+    # envelope -- so every tool call would fail with a TypeError instead of
+    # running. Leaving the dispatcher unset makes core invoke the callable
+    # inline, which is the path that works. Host-thread dispatch for tool
+    # execution belongs on the QueueDispatcher (see AuroraViewQtHost).
+    #
+    # Exposed so tests can assert the contract: if a dispatcher is ever
+    # registered here it must satisfy core's protocol.
+    server.auroraview_dispatcher = None
 
     paths = [p for p in (skill_paths or []) if p]
     if paths:

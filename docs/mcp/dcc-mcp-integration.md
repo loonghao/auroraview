@@ -65,14 +65,16 @@ set rather than two competing ones.
 
 ## Tool invocation
 
-`start_server` registers the adapter in a process-wide registry and connects core's in-process executor, so skill scripts resolve the live adapter with no configuration:
+`start_server` registers the adapter in a process-wide registry, so skill scripts resolve the live adapter with no configuration:
 
 ```python
 server = start_server(adapter)   # adapter becomes reachable to skill dispatch
 server.start()
 ```
 
-Every tool the skill advertises is executable through that path, which is what makes `dcc-mcp-cli call --tool eval_js` return a value rather than an error.
+Every tool the skill advertises is executable through that path, which is what makes calling `eval_js` return a value rather than an error.
+
+Note that `start_server` deliberately does **not** register an in-process dispatcher with core. Core's `HostExecutionBridge` accepts only a dispatcher exposing `is_host_thread`, `dispatch_callable`, or the `post`/`tick` queue API; anything else raises a `TypeError` that core converts into an error envelope, so calls would fail while still appearing successful. Leaving it unset makes core run the callable inline, which works. Host-thread dispatch for tool execution belongs on a `QueueDispatcher` (see `AuroraViewQtHost`).
 
 ## Coexisting with the host DCC's own adapter
 

@@ -15,8 +15,11 @@ This closes the loop that makes tool *invocation* possible:
 Without it a skill can be discovered and loaded but every call fails, which
 looks healthy right up until an agent actually tries to use a tool.
 
-The registry stores weak references so a dropped adapter cannot keep a
-WebView alive past its lifetime.
+The registry holds only weak references. An adapter keeps a reference to its
+WebView, so a strong reference here would keep the WebView (and its audit
+log) alive for the lifetime of the process -- a real leak for a panel that is
+opened and closed repeatedly. Entries disappear on their own once nothing
+else holds the adapter.
 """
 
 from __future__ import annotations
@@ -27,9 +30,29 @@ from typing import Any, Iterator, List, Optional
 
 _lock = threading.RLock()
 
-#: Live adapters, most recently registered last.
-_adapters: "weakref.WeakSet[Any]" = weakref.WeakSet()
-_order: List[Any] = []
+#: Insertion-ordered weak references to registered adapters.
+_order: "List[weakref.ReferenceType[Any]]" = []
+
+
+def _deref() -> List[Any]:
+    """Return live adapters in registration order, dropping dead references.
+
+    Returns:
+        List of live adapters.
+    """
+    live = []
+    dead = False
+    for ref in _order:
+        obj = ref()
+        if obj is None:
+            dead = True
+        else:
+            live.append(obj)
+    if dead:
+        # Compact so repeated collections do not grow the list forever.
+        del _order[:]
+        _order.extend(weakref.ref(item) for item in live)
+    return live
 
 
 def register(adapter: Any) -> None:
@@ -37,14 +60,19 @@ def register(adapter: Any) -> None:
 
     Args:
         adapter: An :class:`~auroraview.dcc_mcp.adapter.AuroraViewAdapter`.
+
+    Raises:
+        ValueError: If ``adapter`` is None.
+        TypeError: If ``adapter`` cannot be weakly referenced.
     """
     if adapter is None:
         raise ValueError("cannot register a None adapter")
+    ref = weakref.ref(adapter)
     with _lock:
-        _adapters.add(adapter)
-        # Keep an insertion-ordered view. WeakSet has no ordering, so track
-        # strong refs in a list and prune dead ones lazily.
-        _order.append(adapter)
+        # Avoid duplicate entries for the same adapter.
+        if any(existing is adapter for existing in _deref()):
+            return
+        _order.append(ref)
 
 
 def unregister(adapter: Any) -> None:
@@ -54,8 +82,10 @@ def unregister(adapter: Any) -> None:
         adapter: The adapter to remove. Unknown adapters are ignored.
     """
     with _lock:
-        _adapters.discard(adapter)
-        _prune()
+        remaining = [item for item in _deref() if item is not adapter]
+        if len(remaining) != len(_order):
+            del _order[:]
+            _order.extend(weakref.ref(item) for item in remaining)
 
 
 def adapters() -> List[Any]:
@@ -65,8 +95,7 @@ def adapters() -> List[Any]:
         A list of live adapters (may be empty).
     """
     with _lock:
-        _prune()
-        return list(_order)
+        return _deref()
 
 
 def current() -> Optional[Any]:
@@ -76,26 +105,14 @@ def current() -> Optional[Any]:
         An adapter, or ``None`` when none is registered.
     """
     with _lock:
-        _prune()
-        return _order[-1] if _order else None
+        live = _deref()
+        return live[-1] if live else None
 
 
 def clear() -> None:
     """Drop every registered adapter. Intended for tests."""
     with _lock:
-        _adapters.clear()
         del _order[:]
-
-
-def _prune() -> None:
-    """Drop entries whose adapter has been garbage collected.
-
-    Caller must hold ``_lock``.
-    """
-    alive = [item for item in _order if item in _adapters]
-    if len(alive) != len(_order):
-        del _order[:]
-        _order.extend(alive)
 
 
 def iter_adapters() -> Iterator[Any]:

@@ -587,7 +587,7 @@ impl std::fmt::Debug for WebViewConfig {
                 &self
                     .html
                     .as_ref()
-                    .map(|h| format!("{}...", &h.chars().take(50).collect::<String>())),
+                    .map(|h| format!("{}...", h.chars().take(50).collect::<String>())),
             )
             .field("dev_tools", &self.dev_tools)
             .field("context_menu", &self.context_menu)

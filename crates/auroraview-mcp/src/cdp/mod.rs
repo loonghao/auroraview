@@ -52,7 +52,7 @@ pub enum CdpError {
     /// `#[from]` on a `Box<T>` field generates `From<Box<T>>` and would stop
     /// `?` from accepting a bare `tungstenite::Error`.
     #[error("WebSocket error: {0}")]
-    WebSocket(Box<tokio_tungstenite::tungstenite::Error>),
+    WebSocket(#[source] Box<tokio_tungstenite::tungstenite::Error>),
 
     /// JSON serialization or deserialization error.
     #[error("JSON error: {0}")]

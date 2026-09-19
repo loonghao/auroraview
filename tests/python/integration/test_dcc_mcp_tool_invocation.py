@@ -211,3 +211,97 @@ def test_loaded_skill_tools_are_invocable(started):
     for name in sorted(tools):
         result = adapter.execute(name, params.get(name, {}))
         assert result["ok"] is True, "tool %r failed: %r" % (name, result)
+
+
+def test_registered_dispatcher_satisfies_core_protocol(started):
+    """Whatever start_server registers must satisfy core's dispatch protocol.
+
+    Direct guard against the regression this suite once missed. Core's
+    HostExecutionBridge._dispatch_raw accepts only a dispatcher exposing
+    `is_host_thread`, `dispatch_callable`, or the post/tick queue API. Anything
+    else raises TypeError, which core converts into an error envelope -- so
+    every tool call would fail while still looking like a successful call.
+    """
+    _adapter, server = started
+    dispatcher = getattr(server, "auroraview_dispatcher", None)
+    if dispatcher is None:
+        return  # Unset is the supported configuration: core runs inline.
+
+    ok = (
+        callable(getattr(dispatcher, "is_host_thread", None))
+        or callable(getattr(dispatcher, "dispatch_callable", None))
+        or (
+            callable(getattr(dispatcher, "post", None))
+            and callable(getattr(dispatcher, "tick", None))
+        )
+    )
+    assert ok, (
+        "registered dispatcher %r does not implement any protocol core accepts; "
+        "tool execution would raise TypeError" % type(dispatcher).__name__
+    )
+
+
+def test_tool_call_through_core_executor_returns_a_value(started):
+    """A tool executed through core's HostExecutionBridge must really run.
+
+    Drives the real entry point an agent hits -- executing the skill's
+    source_file through the bridge using the dispatcher start_server
+    configured -- and asserts the script actually ran rather than returning
+    an error envelope.
+    """
+    import json
+
+    from dcc_mcp_core import HostExecutionBridge
+
+    adapter, server = started
+    server.load_skill(SKILL_NAME)
+
+    info = server.get_skill_info(SKILL_NAME)
+    tools = {t.get("name") if isinstance(t, dict) else t for t in info.get("tools", [])}
+    assert "eval_js" in tools
+
+    script = os.path.join(SCRIPTS_DIR, "eval_js.py")
+    dispatcher = getattr(server, "auroraview_dispatcher", None)
+    bridge = HostExecutionBridge(dispatcher=dispatcher)
+    result = bridge.execute_script(
+        script,
+        {"script": "document.title"},
+        action_name="eval_js",
+        skill_name=SKILL_NAME,
+    )
+
+    text = result if isinstance(result, str) else json.dumps(result, default=str)
+    assert "No live AuroraView adapter" not in text, (
+        "skill script could not resolve the adapter: %s" % text
+    )
+    assert "HostExecutionBridge dispatcher must expose" not in text, (
+        "core rejected the dispatcher; tool execution is broken: %s" % text
+    )
+    assert adapter._view._core.scripts, "the tool never reached the WebView"
+
+
+def test_registry_does_not_keep_adapters_alive():
+    """The registry must not pin an adapter (and its WebView) in memory."""
+    import gc
+
+    adapter_registry.clear()
+
+    class _Doomed:
+        pass
+
+    adapter_registry.register(_Doomed())
+    gc.collect()
+    # The only strong reference went out of scope immediately, so the
+    # registry must have released it.
+    assert adapter_registry.current() is None, "registry kept a dropped adapter alive"
+    assert adapter_registry.adapters() == []
+
+
+def test_unregister_removes_the_adapter():
+    """unregister() actually removes an entry."""
+    adapter_registry.clear()
+    sentinel = AuroraViewAdapter(_FakeWebView())
+    adapter_registry.register(sentinel)
+    assert adapter_registry.current() is sentinel
+    adapter_registry.unregister(sentinel)
+    assert adapter_registry.current() is None
