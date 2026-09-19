@@ -132,13 +132,87 @@ impl AuroraView {
     }
 }
 
-/// Implement Drop to track when AuroraView is destroyed
+/// Implement Drop to release the native window when the Python object dies.
+///
+/// Python users (and test fixtures) frequently let a `WebView` go out of scope
+/// instead of calling `close()`. Previously `drop` only logged, so the native
+/// window stayed alive until the process exited - which is exactly the
+/// "unit tests never close the window" symptom. Dropping now asks the event
+/// loop to exit and then releases the inner WebView, whose own `Drop` destroys
+/// the window.
 impl Drop for AuroraView {
     fn drop(&mut self) {
-        let title = self.config.borrow().title.clone();
+        // The blocking event loop now runs with the GIL released (see
+        // `show_window`), so Python may garbage-collect this object *while* the
+        // loop still holds a mutable borrow of `inner`. Every borrow below is
+        // therefore non-blocking: a drop must never panic, and it must never
+        // deadlock waiting on a borrow held by the loop it is trying to stop.
+        let title = self
+            .config
+            .try_borrow()
+            .map(|c| c.title.clone())
+            .unwrap_or_else(|_| "<borrowed>".to_string());
         tracing::warn!(
             "[CLOSE] [AuroraView::drop] WebView '{}' is being destroyed!",
             title
         );
+
+        // Ask a running event loop to exit, and make the intent visible to any
+        // host-driven message pump (the embedded/DCC path has no event loop
+        // proxy, so it relies on the queued message).
+        let mut asked_event_loop = false;
+        if let Ok(proxy_guard) = self.event_loop_proxy.try_borrow() {
+            if let Some(proxy) = proxy_guard.as_ref() {
+                if proxy.send_event(UserEvent::CloseWindow).is_ok() {
+                    asked_event_loop = true;
+                    tracing::info!(
+                        "[CLOSE] [AuroraView::drop] Sent CloseWindow to the event loop for '{}'",
+                        title
+                    );
+                }
+            }
+        } else {
+            tracing::debug!(
+                "[CLOSE] [AuroraView::drop] event_loop_proxy is borrowed; skipping send for '{}'",
+                title
+            );
+        }
+
+        if !asked_event_loop {
+            self.message_queue.push(WebViewMessage::Close);
+            tracing::info!(
+                "[CLOSE] [AuroraView::drop] Queued Close message for '{}' (no event loop proxy)",
+                title
+            );
+        }
+
+        // Drop the event-loop proxy first so the loop is free to exit.
+        if let Ok(mut proxy_guard) = self.event_loop_proxy.try_borrow_mut() {
+            if let Some(proxy) = proxy_guard.take() {
+                drop(proxy);
+            }
+        }
+
+        // Release the inner WebView; `WebViewInner::drop` destroys the window.
+        // If the event loop still owns the borrow, it will drop the inner WebView
+        // itself when it unwinds - panicking here would abort the process.
+        match self.inner.try_borrow_mut() {
+            Ok(mut inner_guard) => {
+                if let Some(inner) = inner_guard.take() {
+                    drop(inner);
+                    tracing::info!(
+                        "[CLOSE] [AuroraView::drop] Released inner WebView for '{}'",
+                        title
+                    );
+                }
+            }
+            Err(_) => {
+                tracing::warn!(
+                    "[CLOSE] [AuroraView::drop] inner is borrowed by a running event loop; \
+                     the loop will release the WebView for '{}' when it exits",
+                    title
+                );
+            }
+        }
     }
 }

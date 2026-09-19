@@ -17,6 +17,35 @@ use crate::utils::normalize_url;
 use crate::webview::config::WebViewConfig;
 use crate::webview::webview_inner::WebViewInner;
 
+/// Raw-pointer carrier that lets a `!Send` value cross a `Python::detach`
+/// boundary.
+///
+/// `detach` requires the closure to be `Ungil`, which on stable PyO3 is only
+/// satisfied by `Send` types. The event loop types (wry/tao) are `!Send`, so
+/// they are handed over by pointer instead. The closure is always executed
+/// synchronously on the thread that created the pointer, so no cross-thread
+/// transfer actually happens.
+struct SendPtr<T>(*mut T);
+
+impl<T> SendPtr<T> {
+    /// Re-borrow the pointer as `&mut T`.
+    ///
+    /// Exposed as a method on purpose: a method call makes the closure capture
+    /// the whole `SendPtr` (which is `Send`) instead of the raw field (which is
+    /// not) under edition 2021's disjoint closure captures.
+    ///
+    /// # Safety
+    ///
+    /// The pointee must be alive and uniquely borrowed for the whole borrow.
+    unsafe fn as_mut(&mut self) -> &mut T {
+        &mut *self.0
+    }
+}
+
+// SAFETY: see the type docs - the pointee is only ever dereferenced on the
+// thread that created the `SendPtr`, while the original borrow is still held.
+unsafe impl<T> Send for SendPtr<T> {}
+
 #[pymethods]
 impl AuroraView {
     /// Create a new WebView instance
@@ -247,19 +276,19 @@ impl AuroraView {
     // === Lifecycle Methods ===
 
     /// Show WebView window (standalone mode or embedded mode)
-    fn show(&self) -> PyResult<()> {
+    fn show(&self, py: Python<'_>) -> PyResult<()> {
         use crate::webview::config::EmbedMode;
         let embed_mode = self.config.borrow().embed_mode;
 
         match embed_mode {
-            EmbedMode::None => self.show_window(),
+            EmbedMode::None => self.show_window(py),
             #[cfg(target_os = "windows")]
             EmbedMode::Child | EmbedMode::Owner => self.show_embedded(),
         }
     }
 
     /// Create WebView for standalone mode (creates its own window)
-    fn show_window(&self) -> PyResult<()> {
+    fn show_window(&self, py: Python<'_>) -> PyResult<()> {
         let title = self.config.borrow().title.clone();
         tracing::info!("Showing WebView (standalone mode): {}", title);
 
@@ -321,9 +350,32 @@ impl AuroraView {
             }
         }
 
-        if let Some(webview_inner) = self.inner.borrow_mut().as_mut() {
-            webview_inner.run_event_loop_blocking();
+        // Run the blocking event loop with the GIL released.
+        //
+        // `run_event_loop_blocking` parks the calling thread inside the native
+        // message pump until a `CloseWindow` user event arrives. Holding the GIL
+        // across that call makes every other Python thread un-runnable, which
+        // turns `WebView.close()` (and any test teardown running on the main
+        // thread) into a deadlock: the window can never be closed and the
+        // process can never exit. The event loop re-acquires the GIL itself
+        // (`Python::attach`) whenever it needs to invoke a Python callback, so
+        // releasing it here is safe.
+        //
+        // `WebViewInner` is !Send and therefore cannot cross the `detach`
+        // boundary, so it is handed over by raw pointer. The borrow is kept alive
+        // in this scope for the whole loop and the closure runs on this thread.
+        let mut inner_ref = self.inner.borrow_mut();
+        if let Some(webview_inner) = inner_ref.as_mut() {
+            let mut loop_target = SendPtr(webview_inner as *mut WebViewInner);
+            py.detach(move || {
+                // SAFETY: `inner_ref` keeps the `WebViewInner` alive and uniquely
+                // borrowed for the duration of this closure, and the closure runs
+                // synchronously on the current thread.
+                let webview_inner = unsafe { loop_target.as_mut() };
+                webview_inner.run_event_loop_blocking();
+            });
         }
+        drop(inner_ref);
 
         *self.inner.borrow_mut() = None;
         Ok(())
