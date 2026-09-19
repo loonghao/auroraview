@@ -37,7 +37,53 @@ pytestmark = [
 if DCC_MCP_CORE_IMPORT_ERROR is None:
     from auroraview.dcc_mcp.adapter import AuroraViewAdapter
     from auroraview.dcc_mcp.server import start_server
-    from tests.python.unit.test_dcc_mcp_adapter import _FakeWebView
+
+
+class _FakeCore:
+    """Minimal stand-in for the Rust core's JavaScript round-trip API."""
+
+    def __init__(self, result='"hello"', status="complete"):
+        self.result = result
+        self.status = status
+        self.scripts = []
+
+    def eval_js_future(self, script, timeout_ms):
+        self.scripts.append((script, timeout_ms))
+        return "cb-1"
+
+    def get_js_result(self, callback_id):
+        return {"status": self.status, "result": self.result}
+
+
+class _FakeWebView:
+    """Minimal stand-in for an AuroraView WebView.
+
+    Defined locally rather than imported from the unit tests: the suite is
+    collected with the installed wheel in CI, where ``tests`` is not an
+    importable package.
+    """
+
+    def __init__(self, core=None, title="AuroraView", url="http://localhost:3000/"):
+        self._core = core if core is not None else _FakeCore()
+        self.title = title
+        self.current_url = url
+        self.loaded_urls = []
+        self.loaded_html = []
+        self.processed = 0
+
+    def eval_js(self, script):
+        self._core.scripts.append((script, None))
+
+    def load_url(self, url):
+        self.loaded_urls.append(url)
+
+    def load_html(self, html):
+        self.loaded_html.append(html)
+
+    def process_events(self):
+        self.processed += 1
+        return True
+
 
 SKILLS_DIR = os.path.join(
     os.path.dirname(__file__), "..", "..", "..", "skills", "auroraview-webview"
