@@ -14,6 +14,66 @@ from typing import Any, Optional
 logger = logging.getLogger(__name__)
 
 
+def _is_panic_exception(exc: BaseException) -> bool:
+    """Return True when ``exc`` is PyO3's ``PanicException``.
+
+    ``PanicException`` derives from ``BaseException``, so ``except Exception``
+    never sees it. PyO3 raises it whenever an ``unsendable`` ``#[pyclass]`` is
+    touched from a thread other than the one that created it, which is exactly
+    the failure ``close()`` has to route around. The type lives in ``builtins``
+    and is owned by PyO3 rather than by this package, so it is matched by type
+    name instead of by import.
+
+    Args:
+        exc: The exception to classify.
+
+    Returns:
+        bool: True when the exception is a PyO3 panic.
+    """
+    return type(exc).__name__ == "PanicException"
+
+
+def _request_close_via_channel(core: Any) -> bool:
+    """Ask ``core`` to close through the module-level close channel.
+
+    The Rust ``WebView`` is ``unsendable``: PyO3 raises ``PanicException`` (a
+    ``BaseException``, so ``except Exception`` does not catch it) the moment any
+    method body runs on a thread other than the one that created the object, and
+    the underlying ``wry``/``tao`` window must likewise be torn down on its
+    creator thread.
+
+    ``core.get_proxy()`` returns a ``WebViewProxy`` that only holds
+    thread-shared state (the ``Arc<MessageQueue>`` drained by the owner thread's
+    event loop), so requesting a close through it is safe from any thread: the
+    owner thread's event loop performs the actual teardown.
+
+    Args:
+        core: The Rust core WebView instance.
+
+    Returns:
+        bool: True when the close request was handed to the channel, False when
+        the core exposes no thread-safe proxy.
+    """
+    get_proxy = getattr(core, "get_proxy", None)
+    if get_proxy is None:
+        return False
+
+    try:
+        proxy = get_proxy()
+    except Exception as e:
+        logger.warning(f"Could not obtain a thread-safe close proxy: {e}")
+        return False
+
+    try:
+        proxy.close()
+    except Exception as e:
+        logger.warning(f"Error requesting core close through the channel: {e}")
+        return False
+
+    logger.info("Core WebView close requested through the close channel")
+    return True
+
+
 class WebViewLifecycleMixin:
     """Mixin providing lifecycle methods.
 
@@ -24,6 +84,26 @@ class WebViewLifecycleMixin:
     - wait: Wait for window to close
     - close: Close the WebView
     """
+
+    def _track_core_thread(self, core: Any) -> None:
+        """Record the thread that owns a Rust core instance.
+
+        The Rust ``WebView`` is ``unsendable`` and the underlying window may
+        only be torn down on the thread that created it, so ``close()`` needs to
+        know the owning thread to decide whether a direct call is safe or the
+        request has to travel through the close channel.
+
+        Args:
+            core: The Rust core WebView instance, or None.
+        """
+        if core is None:
+            return
+
+        threads = getattr(self, "_core_threads", None)
+        if threads is None:
+            threads = {}
+            self._core_threads = threads
+        threads[id(core)] = threading.get_ident()
 
     # Type hints for attributes from main class
     _core: Any
@@ -184,6 +264,9 @@ class WebViewLifecycleMixin:
                 # Store the core instance for use by emit() and other methods
                 with self._async_core_lock:
                     self._async_core = core
+
+                # The core is created here, so this background thread owns it.
+                self._track_core_thread(core)
 
                 # If close was requested before the background core became ready,
                 # exit early without entering the event loop.
@@ -351,11 +434,31 @@ class WebViewLifecycleMixin:
                 continue
             seen.add(core_id)
 
+            # The core records the thread it was created on, so a close raised
+            # from any other thread is routed back through the module-level
+            # close channel instead of touching the unsendable object directly.
+            owner_thread = getattr(self, "_core_threads", {}).get(core_id)
+            if owner_thread is not None and owner_thread != threading.get_ident():
+                logger.info(
+                    "Close requested from a non-owner thread; routing through the close channel"
+                )
+                if _request_close_via_channel(core):
+                    continue
+
             try:
                 core.close()
                 logger.info("Core WebView close requested")
-            except Exception as e:
+            except BaseException as e:  # noqa: BLE001 - PyO3 PanicException is not an Exception
+                # Swallowing `BaseException` is only justified for PyO3's
+                # `PanicException`, which is what an unsendable core raises when
+                # it is touched from a foreign thread. `KeyboardInterrupt`,
+                # `SystemExit` and anything else must keep propagating - a
+                # teardown path must not turn a Ctrl-C into a warning.
+                if not _is_panic_exception(e):
+                    raise
                 logger.warning(f"Error requesting core close: {e}")
+                if _request_close_via_channel(core):
+                    continue
 
         # Wait for background thread if running
         if self._show_thread is not None and self._show_thread.is_alive():

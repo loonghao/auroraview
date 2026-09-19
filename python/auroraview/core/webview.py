@@ -457,6 +457,13 @@ class WebView(
             )
         else:
             self._core = None  # Packed mode: no Rust core needed
+
+        # Record which thread owns each Rust core so a later close() raised on
+        # another thread can be routed through the close channel instead of
+        # touching the unsendable object directly.
+        self._core_threads: Dict[int, int] = {}
+        self._track_core_thread(self._core)
+
         self._event_handlers: Dict[str, List[Callable]] = {}
         self._event_handlers_lock = threading.Lock()
         self._title = title
