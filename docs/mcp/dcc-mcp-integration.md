@@ -63,6 +63,17 @@ lingering as a ghost entry.
 These mirror AuroraView's own MCP surface so agents see one consistent tool
 set rather than two competing ones.
 
+## Tool invocation
+
+`start_server` registers the adapter in a process-wide registry and connects core's in-process executor, so skill scripts resolve the live adapter with no configuration:
+
+```python
+server = start_server(adapter)   # adapter becomes reachable to skill dispatch
+server.start()
+```
+
+Every tool the skill advertises is executable through that path, which is what makes `dcc-mcp-cli call --tool eval_js` return a value rather than an error.
+
 ## Coexisting with the host DCC's own adapter
 
 An AuroraView panel is usually embedded inside a DCC that also runs its own

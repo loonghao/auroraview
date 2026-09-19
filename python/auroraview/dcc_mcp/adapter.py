@@ -176,7 +176,10 @@ def _resolve_process_events(view: Any) -> Optional[Callable[[], Any]]:
 class AuroraViewAdapter:
     """Expose a live AuroraView WebView through the DCC-MCP WebView contract.
 
-    Subclasses ``dcc_mcp_core.WebViewAdapter`` when that package is installed.
+    Structurally compatible with ``dcc_mcp_core.WebViewAdapter``: it exposes
+    the same contract (``dcc_name``, ``capabilities``, ``get_context``,
+    ``list_tools``, ``execute``, ``get_audit_log``) without importing at class
+    definition time, which would break importing without the optional extra.
     The base class advertises an all-``False`` capability map
     (``scene`` / ``timeline`` / ``selection`` / ``undo`` / ``render``), which is
     accurate for AuroraView: a WebView host owns no scene graph and no
@@ -313,7 +316,12 @@ class AuroraViewAdapter:
         return list(self._audit[-limit:])
 
     # ------------------------------------------------------------------
-    # Capability helpers (delegated/overridden from the core base class)
+    # Capability helpers (mirroring the core WebViewAdapter contract)
+    #
+    # These mirror core's implementations rather than inheriting them, because
+    # the base class cannot be named at import time without making
+    # dcc-mcp-core a hard dependency. Keep them in step with
+    # dcc_mcp_core.adapters.webview.WebViewAdapter.
     # ------------------------------------------------------------------
 
     @classmethod

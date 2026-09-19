@@ -40,8 +40,9 @@ def _find_adapter() -> Any:
     Resolution order:
       1. ``AURORAVIEW_ADAPTER`` env var -- dotted path to a factory returning
          the adapter (used by hosts that expose one).
-      2. Any live ``AuroraViewAdapter`` registered on a running DCC-MCP server
-         discovered through the DCC-MCP gateway.
+      2. Any live ``AuroraViewAdapter`` registered in-process by
+         :func:`auroraview.dcc_mcp.start_server`. This is the normal path and
+         requires no configuration.
 
     Returns:
         The adapter object.
@@ -49,7 +50,7 @@ def _find_adapter() -> Any:
     Raises:
         RuntimeError: If no adapter can be resolved.
     """
-    from auroraview.dcc_mcp import AuroraViewAdapter  # noqa: F401  (import check)
+    from auroraview.dcc_mcp import adapter_registry
 
     factory_path = os.environ.get("AURORAVIEW_ADAPTER")
     if factory_path:
@@ -61,6 +62,10 @@ def _find_adapter() -> Any:
         module = __import__(module_name, fromlist=[attr])
         adapter = getattr(module, attr)
         return adapter() if callable(adapter) else adapter
+
+    adapter = adapter_registry.current()
+    if adapter is not None:
+        return adapter
 
     raise RuntimeError(
         "No live AuroraView adapter found. Start an AuroraView window with "

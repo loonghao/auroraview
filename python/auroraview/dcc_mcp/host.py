@@ -145,8 +145,11 @@ class AuroraViewQtHost:
             self.detach_tick()
 
     def is_running(self) -> bool:
-        """Return ``True`` while the dispatcher is running."""
-        return bool(self._base.is_running())
+        """Return ``True`` while the dispatcher is running.
+
+        ``is_running`` is a property on core's ``HostAdapter``, not a method.
+        """
+        return bool(self._base.is_running)
 
     def __enter__(self) -> "AuroraViewQtHost":
         self.start()

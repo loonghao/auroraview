@@ -221,12 +221,13 @@ def test_heartbeats_advance_independently(coexisting):
     first_a = _wait_row(registry_dir, "auroraview")
     first_o = _wait_row(registry_dir, OTHER_DCC)
     assert first_a is not None and first_o is not None
-    time.sleep(2.0)
+    # The registry heartbeat period is ~5s, so wait past one full interval.
+    time.sleep(7.0)
     second_a = _wait_row(registry_dir, "auroraview")
     second_o = _wait_row(registry_dir, OTHER_DCC)
     assert second_a is not None and second_o is not None
-    assert _heartbeat_seconds(second_a) >= _heartbeat_seconds(first_a)
-    assert _heartbeat_seconds(second_o) >= _heartbeat_seconds(first_o)
+    assert _heartbeat_seconds(second_a) > _heartbeat_seconds(first_a), "auroraview heartbeat frozen"
+    assert _heartbeat_seconds(second_o) > _heartbeat_seconds(first_o), "maya heartbeat frozen"
 
 
 def test_instances_hold_distinct_ports(coexisting):
@@ -237,6 +238,8 @@ def test_instances_hold_distinct_ports(coexisting):
     assert aurora_row is not None and other_row is not None
     ports = {aurora_row["port"], other_row["port"]}
     assert len(ports) == 2, "two instances ended up on the same port: %r" % ports
+    # Guard against a degenerate {0, N} set passing the cardinality check.
+    assert all(1 <= p <= 65535 for p in ports), "port outside valid range: %r" % sorted(ports)
 
 
 def test_stopping_one_does_not_deregister_the_other(coexisting):
@@ -266,10 +269,11 @@ def test_stopping_one_does_not_deregister_the_other(coexisting):
         "stopping the auroraview instance deregistered the %s instance too" % OTHER_DCC
     )
     first = _heartbeat_seconds(survivor)
-    time.sleep(2.0)
+    # Past one full heartbeat interval.
+    time.sleep(7.0)
     later = _wait_row(registry_dir, OTHER_DCC, timeout=10.0)
     assert later is not None, "survivor row vanished after its peer stopped"
-    assert _heartbeat_seconds(later) >= first, "survivor heartbeat stalled"
+    assert _heartbeat_seconds(later) > first, "survivor heartbeat stalled"
 
 
 def test_host_dcc_is_published_when_embedded(registry_dir):

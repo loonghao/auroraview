@@ -31,6 +31,7 @@ import os
 import tempfile
 from typing import Any, Dict, Optional
 
+from . import adapter_registry
 from ._compat import require_core as _require_core
 from .adapter import DCC_NAME
 
@@ -53,6 +54,23 @@ def _builtin_skills_dir():
     base = Path(tempfile.gettempdir()) / "auroraview-dcc-mcp" / "builtin-skills"
     base.mkdir(parents=True, exist_ok=True)
     return base
+
+
+class _AdapterRunner:
+    """Dispatch callable adapting our adapter to core's executor protocol.
+
+    Core asks an in-process executor to run a named tool; this forwards the
+    call to :meth:`AuroraViewAdapter.execute`.
+    """
+
+    def __init__(self, adapter: Any):
+        self._adapter = adapter
+
+    def __call__(self, tool: str, params: Optional[Dict[str, Any]] = None) -> Any:
+        return self._adapter.execute(tool, params)
+
+    def execute(self, tool: str, params: Optional[Dict[str, Any]] = None) -> Any:
+        return self._adapter.execute(tool, params)
 
 
 def start_server(
@@ -124,7 +142,15 @@ def start_server(
     )
 
     server = DccServerBase(options)
-    server._auroraview_adapter = adapter
+
+    # Register the adapter so skill scripts can reach it. Without this, skills
+    # are discoverable and loadable but every invocation fails.
+    adapter_registry.register(adapter)
+
+    # Route tool execution through core's official in-process channel so the
+    # adapter's dispatch runs on the host, not on an HTTP worker.
+    if hasattr(adapter, "execute"):
+        server.register_inprocess_executor(_AdapterRunner(adapter))
 
     paths = [p for p in (skill_paths or []) if p]
     if paths:

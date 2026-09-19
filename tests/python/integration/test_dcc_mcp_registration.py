@@ -194,10 +194,13 @@ def test_heartbeat_advances_while_server_runs(server, registry_dir):
     """The heartbeat timestamp moves forward while the instance is alive."""
     first = _wait_for_row(registry_dir, "auroraview")
     assert first is not None
-    time.sleep(1.5)
+    # The registry heartbeat period is ~5s, so wait past one full interval.
+    time.sleep(7.0)
     second = _wait_for_row(registry_dir, "auroraview")
     assert second is not None
-    assert _heartbeat_seconds(second) >= _heartbeat_seconds(first)
+    assert _heartbeat_seconds(second) > _heartbeat_seconds(first), (
+        "heartbeat did not advance; a frozen heartbeat must not pass"
+    )
 
 
 def test_gateway_port_zero_is_rejected():

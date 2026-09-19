@@ -6,9 +6,9 @@ This subpackage exposes a running AuroraView WebView as a first-class
 and drive AuroraView tools through the standard DCC-MCP contracts:
 
 * :class:`~auroraview.dcc_mcp.adapter.AuroraViewAdapter` -- capability and
-  dispatch contract (subclass of ``dcc_mcp_core.WebViewAdapter``).
+  dispatch contract (structurally compatible with ``dcc_mcp_core.WebViewAdapter``).
 * :class:`~auroraview.dcc_mcp.host.AuroraViewQtHost` -- host-thread dispatch
-  lifecycle wired to the Qt event loop (subclass of ``HostAdapter``).
+  lifecycle wired to the Qt event loop (wraps ``dcc_mcp_core.host.HostAdapter``).
 * :func:`~auroraview.dcc_mcp.server.start_server` -- MCP/REST server plus
   FileRegistry registration.
 
@@ -37,12 +37,14 @@ from . import host_detect as host_detect  # noqa: E402
 from . import server as server  # noqa: E402
 from .adapter import AuroraViewAdapter, WebViewToolSpec  # noqa: E402
 from .host import AuroraViewQtHost  # noqa: E402
+from .adapter_registry import current_adapter  # noqa: E402
 from .host_detect import detect_host_dcc  # noqa: E402
 from .server import start_server  # noqa: E402
 
 __all__ = [
     "DCC_MCP_CORE_IMPORT_ERROR",
     "AuroraViewAdapter",
+    "current_adapter",
     "detect_host_dcc",
     "AuroraViewQtHost",
     "WebViewToolSpec",
