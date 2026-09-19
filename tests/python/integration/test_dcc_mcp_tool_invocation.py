@@ -223,9 +223,18 @@ def test_registered_dispatcher_satisfies_core_protocol(started):
     every tool call would fail while still looking like a successful call.
     """
     _adapter, server = started
-    dispatcher = getattr(server, "auroraview_dispatcher", None)
+    # Read core's own registration state, not an attribute we set ourselves:
+    # register_inprocess_executor() writes owner._dcc_dispatcher, and that is
+    # the object HostExecutionBridge._dispatch_raw actually consults.
+    dispatcher = getattr(server, "_dcc_dispatcher", None)
     if dispatcher is None:
-        return  # Unset is the supported configuration: core runs inline.
+        # Unset is the supported configuration: core runs the callable inline.
+        # Confirm nothing registered an executor behind our back.
+        assert (
+            getattr(server, "_execution_bridge", None) is None
+            or getattr(getattr(server, "_execution_bridge", None), "dispatcher", None) is None
+        ), "an executor was registered but _dcc_dispatcher is unset"
+        return
 
     ok = (
         callable(getattr(dispatcher, "is_host_thread", None))
@@ -261,8 +270,12 @@ def test_tool_call_through_core_executor_returns_a_value(started):
     assert "eval_js" in tools
 
     script = os.path.join(SCRIPTS_DIR, "eval_js.py")
-    dispatcher = getattr(server, "auroraview_dispatcher", None)
-    bridge = HostExecutionBridge(dispatcher=dispatcher)
+    # Use the bridge the server actually registered when one exists, so the
+    # call goes through the dispatcher core really consults. Falling back to a
+    # locally built bridge would bypass it and hide a broken registration.
+    bridge = getattr(server, "_execution_bridge", None)
+    if not isinstance(bridge, HostExecutionBridge):
+        bridge = HostExecutionBridge(dispatcher=getattr(server, "_dcc_dispatcher", None))
     result = bridge.execute_script(
         script,
         {"script": "document.title"},

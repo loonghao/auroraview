@@ -139,9 +139,9 @@ def start_server(
     # inline, which is the path that works. Host-thread dispatch for tool
     # execution belongs on the QueueDispatcher (see AuroraViewQtHost).
     #
-    # Exposed so tests can assert the contract: if a dispatcher is ever
-    # registered here it must satisfy core's protocol.
-    server.auroraview_dispatcher = None
+    # If a dispatcher is ever registered here it must satisfy core's
+    # protocol; tests assert that by reading core's own registration state
+    # (`server._dcc_dispatcher` / `server._execution_bridge`).
 
     paths = [p for p in (skill_paths or []) if p]
     if paths:
