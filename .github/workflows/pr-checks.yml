@@ -519,6 +519,7 @@ jobs:
         shell: bash
         env:
           CI: 'true'
+          AURORAVIEW_READY_TIMEOUT: '5'
         run: |
           # Install test dependencies (pytest only, no Qt for 3.7)
           pip install pytest pytest-cov pytest-timeout
@@ -764,6 +765,7 @@ jobs:
           CI: 'true'
           QT_QPA_PLATFORM: offscreen
           QT_OPENGL: software
+          AURORAVIEW_READY_TIMEOUT: '5'
         run: |
           pytest tests/python/unit/ -v --tb=short --cov=auroraview --cov-report=xml --timeout=60
 
@@ -868,6 +870,7 @@ jobs:
           QT_QPA_PLATFORM: offscreen
           QT_OPENGL: software
           QTWEBENGINE_DISABLE_SANDBOX: '1'
+          AURORAVIEW_READY_TIMEOUT: '5'
         run: |
           pytest tests/python/integration/test_qt_backend.py tests/python/integration/test_qt_lifecycle.py -v --tb=short --timeout=60
 
