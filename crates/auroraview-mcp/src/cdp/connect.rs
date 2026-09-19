@@ -85,7 +85,7 @@ impl CdpClient {
             .await
             .map_err(|e| {
                 warn!(%method, error = %e, "CDP send failed");
-                CdpError::WebSocket(e)
+                CdpError::WebSocket(Box::new(e))
             })?;
 
         let deadline = tokio::time::Instant::now() + timeout;
@@ -98,7 +98,7 @@ impl CdpClient {
             let msg = match tokio::time::timeout(remaining, inner.ws.next()).await {
                 Ok(Some(m)) => m.map_err(|e| {
                     warn!(%method, error = %e, "CDP WebSocket error");
-                    CdpError::WebSocket(e)
+                    CdpError::WebSocket(Box::new(e))
                 })?,
                 Ok(None) => {
                     warn!(%method, "CDP connection closed");
