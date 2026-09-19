@@ -38,6 +38,11 @@ dependencies = [
 qt = [
     "qtpy>=2.0.0",
 ]
+# DCC-MCP ecosystem integration (auroraview.dcc_mcp).
+# Optional: AuroraView keeps its "no mandatory third-party dependency" guarantee.
+dcc-mcp = [
+    "dcc-mcp-core>=0.20.0",
+]
 
 [dependency-groups]
 test = [
