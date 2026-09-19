@@ -72,6 +72,9 @@ auroraview-cli pack --config auroraview.pack.toml
 | `--allow-new-window` | Allow opening new windows (e.g., via window.open) | false |
 | `--allow-file-protocol` | Enable file:// protocol support | false |
 | `--always-on-top` | Keep window always on top | false |
+| `--parent-hwnd <HWND>` | Attach as a child window (`WS_CHILD`) of this native handle | – |
+| `--owner-hwnd <HWND>` | Attach as an owned top-level window of this native handle | – |
+| `--exit-on-parent-disconnect` | Exit when the parent IPC channel drops (child mode only) | false |
 | `-h, --help` | Print help information | - |
 
 ## Rust CLI Commands
@@ -143,6 +146,12 @@ auroraview --url https://github.com --width 1920 --height 1080
 
 # Preview with always-on-top window
 auroraview --url https://github.com --always-on-top
+
+# Embed inside a host window (Unity / Unreal / Qt / PowerPoint)
+auroraview --url https://example.com --parent-hwnd 0x001A0B3C
+
+# Float a tool window above the host, closed when the host closes
+auroraview --url https://example.com --owner-hwnd 0x001A0B3C
 
 # Enable DevTools for debugging
 auroraview --url https://github.com --debug

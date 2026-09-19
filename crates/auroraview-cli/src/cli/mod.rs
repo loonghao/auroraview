@@ -6,6 +6,7 @@ mod icon;
 mod info;
 mod inspect;
 mod pack;
+mod parent_window;
 mod run;
 mod self_update;
 mod skills;

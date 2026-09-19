@@ -64,6 +64,8 @@ pub mod service_discovery;
 pub mod signals;
 /// JavaScript templates (Askama).
 pub mod templates;
+/// Parent/child IPC (host-agnostic child window bridge).
+pub mod parent_ipc;
 /// Thread safety utilities (lock ordering, deadlock prevention).
 pub mod thread_safety;
 /// Common utility functions.

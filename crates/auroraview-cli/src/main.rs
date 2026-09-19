@@ -168,6 +168,13 @@ fn main() -> Result<()> {
                 always_on_top: cli.always_on_top,
                 watch: false,
                 poll_interval_ms: 1500,
+                // The legacy top-level entry path predates host embedding,
+                // so all three default to their "detached" values. Hosts that
+                // embed AuroraView use `auroraview run --parent-hwnd ...` or
+                // set `AURORAVIEW_PARENT_HWND` in the child environment.
+                parent_hwnd: None,
+                owner_hwnd: None,
+                exit_on_parent_disconnect: false,
             };
             run_webview(args)
         }
