@@ -528,10 +528,40 @@ jobs:
           echo "Installing wheel: $wheel_file"
           pip install "$wheel_file"
 
+          # Install the optional dcc-mcp extra so the DCC-MCP integration tests
+          # actually execute on 3.7 instead of silently skipping. Without this
+          # the py37 gate is vacuous for that code path.
+          echo "Installing dcc-mcp-core for the auroraview[dcc-mcp] extra"
+          pip install "dcc-mcp-core>=0.20.25,<0.21"
+          python -c "import dcc_mcp_core, sys; print('dcc_mcp_core', dcc_mcp_core.__version__ if hasattr(dcc_mcp_core,'__version__') else 'ok', 'on', sys.version)"
+
           # Run unit tests (skip Qt tests as PySide6 doesn't support Python 3.7)
           pytest tests/python/unit/ -v --tb=short --timeout=60 \
             --ignore=tests/python/unit/test_qt_signals.py \
             -k "not qt"
+
+      # The DCC-MCP discovery proof lives in integration tests (FileRegistry
+      # registration, heartbeat, sentinel, skill load). Run them on 3.7 too,
+      # otherwise the py37 gate only covers the adapter's pure-Python surface.
+      - name: Run Python 3.7 DCC-MCP Integration Tests
+        shell: bash
+        env:
+          CI: 'true'
+        run: |
+          pytest tests/python/integration/test_dcc_mcp_registration.py \
+            -v --tb=short --timeout=120
+
+          # Fail loudly if the extra is missing: a skipped DCC-MCP suite must
+          # never be mistaken for a passing one.
+          python - <<'PY'
+          import importlib.util
+          if importlib.util.find_spec("dcc_mcp_core") is None:
+              raise SystemExit(
+                  "dcc-mcp-core is not installed; the DCC-MCP tests would "
+                  "silently skip and the py37 gate would be vacuous."
+              )
+          print("dcc-mcp-core present: DCC-MCP tests were really executed")
+          PY
 
   # =============================================================================
   # Rust Tests - With coverage reporting

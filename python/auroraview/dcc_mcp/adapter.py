@@ -199,7 +199,13 @@ class AuroraViewAdapter:
 
     #: Capability descriptor advertised to the gateway/registry. AuroraView has
     #: no scene, timeline, selection, undo stack, or render farm of its own.
-    capabilities = {"scene": False, "timeline": False, "selection": False, "undo": False, "render": False}
+    capabilities = {
+        "scene": False,
+        "timeline": False,
+        "selection": False,
+        "undo": False,
+        "render": False,
+    }
 
     def __init__(
         self,
@@ -332,9 +338,9 @@ class AuroraViewAdapter:
     def _tool_screenshot(self, params: Dict[str, Any]) -> Dict[str, Any]:
         fmt = str(params.get("format") or "png")
         full_page = bool(params.get("full_page", False))
-        script = (
-            "window.auroraview.screenshot({{format: {0}, fullPage: {1}}})"
-        ).format(json.dumps(fmt), "true" if full_page else "false")
+        script = ("window.auroraview.screenshot({{format: {0}, fullPage: {1}}})").format(
+            json.dumps(fmt), "true" if full_page else "false"
+        )
         timeout_ms = int(params.get("timeout_ms") or DEFAULT_JS_TIMEOUT_MS)
         data = self._eval_js_sync(script, timeout_ms)
         return {"format": fmt, "data": data}

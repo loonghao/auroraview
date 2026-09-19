@@ -31,10 +31,21 @@ else:  # pragma: no cover - only when the optional dep is missing
     TOOL_SPECS = ()
 
 
+def _skip_without_core():
+    """Skip the calling test when the optional ``dcc-mcp-core`` extra is absent.
+
+    Every test that touches :class:`AuroraViewAdapter` must call this first.
+    Without it a missing extra surfaces as an ``AttributeError`` on ``None``
+    instead of a skip, which reads as a real failure.
+    """
+    if AuroraViewAdapter is None:
+        pytest.skip("dcc-mcp-core not installed (pip install auroraview[dcc-mcp])")
+
+
 class _FakeCore:
     """Minimal stand-in for the Rust core's JS round-trip API."""
 
-    def __init__(self, result="\"hello\"", status="complete"):
+    def __init__(self, result='"hello"', status="complete"):
         self.result = result
         self.status = status
         self.scripts = []
@@ -74,13 +85,13 @@ class _FakeWebView:
 
 @pytest.fixture()
 def adapter():
-    if AuroraViewAdapter is None:
-        pytest.skip("dcc-mcp-core not installed")
+    _skip_without_core()
     return AuroraViewAdapter(_FakeWebView(), host_dcc="maya", cdp_port=9222)
 
 
 def test_dcc_name_and_capabilities_match_webview_host():
     """AuroraView registers as 'auroraview' with no DCC-style capabilities."""
+    _skip_without_core()
     assert AuroraViewAdapter.dcc_name == "auroraview"
     assert AuroraViewAdapter.capabilities == {
         "scene": False,
@@ -96,6 +107,7 @@ def test_dcc_name_and_capabilities_match_webview_host():
 
 def test_advertised_capabilities_returns_mutable_copy():
     """Mutating the returned map must not leak into the class attribute."""
+    _skip_without_core()
     first = AuroraViewAdapter.advertised_capabilities()
     first["scene"] = True
     assert AuroraViewAdapter.capabilities["scene"] is False
@@ -121,8 +133,7 @@ def test_get_context_carries_webview_descriptor(adapter):
 
 def test_get_context_omits_host_dcc_when_standalone():
     """A standalone window reports no embedding DCC."""
-    if AuroraViewAdapter is None:
-        pytest.skip("dcc-mcp-core not installed")
+    _skip_without_core()
     standalone = AuroraViewAdapter(_FakeWebView())
     assert "host_dcc" not in standalone.get_context()
 
@@ -199,16 +210,14 @@ def test_execute_records_failures_in_audit_log(adapter):
 
 def test_adapter_requires_a_webview():
     """Constructing without a WebView is a programming error."""
-    if AuroraViewAdapter is None:
-        pytest.skip("dcc-mcp-core not installed")
+    _skip_without_core()
     with pytest.raises(ValueError):
         AuroraViewAdapter(None)
 
 
 def test_fallback_when_core_lacks_js_roundtrip():
     """Without eval_js_future the adapter degrades to fire-and-forget."""
-    if AuroraViewAdapter is None:
-        pytest.skip("dcc-mcp-core not installed")
+    _skip_without_core()
     view = _FakeWebView()
 
     class _PlainCore(object):

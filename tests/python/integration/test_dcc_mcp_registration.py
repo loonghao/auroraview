@@ -26,10 +26,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "py
 
 from auroraview.dcc_mcp import DCC_MCP_CORE_IMPORT_ERROR  # noqa: E402
 
-pytestmark = [pytest.mark.integration, pytest.mark.skipif(
-    DCC_MCP_CORE_IMPORT_ERROR is not None,
-    reason="dcc-mcp-core not installed (pip install auroraview[dcc-mcp])",
-)]
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.skipif(
+        DCC_MCP_CORE_IMPORT_ERROR is not None,
+        reason="dcc-mcp-core not installed (pip install auroraview[dcc-mcp])",
+    ),
+]
 
 if DCC_MCP_CORE_IMPORT_ERROR is None:
     from auroraview.dcc_mcp.adapter import AuroraViewAdapter
