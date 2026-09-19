@@ -8,6 +8,7 @@ to ensure WebView operations are executed at the right time.
 from __future__ import annotations
 
 import logging
+import os
 import time
 from functools import wraps
 from threading import Event as ThreadEvent
@@ -19,6 +20,48 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 F = TypeVar("F", bound=Callable[..., Any])
+
+# Timeout (seconds) used by the ``require_*`` decorators and the ``wait_*``
+# helpers. The defaults preserve the historical behaviour, but the whole set can
+# be shortened through ``AURORAVIEW_READY_TIMEOUT``.
+#
+# This matters for automated runs: on a machine without a display (or in a test
+# that never shows a window) these waits can never be satisfied, so every
+# decorated call burns the full timeout. Five unit tests alone used to spend 110s
+# of a 112s suite waiting on events that would never arrive. Setting the variable
+# to a small value keeps the suite responsive while still failing the same way.
+DEFAULT_READY_EVENT_TIMEOUT: float = 20.0
+DEFAULT_READY_ALL_TIMEOUT: float = 30.0
+
+
+def _env_timeout(name: str, default: float) -> float:
+    """Read a non-negative float timeout from the environment.
+
+    Falls back to ``default`` when the variable is unset, empty, or invalid, so a
+    malformed value can never disable the timeout or crash at import time.
+    """
+    raw = os.environ.get(name)
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        logger.warning("Invalid %s=%r, falling back to %ss", name, raw, default)
+        return default
+    if value < 0:
+        logger.warning("Negative %s=%r, falling back to %ss", name, raw, default)
+        return default
+    return value
+
+
+def ready_event_timeout() -> float:
+    """Timeout used by ``wait_created/shown/loaded/bridge_ready``."""
+    return _env_timeout("AURORAVIEW_READY_TIMEOUT", DEFAULT_READY_EVENT_TIMEOUT)
+
+
+def ready_all_timeout() -> float:
+    """Timeout used by ``wait_all`` / ``require_ready``."""
+    return _env_timeout("AURORAVIEW_READY_TIMEOUT", DEFAULT_READY_ALL_TIMEOUT)
 
 
 class ReadyEvents:
@@ -50,71 +93,86 @@ class ReadyEvents:
         self.loaded = ThreadEvent()
         self.bridge_ready = ThreadEvent()
 
-    def wait_created(self, timeout: float = 20.0) -> bool:
+    def wait_created(self, timeout: float | None = None) -> bool:
         """Wait for WebView to be created.
 
         Args:
-            timeout: Maximum time to wait in seconds
+            timeout: Maximum time to wait in seconds. Defaults to
+                :func:`ready_event_timeout`.
 
         Returns:
             True if event was set, False if timeout occurred
         """
+        if timeout is None:
+            timeout = ready_event_timeout()
         result = self.created.wait(timeout)
         if not result:
             logger.warning(f"Timeout waiting for WebView creation ({timeout}s)")
         return result
 
-    def wait_shown(self, timeout: float = 20.0) -> bool:
+    def wait_shown(self, timeout: float | None = None) -> bool:
         """Wait for window to be shown.
 
         Args:
-            timeout: Maximum time to wait in seconds
+            timeout: Maximum time to wait in seconds. Defaults to
+                :func:`ready_event_timeout`.
 
         Returns:
             True if event was set, False if timeout occurred
         """
+        if timeout is None:
+            timeout = ready_event_timeout()
         result = self.shown.wait(timeout)
         if not result:
             logger.warning(f"Timeout waiting for window to show ({timeout}s)")
         return result
 
-    def wait_loaded(self, timeout: float = 20.0) -> bool:
+    def wait_loaded(self, timeout: float | None = None) -> bool:
         """Wait for page to be loaded.
 
         Args:
-            timeout: Maximum time to wait in seconds
+            timeout: Maximum time to wait in seconds. Defaults to
+                :func:`ready_event_timeout`.
 
         Returns:
             True if event was set, False if timeout occurred
         """
+        if timeout is None:
+            timeout = ready_event_timeout()
         result = self.loaded.wait(timeout)
         if not result:
             logger.warning(f"Timeout waiting for page to load ({timeout}s)")
         return result
 
-    def wait_bridge_ready(self, timeout: float = 20.0) -> bool:
+    def wait_bridge_ready(self, timeout: float | None = None) -> bool:
         """Wait for JS bridge to be ready.
 
         Args:
-            timeout: Maximum time to wait in seconds
+            timeout: Maximum time to wait in seconds. Defaults to
+                :func:`ready_event_timeout`.
 
         Returns:
             True if event was set, False if timeout occurred
         """
+        if timeout is None:
+            timeout = ready_event_timeout()
         result = self.bridge_ready.wait(timeout)
         if not result:
             logger.warning(f"Timeout waiting for JS bridge ({timeout}s)")
         return result
 
-    def wait_all(self, timeout: float = 30.0) -> bool:
+    def wait_all(self, timeout: float | None = None) -> bool:
         """Wait for all events (created, shown, loaded, bridge_ready).
 
         Args:
-            timeout: Maximum total time to wait in seconds
+            timeout: Maximum total time to wait in seconds. Defaults to
+                :func:`ready_all_timeout`.
 
         Returns:
             True if all events were set, False if timeout occurred
         """
+        if timeout is None:
+            timeout = ready_all_timeout()
         start = time.monotonic()
         remaining = timeout
 
@@ -221,7 +279,7 @@ def require_created(func: F) -> F:
     @wraps(func)
     def wrapper(self: "WebView", *args: Any, **kwargs: Any) -> Any:
         if hasattr(self, "_ready_events") and self._ready_events is not None:
-            if not self._ready_events.wait_created(timeout=20):
+            if not self._ready_events.wait_created():
                 raise RuntimeError("WebView failed to create within timeout")
         return func(self, *args, **kwargs)
 
@@ -241,7 +299,7 @@ def require_shown(func: F) -> F:
     @wraps(func)
     def wrapper(self: "WebView", *args: Any, **kwargs: Any) -> Any:
         if hasattr(self, "_ready_events") and self._ready_events is not None:
-            if not self._ready_events.wait_shown(timeout=20):
+            if not self._ready_events.wait_shown():
                 raise RuntimeError("WebView failed to show within timeout")
         return func(self, *args, **kwargs)
 
@@ -261,7 +319,7 @@ def require_loaded(func: F) -> F:
     @wraps(func)
     def wrapper(self: "WebView", *args: Any, **kwargs: Any) -> Any:
         if hasattr(self, "_ready_events") and self._ready_events is not None:
-            if not self._ready_events.wait_loaded(timeout=20):
+            if not self._ready_events.wait_loaded():
                 raise RuntimeError("WebView failed to load within timeout")
         return func(self, *args, **kwargs)
 
@@ -281,7 +339,7 @@ def require_bridge_ready(func: F) -> F:
     @wraps(func)
     def wrapper(self: "WebView", *args: Any, **kwargs: Any) -> Any:
         if hasattr(self, "_ready_events") and self._ready_events is not None:
-            if not self._ready_events.wait_bridge_ready(timeout=20):
+            if not self._ready_events.wait_bridge_ready():
                 raise RuntimeError("JS bridge failed to initialize within timeout")
         return func(self, *args, **kwargs)
 
@@ -303,7 +361,7 @@ def require_ready(func: F) -> F:
     @wraps(func)
     def wrapper(self: "WebView", *args: Any, **kwargs: Any) -> Any:
         if hasattr(self, "_ready_events") and self._ready_events is not None:
-            if not self._ready_events.wait_all(timeout=30):
+            if not self._ready_events.wait_all():
                 raise RuntimeError("WebView failed to become ready within timeout")
         return func(self, *args, **kwargs)
 
