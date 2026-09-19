@@ -42,8 +42,17 @@ pub enum CdpError {
     Http(#[from] reqwest::Error),
 
     /// WebSocket error during CDP communication.
+    ///
+    /// Boxed because `tungstenite::Error` is 136 B, which made every
+    /// `Result<_, CdpError>` large enough to trip `clippy::result_large_err`
+    /// (default threshold 128 B) at ~30 call sites. Boxing shrinks
+    /// `CdpError` to well under the threshold.
+    ///
+    /// The `From` impl is written by hand rather than via `#[from]`, because
+    /// `#[from]` on a `Box<T>` field generates `From<Box<T>>` and would stop
+    /// `?` from accepting a bare `tungstenite::Error`.
     #[error("WebSocket error: {0}")]
-    WebSocket(#[from] tokio_tungstenite::tungstenite::Error),
+    WebSocket(Box<tokio_tungstenite::tungstenite::Error>),
 
     /// JSON serialization or deserialization error.
     #[error("JSON error: {0}")]
@@ -68,6 +77,12 @@ pub enum CdpError {
     /// CDP request timed out waiting for a response.
     #[error("CDP method {0} timed out after {1:?}")]
     Timeout(String, std::time::Duration),
+}
+
+impl From<tokio_tungstenite::tungstenite::Error> for CdpError {
+    fn from(err: tokio_tungstenite::tungstenite::Error) -> Self {
+        CdpError::WebSocket(Box::new(err))
+    }
 }
 
 // ---------------------------------------------------------------------------
