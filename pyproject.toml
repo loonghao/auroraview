@@ -133,7 +133,16 @@ strict_optional = true
 [tool.pytest.ini_options]
 minversion = "7.0"
 addopts = "-ra -q --strict-markers --cov=auroraview --cov-report=term-missing --cov-report=html --cov-report=xml --timeout=60"
-testpaths = ["tests/python/unit", "tests/python/integration"]
+# The two root-level dispatcher suites are listed explicitly: they are pure
+# logic with no GUI dependency, and were silently drifting because no
+# directory in this list covered them. The remaining root tests/ files need a
+# display or a running app, so they stay outside the default run.
+testpaths = [
+    "tests/python/unit",
+    "tests/python/integration",
+    "tests/test_thread_dispatcher.py",
+    "tests/test_thread_safety_diagnosis.py",
+]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]

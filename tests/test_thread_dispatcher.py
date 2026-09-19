@@ -50,8 +50,12 @@ class TestThreadDispatcherBackend:
         backend = TestBackend()
         assert backend.get_name() == "Test"
 
-    def test_get_name_without_backend_suffix(self):
-        """Test that get_name() works without 'Backend' suffix."""
+    def test_get_name_strips_dispatcher_suffix(self):
+        """Test that get_name() strips the 'Dispatcher' suffix.
+
+        get_name() strips a trailing 'Backend' and then a trailing
+        'Dispatcher', so 'MyDispatcher' is reported as 'My'.
+        """
 
         class MyDispatcher(ThreadDispatcherBackend):
             def is_available(self) -> bool:
@@ -64,7 +68,22 @@ class TestThreadDispatcherBackend:
                 return func(*args, **kwargs)
 
         backend = MyDispatcher()
-        assert backend.get_name() == "MyDispatcher"
+        assert backend.get_name() == "My"
+
+    def test_get_name_without_any_suffix(self):
+        """Test that get_name() leaves an un-suffixed class name intact."""
+
+        class Watcher(ThreadDispatcherBackend):
+            def is_available(self) -> bool:
+                return True
+
+            def run_deferred(self, func, *args, **kwargs):
+                func(*args, **kwargs)
+
+            def run_sync(self, func, *args, **kwargs):
+                return func(*args, **kwargs)
+
+        assert Watcher().get_name() == "Watcher"
 
     def test_is_main_thread_default_implementation(self):
         """Test default is_main_thread() implementation."""
@@ -876,39 +895,35 @@ class TestTimeoutProtection:
             run_on_main_thread_sync_with_timeout(raise_error, timeout=5.0)
 
     def test_run_on_main_thread_sync_with_timeout_timeout_error(self):
-        """Test that timeout raises ThreadDispatchTimeoutError."""
+        """Test that timeout raises ThreadDispatchTimeoutError.
 
-        def slow_operation():
-            time.sleep(10)  # Sleep longer than timeout
-            return "done"
+        The timeout only fires when the dispatch is queued rather than run
+        inline, so this installs a backend whose run_deferred never invokes
+        the callback. That makes the timeout deterministic and independent of
+        whether the fallback backend happens to run work synchronously.
+        """
 
-        # Use a very short timeout
-        # Note: This test may be flaky in the fallback backend since
-        # it executes synchronously. We use a thread to simulate
-        # the cross-thread scenario.
-        result = []
-        error = []
+        class BlockingBackend(ThreadDispatcherBackend):
+            """Queues work and never runs it, so dispatch must time out."""
 
-        def background_task():
-            try:
-                # In fallback mode, this won't actually timeout
-                # because the function runs synchronously
-                r = run_on_main_thread_sync_with_timeout(slow_operation, timeout=0.1)
-                result.append(r)
-            except ThreadDispatchTimeoutError as e:
-                error.append(e)
-            except Exception as e:
-                error.append(e)
+            def is_available(self) -> bool:
+                return True
 
-        thread = threading.Thread(target=background_task)
-        thread.start()
-        thread.join(timeout=1.0)  # Wait max 1 second
+            def run_deferred(self, func, *args, **kwargs):
+                pass  # Never invoked: nothing will complete.
 
-        # The test behavior depends on the backend
-        # With fallback backend, it may complete without timeout
-        # With a real async backend, it should timeout
-        # We just verify no crash occurred
-        assert thread.is_alive() is False or len(error) > 0 or len(result) > 0
+            def run_sync(self, func, *args, **kwargs):
+                raise AssertionError("run_sync should not be used by the timeout path")
+
+            def is_main_thread(self) -> bool:
+                return False
+
+        register_dispatcher_backend(BlockingBackend, priority=100_000, name="Blocking")
+        try:
+            with pytest.raises(ThreadDispatchTimeoutError, match="timed out after"):
+                run_on_main_thread_sync_with_timeout(lambda: "done", timeout=0.1)
+        finally:
+            unregister_dispatcher_backend(BlockingBackend)
 
     def test_run_on_main_thread_sync_with_timeout_none_return(self):
         """Test timeout function with None return value."""

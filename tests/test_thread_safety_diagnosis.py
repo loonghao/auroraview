@@ -18,8 +18,8 @@ import pytest
 from auroraview.utils.thread_dispatcher import (
     FallbackDispatcherBackend,
     ThreadDispatcherBackend,
-    defer_to_main_thread,
     is_main_thread,
+    run_on_main_thread,
 )
 
 
@@ -51,7 +51,7 @@ class TestThreadSafetyDiagnosis:
         # Dispatch from multiple threads
         threads = []
         for i in range(10):
-            t = threading.Thread(target=lambda v=i: defer_to_main_thread(append_from_thread, v))
+            t = threading.Thread(target=lambda v=i: run_on_main_thread(append_from_thread, v))
             threads.append(t)
             t.start()
 
@@ -271,17 +271,20 @@ class TestThreadDispatcherRobustness:
     """
 
     def test_exception_in_deferred_call(self):
-        """Test that exceptions in deferred calls are handled gracefully."""
+        """Test that exceptions in deferred calls surface to the caller.
+
+        The fallback backend runs deferred work inline on the calling thread,
+        so a raising callable must propagate rather than be silently dropped.
+        Backends that queue the work (Qt, Maya, ...) cannot propagate, which is
+        why raising from a deferred call is discouraged in portable code.
+        """
         backend = FallbackDispatcherBackend()
 
         def raise_error():
             raise ValueError("Test error")
 
-        # Should not propagate exception
-        try:
+        with pytest.raises(ValueError, match="Test error"):
             backend.run_deferred(raise_error)
-        except ValueError:
-            pytest.fail("Exception should be caught in fallback backend")
 
     def test_exception_in_sync_call(self):
         """Test that exceptions in sync calls propagate correctly."""
