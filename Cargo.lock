@@ -238,7 +238,7 @@ dependencies = [
  "objc2-foundation",
  "parking_lot",
  "percent-encoding",
- "windows-sys 0.52.0",
+ "windows-sys 0.60.2",
  "x11rb",
 ]
 
@@ -406,7 +406,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "auroraview"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "anyhow",
  "askama",
@@ -462,7 +462,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "tray-icon",
+ "tray-icon 0.21.3",
  "url",
  "urlencoding",
  "webview2",
@@ -474,7 +474,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-ai-agent"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "async-trait",
  "auroraview-workspace-hack",
@@ -494,7 +494,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-assets"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "auroraview-workspace-hack",
  "mime_guess",
@@ -506,7 +506,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-bookmarks"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -521,7 +521,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-browser"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "auroraview-bookmarks",
  "auroraview-core",
@@ -553,7 +553,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-cli"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "anyhow",
  "auroraview-assets",
@@ -603,7 +603,7 @@ version = "1.0.0"
 
 [[package]]
 name = "auroraview-core"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "auroraview-contract",
  "active-win-pos-rs",
@@ -641,7 +641,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-dcc"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "auroraview-core",
  "auroraview-workspace-hack",
@@ -658,7 +658,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-desktop"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "auroraview-core",
  "auroraview-plugins",
@@ -673,14 +673,14 @@ dependencies = [
  "tao",
  "thiserror 2.0.18",
  "tracing",
- "tray-icon",
+ "tray-icon 0.24.0",
  "windows 0.62.2",
  "wry",
 ]
 
 [[package]]
 name = "auroraview-devtools"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "auroraview-workspace-hack",
  "rstest 0.18.2",
@@ -691,7 +691,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-downloads"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -706,7 +706,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-extensions"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -732,7 +732,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-history"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -747,7 +747,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-mcp"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "anyhow",
  "auroraview-workspace-hack",
@@ -785,7 +785,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-notifications"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "auroraview-workspace-hack",
  "chrono",
@@ -799,7 +799,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-pack"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "auroraview-extensions",
  "auroraview-protect",
@@ -835,7 +835,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugin-core"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "auroraview-workspace-hack",
  "dunce",
@@ -850,7 +850,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugin-fs"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "auroraview-plugin-core",
  "auroraview-workspace-hack",
@@ -864,7 +864,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-plugins"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "arboard",
  "auroraview-extensions",
@@ -888,7 +888,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-protect"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -913,7 +913,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-settings"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "auroraview-workspace-hack",
  "parking_lot",
@@ -926,7 +926,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-signals"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "auroraview-workspace-hack",
  "crossbeam-channel",
@@ -945,7 +945,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-tabs"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "auroraview-workspace-hack",
  "dashmap",
@@ -960,7 +960,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-telemetry"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "auroraview-workspace-hack",
  "opentelemetry",
@@ -982,7 +982,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-testing"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1009,7 +1009,7 @@ dependencies = [
 
 [[package]]
 name = "auroraview-ue"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "anyhow",
  "auroraview-core",
@@ -1331,15 +1331,6 @@ dependencies = [
  "getrandom 0.4.2",
  "subtle",
  "zeroize",
-]
-
-[[package]]
-name = "bincode"
-version = "1.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
-dependencies = [
- "serde",
 ]
 
 [[package]]
@@ -1863,6 +1854,15 @@ name = "cmov"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f88a43d011fc4a6876cb7344703e297c71dda42494fee094d5f7c76bf13f746"
+
+[[package]]
+name = "cobs"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0fa961b519f0b462e3a3b4a34b64d119eeaca1d59af726fe450bbba07a9fc0a1"
+dependencies = [
+ "thiserror 2.0.18",
+]
 
 [[package]]
 name = "color_quant"
@@ -2495,7 +2495,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2655,6 +2655,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "embedded-io"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef1a6892d9eef45c8fa6b9e0086428a2cca8491aca8f787c534a3d6d0bcb3ced"
+
+[[package]]
+name = "embedded-io"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
+
+[[package]]
 name = "encode_unicode"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2764,7 +2776,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4207,20 +4219,21 @@ dependencies = [
 
 [[package]]
 name = "ipc-channel"
-version = "0.20.2"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f93600b5616c2d075f8af8dbd23c1d69278c5d24e4913d220cbc60b14c95c180"
+checksum = "25c2117f45662580ea93b6fb2bc665c52667ea0370c23fab9bb9485acec8bd24"
 dependencies = [
- "bincode",
  "crossbeam-channel",
- "fnv",
  "libc",
  "mio",
- "rand 0.9.4",
- "serde",
+ "postcard",
+ "rand 0.10.1",
+ "rustc-hash 2.1.2",
+ "serde_core",
  "tempfile",
+ "thiserror 2.0.18",
  "uuid",
- "windows 0.61.3",
+ "windows 0.62.2",
 ]
 
 [[package]]
@@ -5174,7 +5187,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6150,6 +6163,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "postcard"
+version = "1.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6764c3b5dd454e283a30e6dfe78e9b31096d9e32036b5d1eaac7a6119ccb9a24"
+dependencies = [
+ "cobs",
+ "embedded-io 0.4.0",
+ "embedded-io 0.6.1",
+ "serde",
+]
+
+[[package]]
 name = "potential_utf"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6564,7 +6589,7 @@ dependencies = [
  "once_cell",
  "socket2 0.6.3",
  "tracing",
- "windows-sys 0.52.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -7198,7 +7223,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -7257,7 +7282,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -8242,7 +8267,7 @@ dependencies = [
  "getrandom 0.4.2",
  "once_cell",
  "rustix 1.1.4",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -8846,6 +8871,27 @@ dependencies = [
  "tracing-core",
  "tracing-log",
  "tracing-serde",
+]
+
+[[package]]
+name = "tray-icon"
+version = "0.21.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a5e85aa143ceb072062fc4d6356c1b520a51d636e7bc8e77ec94be3608e5e80c"
+dependencies = [
+ "crossbeam-channel",
+ "dirs",
+ "libappindicator",
+ "muda 0.17.2",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-core-foundation",
+ "objc2-core-graphics",
+ "objc2-foundation",
+ "once_cell",
+ "png 0.17.16",
+ "thiserror 2.0.18",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -9795,7 +9841,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
