@@ -107,14 +107,8 @@ def isolated_dispatcher(monkeypatch):
     monkeypatch.delenv(registry.ENV_DISPATCHER_BACKEND, raising=False)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Test Markers
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-def pytest_configure(config):
-    """Register custom markers."""
-    config.addinivalue_line("markers", "cdp: Tests using Chrome DevTools Protocol")
-    config.addinivalue_line("markers", "e2e: End-to-end tests")
-    config.addinivalue_line("markers", "slow: Slow tests")
-    config.addinivalue_line("markers", "integration: Integration tests")
+# Markers are declared in `[tool.pytest.ini_options] markers` in pyproject.toml,
+# the single source of truth for pytest configuration. Registering them here
+# again would only work for runs that happen to collect this conftest, which is
+# how `cdp` / `e2e` / `slow` / `integration` silently escaped `--strict-markers`
+# for runs rooted outside `tests/`.

@@ -258,7 +258,7 @@ test-cov:
 # Run only fast tests (exclude slow tests)
 test-fast:
     @echo "Running fast tests..."
-    vx uvx pytest tests/python/ -v -m "not slow"
+    vx uv run pytest tests/python/ -v -m "not slow"
 
 # Run security audit (check for vulnerabilities in dependencies)
 audit:
@@ -463,17 +463,17 @@ test-standalone:
 # Test Python package only (no Rust rebuild)
 test-python:
     @echo "Running Python tests..."
-    vx uvx pytest tests/python/unit tests/python/integration -v --tb=short
+    vx uv run pytest tests/python/unit tests/python/integration -v --tb=short
 
 # Test Python unit tests only
 test-python-unit:
     @echo "Running Python unit tests..."
-    vx uvx pytest tests/python/unit -v --tb=short
+    vx uv run pytest tests/python/unit -v --tb=short
 
 # Test Python integration tests only
 test-python-integration:
     @echo "Running Python integration tests..."
-    vx uvx pytest tests/python/integration -v --tb=short \
+    vx uv run pytest tests/python/integration -v --tb=short \
         --ignore=tests/python/integration/test_gallery_e2e.py \
         --ignore=tests/python/integration/test_gallery_real_e2e.py
 
@@ -490,7 +490,7 @@ test-unit:
     vx cargo test -p auroraview-pack
     vx cargo test -p auroraview-cli
     @echo "Running Python unit tests..."
-    vx uvx pytest tests/python/unit -v
+    vx uv run pytest tests/python/unit -v
 
 
 # Run only Rust integration tests
@@ -498,7 +498,7 @@ test-integration:
     @echo "Running Rust integration tests (cargo-nextest)..."
     vx just test-rust-fast
     @echo "Running Python integration tests..."
-    vx uvx pytest tests/python/integration -v
+    vx uv run pytest tests/python/integration -v
 
 
 # Watch mode for continuous testing
@@ -515,7 +515,7 @@ test-file FILE:
 # Run tests with specific marker
 test-marker MARKER:
     @echo "Running tests with marker {{MARKER}}..."
-    vx uvx pytest tests/ -v -m {{MARKER}}
+    vx uv run pytest tests/ -v -m {{MARKER}}
 
 
 # Format code
@@ -677,7 +677,7 @@ ci-rust-coverage-lcov:
 
 ci-test-python:
     @echo "Running Python unit tests with coverage..."
-    vx uvx pytest tests/ -v --tb=short -m "not slow" \
+    vx uv run pytest tests/ -v --tb=short -m "not slow" \
         --cov=auroraview \
         --cov-report=term-missing \
         --cov-report=html \
@@ -1311,12 +1311,12 @@ gallery-dev:
 # Run Gallery E2E tests
 gallery-test:
     @echo "Running Gallery E2E tests..."
-    vx uvx pytest tests/python/integration/test_gallery_e2e.py tests/python/integration/test_gallery_contract.py tests/python/integration/test_gallery_plugin_api.py -v --tb=short
+    vx uv run pytest tests/python/integration/test_gallery_e2e.py tests/python/integration/test_gallery_contract.py tests/python/integration/test_gallery_plugin_api.py -v --tb=short
 
 # Run Gallery Inspector tests (uses Inspector API, auto-starts Gallery)
 gallery-test-inspector: gallery-build
     @echo "Running Gallery Inspector tests (auto-starts Gallery)..."
-    vx uvx pytest tests/python/integration/test_gallery_inspector.py tests/python/integration/test_gallery_deep_inspection.py -v --tb=short
+    vx uv run pytest tests/python/integration/test_gallery_inspector.py tests/python/integration/test_gallery_deep_inspection.py -v --tb=short
 
 # Run Gallery Playwright E2E tests (frontend only, with mock API)
 gallery-test-playwright: gallery-ci-playwright-install
@@ -1475,7 +1475,7 @@ gallery-e2e: gallery-e2e-packed-playwright
 
 gallery-test-real: gallery-build
     @echo "Running Gallery real E2E tests..."
-    vx uvx pytest tests/python/integration/test_gallery_real_e2e.py -v --tb=short
+    vx uv run pytest tests/python/integration/test_gallery_real_e2e.py -v --tb=short
 
 # Run Gallery test loop (continuous testing)
 gallery-test-loop:
@@ -1613,7 +1613,7 @@ gallery-cdp: gallery-pack
     @powershell -File scripts/gallery_cdp_wait.ps1
     @echo ""
     @echo "[3/4] Running CDP tests (Inspector API + legacy)..."
-    -vx uvx pytest tests/test_gallery_cdp.py tests/python/integration/test_gallery_inspector.py tests/python/integration/test_gallery_deep_inspection.py -v --tb=short
+    -vx uv run pytest tests/test_gallery_cdp.py tests/python/integration/test_gallery_inspector.py tests/python/integration/test_gallery_deep_inspection.py -v --tb=short
     @echo ""
     @echo "[4/4] Cleaning up..."
     @powershell -File scripts/gallery_cdp_stop.ps1 -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
@@ -1635,7 +1635,7 @@ gallery-cdp-only:
     @powershell -File scripts/gallery_cdp_wait.ps1
     @echo ""
     @echo "[3/3] Running CDP tests..."
-    -vx uvx pytest tests/test_gallery_cdp.py -v --tb=short
+    -vx uv run pytest tests/test_gallery_cdp.py -v --tb=short
     @echo ""
     @echo "Cleaning up..."
     @powershell -File scripts/gallery_cdp_stop.ps1 -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
