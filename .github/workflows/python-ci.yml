@@ -177,7 +177,10 @@ jobs:
         env:
           CI: 'true'
         run: |
-          pytest tests/python/unit/ -v --tb=short --timeout=60
+          pytest tests/python/unit/ \
+            tests/test_thread_dispatcher.py \
+            tests/test_thread_safety_diagnosis.py \
+            -v --tb=short --timeout=60
 
       - name: Upload coverage (Python 3.11 on ubuntu only)
         if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'

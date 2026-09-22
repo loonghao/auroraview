@@ -139,13 +139,18 @@ strict_optional = true
 [tool.pytest.ini_options]
 minversion = "7.0"
 addopts = "-ra -q --strict-markers --cov=auroraview --cov-report=term-missing --cov-report=html --cov-report=xml --timeout=60"
+# Default selection for a bare `pytest` at the repo root (the only invocation
+# that reads `testpaths`; every CI/just/nox entry passes explicit paths).
 # The two root-level dispatcher suites are listed explicitly: they are pure
 # logic with no GUI dependency, and were silently drifting because no
 # directory in this list covered them. The remaining root tests/ files need a
 # display or a running app, so they stay outside the default run.
+# `tests/python/integration` is deliberately kept out: it needs a built native
+# core plus Qt, so a bare run there aborts on collection errors and hangs in
+# `test_browser_integration.py` without a display. CI runs that directory
+# explicitly, with the known-problematic e2e modules excluded.
 testpaths = [
     "tests/python/unit",
-    "tests/python/integration",
     "tests/test_thread_dispatcher.py",
     "tests/test_thread_safety_diagnosis.py",
 ]

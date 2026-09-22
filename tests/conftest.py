@@ -66,6 +66,47 @@ def setup_event_loop_policy():
     yield
 
 
+@pytest.fixture
+def isolated_dispatcher(monkeypatch):
+    """Run a test against a dispatcher registry pinned to the fallback backend.
+
+    ``auroraview.utils.thread_dispatcher.registry`` stores its backend list, its
+    resolved backend and its lazy-init flag in module globals, so the backend a
+    test receives depends on whatever ran earlier in the same pytest process:
+
+    * ``tests/python/unit/integration/qt/test_core_zombie_guards.py`` builds a
+      ``QApplication`` for a module-scoped fixture. Qt keeps that instance alive
+      as a process-wide singleton, so ``QCoreApplication.instance()`` stays
+      non-``None`` for every later test even though pytest never runs a Qt event
+      loop. ``QtDispatcherBackend`` (priority 100) then outranks
+      ``FallbackDispatcherBackend`` (priority 0), and the
+      ``QTimer.singleShot(0, ...)`` work it queues is never dispatched --
+      deferred calls silently never run and ``run_sync`` from a worker thread
+      blocks forever.
+    * Tests calling ``register_dispatcher_backend()`` without unregistering leak
+      entries into every test that follows.
+
+    Dispatcher suites exercise registration, priority, environment overrides and
+    timeouts -- not Qt or DCC integration -- so pinning the registry to the
+    fallback backend (which runs deferred work inline on the calling thread)
+    makes them behave identically whether or not a stray ``QApplication``
+    exists. A test that deliberately registers its own backend still wins,
+    because registration itself is untouched. Every global is restored
+    afterwards, so these suites no longer leak state into their neighbours.
+    """
+    from auroraview.utils.thread_dispatcher import registry
+    from auroraview.utils.thread_dispatcher.backends import FallbackDispatcherBackend
+
+    monkeypatch.setattr(
+        registry,
+        "_DISPATCHER_BACKENDS",
+        [(registry.DispatcherPriority.FALLBACK, FallbackDispatcherBackend, "Fallback")],
+    )
+    monkeypatch.setattr(registry, "_cached_backend", None)
+    monkeypatch.setattr(registry, "_builtins_registered", True)
+    monkeypatch.delenv(registry.ENV_DISPATCHER_BACKEND, raising=False)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Test Markers
 # ─────────────────────────────────────────────────────────────────────────────
