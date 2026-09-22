@@ -152,12 +152,6 @@ minversion = "7.0"
 # `-q` is also kept out: addopts are applied before CLI flags, so a `-q` here
 # cancels the `-v` that every CI job passes and flattens the CI logs.
 addopts = "-ra --strict-markers --timeout=60"
-# `--strict-markers` in `addopts` is NOT enough on its own: `addopts` are parsed
-# as command-line flags, while the marker check in pytest reads the *ini* value
-# `strict_markers`. A flag coming from `addopts` therefore downgrades an
-# unregistered marker to a warning instead of an error. Set the ini option too,
-# which is what actually makes unregistered markers fail.
-strict_markers = true
 # `pythonpath` entries are resolved relative to `rootdir`. The removed
 # `tests/pytest.ini` declared `pythonpath = .` while it was itself the rootdir,
 # so it put `<repo>/tests` on `sys.path`; spell that out explicitly now that
@@ -186,8 +180,25 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 timeout = 60
 timeout_method = "thread"
-# Belt and braces for the marker check above: turns `PytestUnknownMarkWarning`
-# into an error even for markers applied outside pytest's `markers` lookup.
+# Backstop for the `--strict-markers` flag in `addopts` above: turns
+# `PytestUnknownMarkWarning` into an error, so an unregistered marker fails
+# regardless of pytest version. This is the load-bearing line.
+#
+# Why a backstop is needed: `--strict-markers` reaches pytest via `addopts`,
+# and whether `addopts` can set it depends on the pytest version. Verified on
+# three versions with a deliberately undeclared marker:
+#
+#   pytest 8.4.2 / 9.1.1  `--strict-markers` in addopts -> collection error
+#   pytest 9.0.2          `--strict-markers` in addopts -> warning only, exits 0
+#
+# so on 9.0.x the flag alone silently does nothing and this filter is what
+# fails the run. CI currently resolves 8.4.2 (Python 3.9 job) and 9.1.1 (DCC
+# jobs), but that is pip's choice, not ours -- do not rely on it.
+#
+# Do NOT "fix" this by setting `strict_markers = true`: despite pytest's own
+# `_pytest/mark/structures.py` reading that key via `getini`, it is not a
+# registered ini option on 8.4.2, which emits
+# `PytestConfigWarning: Unknown config option: strict_markers` on every run.
 filterwarnings = ["error::pytest.PytestUnknownMarkWarning"]
 # Union of the markers previously declared in `pyproject.toml` and
 # `tests/pytest.ini`, plus the ones that were only registered ad-hoc from
