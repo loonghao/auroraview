@@ -462,17 +462,13 @@ impl AuroraView {
     }
 
     /// Close the WebView window
+    ///
+    /// The request always travels through the module-level close channel - the
+    /// `Arc<MessageQueue>` drained by the owner thread's event loop, plus the
+    /// `EventLoopProxy` that wakes it - so the window is only ever torn down on
+    /// the thread that owns it.
     fn close(&self) -> PyResult<()> {
-        use super::super::event_loop::UserEvent;
-        use crate::ipc::WebViewMessage;
-
-        if let Some(ref proxy) = *self.event_loop_proxy.borrow() {
-            let _ = proxy.send_event(UserEvent::CloseWindow);
-        } else {
-            // Embedded / IPC-only modes may not have an event loop proxy.
-            // Fall back to message-queue driven close so host-driven pumps can honor it.
-            self.message_queue.push(WebViewMessage::Close);
-        }
+        super::request_close_via_channel(&self.message_queue, &self.event_loop_proxy);
         Ok(())
     }
 
