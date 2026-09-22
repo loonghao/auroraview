@@ -69,9 +69,34 @@ impl MockParent {
         }
     }
 
+    /// Wait until the accept thread spawned by [`MockParent::start`] has
+    /// published the child's socket.
+    ///
+    /// `TcpStream::connect` returns as soon as the kernel completes the
+    /// handshake, which can happen before that thread has run `accept()` and
+    /// stored the peer. Touching the socket too early made [`Self::write_raw`]
+    /// panic and [`Self::drop_connection`] silently do nothing, so both wait
+    /// here first.
+    fn wait_until_connected(&self) {
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while std::time::Instant::now() < deadline {
+            if self
+                .peer
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .is_some()
+            {
+                return;
+            }
+            thread::sleep(Duration::from_millis(5));
+        }
+        panic!("the child never connected within 5s");
+    }
+
     /// Write raw bytes to the child. Used for both well-formed and malformed
     /// frames.
     fn write_raw(&self, bytes: &[u8]) {
+        self.wait_until_connected();
         let mut guard = self.peer.lock().unwrap_or_else(|e| e.into_inner());
         let stream = guard.as_mut().expect("child is connected");
         stream.write_all(bytes).expect("write");
@@ -92,7 +117,10 @@ impl MockParent {
     }
 
     fn received(&self) -> Vec<String> {
-        self.received.lock().unwrap_or_else(|e| e.into_inner()).clone()
+        self.received
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 
     fn parsed(&self) -> Vec<serde_json::Value> {
@@ -116,6 +144,9 @@ impl MockParent {
 
     /// Close the connection to simulate the parent going away.
     fn drop_connection(&self) {
+        // Without this the `take()` below would silently no-op on a `None`
+        // peer, leaving the connection up and the port still bound.
+        self.wait_until_connected();
         if let Some(stream) = self.peer.lock().unwrap_or_else(|e| e.into_inner()).take() {
             let _ = stream.shutdown(Shutdown::Both);
         }
