@@ -1,0 +1,24 @@
+[package]
+name = "auroraview-contract"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "AuroraView host-adapter and render-backend contracts (dependency-direction firewall)"
+keywords = ["webview", "dcc", "adapter", "backend", "contract"]
+categories = ["gui", "multimedia"]
+
+[lib]
+name = "auroraview_contract"
+path = "src/lib.rs"
+
+[dependencies]
+# Intentionally empty.
+#
+# This crate is the leaf of the AuroraView dependency graph. Host adapter
+# crates (`auroraview-maya`, `auroraview-unreal`, ...) and `auroraview-core`
+# all depend on it. It must never depend on a host SDK, a WebView
+# implementation, or on `auroraview-core` itself -- that is what keeps the
+# dependency direction `core <- adapter` true by construction.

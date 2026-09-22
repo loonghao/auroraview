@@ -3,6 +3,7 @@
 
 [workspace]
 members = [
+    "crates/auroraview-contract",
     "crates/auroraview-core",
     "crates/auroraview-cli",
     "crates/auroraview-desktop",

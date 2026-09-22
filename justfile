@@ -204,6 +204,7 @@ test:
     @echo "Running CI grep guards (RFC 0016 §5 / RFC 0017 §5)..."
     vx just ci-grep
     @echo "Running workspace crate tests..."
+    vx cargo test -p auroraview-contract
     vx cargo test -p auroraview-core
     vx cargo test -p auroraview-pack
     vx cargo test -p auroraview-cli
@@ -232,6 +233,7 @@ test:
     @echo "Running CI grep guards (RFC 0016 §5 / RFC 0017 §5)..."
     vx just ci-grep
     @echo "Running workspace crate tests..."
+    vx cargo test -p auroraview-contract
     vx cargo test -p auroraview-core
     vx cargo test -p auroraview-pack
     vx cargo test -p auroraview-cli
@@ -481,6 +483,7 @@ test-python-integration:
 test-unit:
     @echo "Running Rust unit tests..."
     vx cargo test --lib
+    vx cargo test -p auroraview-contract
     vx cargo test -p auroraview-core
     vx cargo test -p auroraview-pack
     vx cargo test -p auroraview-cli

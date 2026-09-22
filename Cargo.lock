@@ -598,6 +598,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "auroraview-contract"
+version = "0.5.10"
+
+[[package]]
 name = "auroraview-core"
 version = "0.5.9"
 dependencies = [
