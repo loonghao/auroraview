@@ -391,7 +391,11 @@ impl FrameReader {
                 continue;
             }
 
-            if self.buffer.len() > MAX_FRAME_BYTES {
+            // Size-check the frame that was just drained, not whatever is left
+            // behind: `drain` above already emptied the consumed span, so a
+            // post-drain `buffer.len()` measures the *residual* bytes and would
+            // let an arbitrarily large complete frame through untouched.
+            if raw.len() > MAX_FRAME_BYTES {
                 self.buffer.clear();
                 return Some(Err(FrameError::TooLarge));
             }
@@ -433,6 +437,68 @@ impl FrameReader {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn complete_frame_over_the_limit_is_rejected() {
+        let mut reader = FrameReader::new();
+        // A single frame larger than MAX_FRAME_BYTES that *does* end with a
+        // delimiter. The size check has to run against the drained frame, not
+        // against whatever is left in the buffer after the drain.
+        let oversized = b"x".repeat(MAX_FRAME_BYTES + 1);
+        let mut frame = oversized.clone();
+        frame.push(FRAME_DELIMITER);
+        reader.push(&frame);
+
+        assert!(matches!(
+            reader.next_frame(),
+            Some(Err(FrameError::TooLarge))
+        ));
+        // The offending bytes are dropped so the channel stays usable.
+        assert!(!reader.is_overgrown());
+        reader.push(b"{\"type\":\"ping\"}\n");
+        assert!(matches!(
+            reader.next_frame(),
+            Some(Ok(Message {
+                kind: MessageKind::Ping,
+                ..
+            }))
+        ));
+    }
+
+    #[test]
+    fn frame_exactly_at_the_limit_is_accepted() {
+        let mut reader = FrameReader::new();
+        let mut frame = br#"{"type":"ping"}"#.to_vec();
+        assert!(frame.len() < MAX_FRAME_BYTES);
+        // Pad with whitespace, which serde ignores, to land exactly on the limit.
+        frame.resize(MAX_FRAME_BYTES, b' ');
+        assert_eq!(frame.len(), MAX_FRAME_BYTES);
+        frame.push(FRAME_DELIMITER);
+        reader.push(&frame);
+
+        assert!(matches!(
+            reader.next_frame(),
+            Some(Ok(Message {
+                kind: MessageKind::Ping,
+                ..
+            }))
+        ));
+    }
+
+    #[test]
+    fn buffer_without_a_delimiter_is_reported_overgrown() {
+        let mut reader = FrameReader::new();
+        // A peer that never sends `\n` must not be able to grow the buffer
+        // without bound: `is_overgrown` is the caller's cue to reset.
+        reader.push(&b"x".repeat(1024));
+        assert!(!reader.is_overgrown());
+
+        reader.push(&b"x".repeat(MAX_FRAME_BYTES));
+        assert!(reader.is_overgrown());
+
+        reader.reset();
+        assert!(!reader.is_overgrown());
+    }
 
     #[test]
     fn kind_roundtrips_through_wire_spelling() {

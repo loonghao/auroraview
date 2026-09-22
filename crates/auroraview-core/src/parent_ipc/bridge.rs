@@ -35,7 +35,7 @@ use serde_json::json;
 use super::context::ChildInfo;
 use super::protocol::{
     ErrorCode, FrameError, FrameReader, Message, MessageKind, CLOSING_EVENT, COMMAND_EVENT,
-    DEFAULT_HOST, PROTOCOL_VERSION, READY_EVENT,
+    DEFAULT_HOST, MAX_FRAME_BYTES, PROTOCOL_VERSION, READY_EVENT,
 };
 
 /// How far the opening exchange has progressed.
@@ -680,6 +680,22 @@ fn reader_loop(weak: Weak<Shared>, mut stream: TcpStream) {
             }
             Ok(n) => {
                 frame_reader.push(&buffer[..n]);
+
+                // A peer that never sends a delimiter would otherwise grow the
+                // buffer without bound: `next_frame` only reaches its size
+                // check once a complete frame has been drained.
+                if frame_reader.is_overgrown() {
+                    frame_reader.reset();
+                    tracing::warn!(
+                        "[parent-ipc] discarding overgrown frame (>{} bytes without a delimiter)",
+                        MAX_FRAME_BYTES
+                    );
+                    let _ = bridge.send(&Message::error(
+                        ErrorCode::FrameTooLarge,
+                        "frame exceeded the 1 MiB limit",
+                        false,
+                    ));
+                }
 
                 let mut keep_going = true;
                 while let Some(frame) = frame_reader.next_frame() {
