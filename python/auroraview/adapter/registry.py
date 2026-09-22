@@ -134,17 +134,12 @@ class Registry(object):
                 ``Backend``/``Adapter`` suffix stripped.
         """
         display = name or self._spec_name(spec)
-        # Replace an existing registration with the same identity.
-        # A name identifies a slot. Registering the same name twice replaces
-        # the previous entry rather than appending a duplicate: two entries
-        # sharing a name would make `unregister` ambiguous (it removes the first
-        # match only) and would let a stale candidate shadow a live one.
+        # A name identifies a slot. Registering the same name twice replaces the
+        # previous entry rather than appending a duplicate: two entries sharing a
+        # name would make `unregister` ambiguous (it removes the first match
+        # only) and would let a stale candidate shadow a live one.
         for index, (_priority, existing, existing_name) in enumerate(self._entries):
-            if (
-                existing_name == display
-                or existing is spec
-                or existing == spec
-            ):
+            if existing_name == display or existing is spec or existing == spec:
                 self._entries[index] = (priority, spec, display)
                 self._sort()
                 return
