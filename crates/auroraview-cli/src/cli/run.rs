@@ -673,9 +673,6 @@ pub fn run_webview(args: RunArgs) -> Result<()> {
     let html_path_for_reload = args.html.clone();
 
     // Child mode: connect back to the parent host over the loopback IPC
-    // channel. This is the Rust counterpart of `auroraview.child.ParentBridge`
-    // and needs no Python on either side.
-    // Child mode: connect back to the parent host over the loopback IPC
     // channel. This is the Rust half of `AURORAVIEW_PARENT_*` and needs no
     // Python on either side of the socket.
     let child_info = ChildInfo::from_env();
