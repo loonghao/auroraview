@@ -2,7 +2,9 @@
 """Tests for the auroraview.diagnostics() runtime diagnostics surface."""
 
 import importlib
+import importlib.util
 import json
+import sys
 
 import pytest
 
@@ -140,6 +142,38 @@ class TestDiagnosticsReport:
 
         assert info["version"] == auroraview.__version__
         assert isinstance(info["native_core"], bool)
+
+    def test_missing_native_core_is_a_state_not_an_error(self, monkeypatch):
+        # The native extension is optional, so an unimportable ``_core`` is a
+        # reported state rather than a broken probe.
+        monkeypatch.setitem(sys.modules, "auroraview._core", None)
+
+        report = diagnostics()
+
+        assert report["auroraview"]["native_core"] is False
+        assert report["auroraview"]["native_core_error"]
+        assert not [e for e in report["errors"] if e["probe"] == "auroraview._core"]
+
+        # The reason is still rendered, so triage keeps what it needs.
+        text = format_diagnostics(report)
+        assert "native core: no" in text
+        assert report["auroraview"]["native_core_error"] in text
+
+    def test_qt_probe_reads_qtcore_from_the_detected_binding(self, monkeypatch):
+        if importlib.util.find_spec("PySide6") is None:
+            pytest.skip("PySide6 is not installed")
+
+        # A binding installed without qtpy must not be reported as a probe
+        # failure; QtCore is read from the binding itself in that case.
+        monkeypatch.setitem(sys.modules, "qtpy", None)
+        monkeypatch.setattr(_DIAGNOSTICS_MODULE, "_QT_BINDINGS", ("PySide6",))
+
+        report = diagnostics()
+
+        assert report["qt"]["binding"] == "PySide6"
+        assert report["qt"]["available"] is True
+        assert isinstance(report["qt"]["app_instance"], bool)
+        assert not [e for e in report["errors"] if e["probe"] == "qt.app_instance"]
 
 
 class TestDiagnosticsRobustness:

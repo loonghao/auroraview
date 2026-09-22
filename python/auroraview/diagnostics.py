@@ -63,6 +63,7 @@ def _auroraview_info(errors: List[Dict[str, str]]) -> Dict[str, Any]:
         "path": None,
         "native_core": False,
         "native_core_path": None,
+        "native_core_error": None,
     }
 
     try:
@@ -84,8 +85,13 @@ def _auroraview_info(errors: List[Dict[str, str]]) -> Dict[str, Any]:
         info["native_core"] = True
         info["native_core_path"] = getattr(native_core, "__file__", None)
     except Exception as exc:  # noqa: BLE001
+        # The native extension is optional: a pure-Python install, or a wheel
+        # whose host native dependency is missing, legitimately has no
+        # ``_core``. That is a reported state rather than a broken probe, so
+        # it stays out of ``errors``; the reason is kept next to the flag that
+        # explains it so triage still sees why the core is absent.
         info["native_core"] = False
-        _record_error(errors, "auroraview._core", exc)
+        info["native_core_error"] = "{}: {}".format(type(exc).__name__, exc)
 
     return info
 
@@ -183,10 +189,13 @@ def _qt_info(errors: List[Dict[str, str]]) -> Dict[str, Any]:
         "app_instance": None,
     }
 
+    via_qtpy = False
+
     try:
         import qtpy
 
         info["binding"] = getattr(qtpy, "API_NAME", None)
+        via_qtpy = info["binding"] is not None
     except Exception:  # noqa: BLE001 - qtpy absent, probe raw bindings instead
         for binding_name in _QT_BINDINGS:
             try:
@@ -201,9 +210,14 @@ def _qt_info(errors: List[Dict[str, str]]) -> Dict[str, Any]:
         return info
 
     try:
-        from qtpy.QtCore import QCoreApplication
-
-        info["app_instance"] = QCoreApplication.instance() is not None
+        # Read QtCore through whichever binding was detected: qtpy when it
+        # resolved the binding, otherwise the raw binding's own module. Going
+        # through qtpy unconditionally would report a spurious probe failure
+        # on installs that ship a binding without qtpy.
+        core_module = importlib.import_module(
+            "qtpy.QtCore" if via_qtpy else "{}.QtCore".format(info["binding"])
+        )
+        info["app_instance"] = core_module.QCoreApplication.instance() is not None
     except Exception as exc:  # noqa: BLE001
         _record_error(errors, "qt.app_instance", exc)
 
@@ -263,15 +277,27 @@ def format_diagnostics(report: Optional[Dict[str, Any]] = None) -> str:
         "python     : {} ({})".format(
             report["python"]["version"], report["python"]["implementation"]
         ),
-        "host       : {} (dcc: {})".format(
-            report["host"]["name"] or "none",
-            "yes" if report["host"]["is_dcc"] else "no",
-        ),
-        "dispatcher : {} (priority: {})".format(
-            report["dispatcher"]["backend"] or "none",
-            report["dispatcher"]["priority"],
-        ),
     ]
+
+    # The native core is optional, so its absence is reported inline instead
+    # of being promoted to an error entry.
+    if report["auroraview"].get("native_core_error"):
+        lines.append(
+            "             native core import: {}".format(report["auroraview"]["native_core_error"])
+        )
+
+    lines.extend(
+        [
+            "host       : {} (dcc: {})".format(
+                report["host"]["name"] or "none",
+                "yes" if report["host"]["is_dcc"] else "no",
+            ),
+            "dispatcher : {} (priority: {})".format(
+                report["dispatcher"]["backend"] or "none",
+                report["dispatcher"]["priority"],
+            ),
+        ]
+    )
 
     override = report["dispatcher"]["env_override"]
     if override:
