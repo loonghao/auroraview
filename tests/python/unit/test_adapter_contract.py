@@ -586,6 +586,32 @@ class TestHostRegistryClass:
 
 
 class TestRegistry:
+    def test_registering_same_name_twice_replaces_rather_than_duplicating(self):
+        """Two entries sharing a name would leave a stale candidate behind."""
+        registry = Registry()
+        registry.register(lambda: "first", priority=10, name="dup")
+        registry.register(lambda: "second", priority=99, name="dup")
+
+        assert registry.names() == ["dup"]
+        assert len(registry) == 1
+        assert registry.build("dup") == "second"
+
+        assert registry.unregister("dup")
+        assert len(registry) == 0, "no stale duplicate may survive"
+
+    def test_override_candidate_is_only_constructed_once(self):
+        """The override candidate must not be rebuilt on the way past."""
+        builds = []
+
+        registry = Registry()
+        registry.register(lambda: builds.append(1) or "flaky", priority=100, name="flaky")
+        registry.register(lambda: "good", priority=50, name="good")
+
+        selection = registry.select(lambda value: value != "flaky", env_override="flaky")
+
+        assert selection.name == "good"
+        assert len(builds) == 1, "override candidate built %d times" % len(builds)
+
     def test_priority_ordering(self):
         registry = Registry()
         registry.register(lambda: "low", priority=0, name="low")

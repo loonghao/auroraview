@@ -310,6 +310,52 @@ compiles today breaks.
   which is scoped to exactly the follow-ups listed here.
 - **No CI matrix changes yet** (S3).
 
+### 8.1 Known gaps accepted for S1
+
+These were raised in review as P3 (non-blocking) and are deliberately left
+unfixed, with the reason recorded so they are not rediscovered later:
+
+- **`HostError` / `BackendError` are stringly typed.** `try_run_sync`
+  distinguishes "not implemented" from "thread model forbids it" only by
+  `reason` text, while capability probing is structured. Making the error types
+  structured is a breaking change to every adapter, so it belongs at the point
+  adapters actually exist (S2), not now.
+- **The default `HostAdapter::probe` can never return `Unknown`.** `Unknown` is a
+  first-class state, but reaching it requires an adapter to override `probe()`.
+  In practice it will be used less often than the design intends. Documented
+  rather than "fixed": forcing every adapter to answer would be worse.
+- **Python `run_deferred` returns `None`, Rust returns `HostResult<()>`.** A
+  Python adapter cannot report dispatch failure. Closing this gap means changing
+  the signature every adapter implements, so it waits for S2.
+- **`register_host_adapter` mutates process-wide global state** without a lock.
+  Registration normally happens once at import; making it thread-safe now would
+  add locking that no current caller needs.
+- **No consumer yet.** No crate depends on `auroraview-contract` other than core's
+  re-export, and no module imports `auroraview.adapter`. That is the normal
+  "contract first" stage, but it means review could only cover the contract's
+  *shape*, not its *usability*. Do the real wiring (`BackendFactory` →
+  `BackendRegistry`) before freezing it.
+
+### 8.2 Pinned deferred gap: "selectable but unusable"
+
+**This is the one known hole in the descriptor design.** `NativeWebviewBackend`
+is a descriptor whose `create_surface()` always fails. Once the linking crate
+calls `set_linked(true)`, `select()` will hand it out — and it still cannot build
+a surface. The failure this contract forbids ("I'm here" while being unable to
+work) does not disappear; only its trigger changes from "always" to "after the
+announcement".
+
+It is pinned by
+`backend::tests::descriptor_still_cannot_create_surfaces_even_when_announced`,
+which asserts the *current* incomplete state so the gap shows up in test output
+and cannot be silently forgotten. **When surface creation is wired through the
+registry (step 3), flip that assertion to `is_ok()`** and it becomes a real
+invariant instead of a reminder.
+
+Preferred way to close it (makes the bad state unrepresentable rather than
+merely tested): have `set_linked` take the surface factory, so announcing and
+being able to create are one action.
+
 ## 9. Verification
 
 ```bash

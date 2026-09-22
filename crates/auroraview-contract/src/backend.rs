@@ -369,6 +369,31 @@ impl BackendRegistry {
 /// `create_surface()` cannot work.
 static NATIVE_LINKED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
+/// Serializes tests that flip [`NATIVE_LINKED`].
+///
+/// The flag is process-wide by design (that is what lets the linking crate
+/// announce itself), but tests run in parallel, so any test that changes it
+/// must hold this lock. Without it the suite is flaky: a test that asserts
+/// "unannounced" can observe another test's "announced" value.
+static TEST_LINK_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Guard returned by [`NativeWebviewBackend::test_lock`].
+///
+/// Restores the linkage flag to its default (`false`) on drop so a test that
+/// announces the backend cannot leak that into the next test.
+#[doc(hidden)]
+pub struct LinkageTestGuard(
+    // Held only for its RAII lifetime: the mutex serializes tests, and this
+    // Drop impl restores the default. The value itself is never read.
+    #[allow(dead_code)] std::sync::MutexGuard<'static, ()>,
+);
+
+impl Drop for LinkageTestGuard {
+    fn drop(&mut self) {
+        NativeWebviewBackend::set_linked(false);
+    }
+}
+
 /// The platform webview backend: WebView2 / WKWebView / WebKitGTK.
 ///
 /// Declared here so both families are visible in one place. This type is a
@@ -388,6 +413,20 @@ impl NativeWebviewBackend {
     /// create surfaces.
     pub fn set_linked(linked: bool) {
         NATIVE_LINKED.store(linked, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    /// Lock guarding tests that call [`Self::set_linked`].
+    ///
+    /// Tests run in parallel against one process-wide flag, so each test that
+    /// flips it must hold this lock for its whole body. Returns a guard that
+    /// also restores the default (`false`) on drop.
+    #[doc(hidden)]
+    pub fn test_lock() -> LinkageTestGuard {
+        // A poisoned mutex still guards correctly here; the flag is a bool.
+        let guard = TEST_LINK_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        LinkageTestGuard(guard)
     }
 
     /// Whether the native webview engine has been announced as linked.
@@ -440,9 +479,9 @@ impl RenderBackend for NativeWebviewBackend {
             return None;
         }
         Some(
-            "no crate has linked the native webview (wry) and announced it; \
-             the crate that links the engine must call              NativeWebviewBackend::set_linked(true)"
-                .to_string(),
+            "no crate has linked the native webview (wry) and announced it; ".to_string()
+                + "the crate that links the engine must call "
+                + "NativeWebviewBackend::set_linked(true)",
         )
     }
 
@@ -461,7 +500,10 @@ impl RenderBackend for NativeWebviewBackend {
         if !self.available() {
             return CapabilitySupport::unsupported(
                 format!(
-                    "the native backend is not linked into this build, so {}                      cannot be provided",
+                    concat!(
+                        "the native backend is not linked into this build, ",
+                        "so {} cannot be provided",
+                    ),
                     feature
                 ),
                 self.missing_requirement()
@@ -622,18 +664,16 @@ mod tests {
         }
     }
 
-    // `NATIVE_LINKED` is process-wide state, so every test that flips it is
-    // grouped into this one test to keep them from racing each other.
+    // Only these two tests touch the process-wide `NATIVE_LINKED` flag, and
+    // each holds `test_lock()` for its whole body. Every other test goes
+    // through `probe_when_linked()` or a local backend, so it never mutates
+    // global state -- tests run in parallel, and two of them flipping one bool
+    // race each other no matter how carefully each restores it.
     #[test]
     fn native_backend_availability_follows_the_linkage_announcement() {
-        // Restore the default on exit so test ordering cannot leak state.
-        struct Restore;
-        impl Drop for Restore {
-            fn drop(&mut self) {
-                NativeWebviewBackend::set_linked(false);
-            }
-        }
-        let _restore = Restore;
+        // Held for the whole body: the flag is process-wide and other tests
+        // read it. Dropping the guard restores the default (`false`).
+        let _guard = NativeWebviewBackend::test_lock();
 
         assert_eq!(NativeWebviewBackend.id(), "native");
         assert_eq!(NativeWebviewBackend.family(), BackendFamily::Native);
@@ -670,38 +710,38 @@ mod tests {
         assert!(NativeWebviewBackend
             .probe(Features::NATIVE_EMBEDDING)
             .is_supported());
+        // No explicit reset: the guard restores the default on drop.
     }
 
     #[test]
     fn native_backend_reports_cdp_as_unsupported_with_a_remediation() {
-        NativeWebviewBackend::set_linked(true);
-        let support = NativeWebviewBackend.probe(Features::CDP);
+        // Routed through `probe_when_linked`, so this test never touches the
+        // process-wide linkage flag: only the consolidated availability test
+        // below mutates it.
+        let support = NativeWebviewBackend.probe_when_linked(Features::CDP);
         assert!(!support.is_supported());
         assert_eq!(
             support.how_to_enable(),
             Some("select the 'chromium' backend (AURORAVIEW_BACKEND=chromium)")
         );
         assert!(support.reason().expect("reason").contains("DevTools"));
-        NativeWebviewBackend::set_linked(false);
     }
 
     #[test]
     fn native_backend_reports_transparency_as_unknown_not_unsupported() {
-        NativeWebviewBackend::set_linked(true);
-        let support = NativeWebviewBackend.probe(Features::TRANSPARENCY);
+        let support = NativeWebviewBackend.probe_when_linked(Features::TRANSPARENCY);
         assert!(support.is_unknown(), "must not guess: {}", support);
         assert_eq!(support.how_to_enable(), None);
-        NativeWebviewBackend::set_linked(false);
     }
 
     #[test]
     fn native_backend_reports_declared_capabilities_as_supported() {
-        NativeWebviewBackend::set_linked(true);
         assert!(NativeWebviewBackend
-            .probe(Features::NATIVE_EMBEDDING)
+            .probe_when_linked(Features::NATIVE_EMBEDDING)
             .is_supported());
-        assert!(NativeWebviewBackend.probe(Features::COOKIES).is_supported());
-        NativeWebviewBackend::set_linked(false);
+        assert!(NativeWebviewBackend
+            .probe_when_linked(Features::COOKIES)
+            .is_supported());
     }
 
     #[test]
@@ -770,6 +810,7 @@ mod tests {
 
     #[test]
     fn default_registry_lists_both_but_selects_nothing_until_announced() {
+        let _guard = NativeWebviewBackend::test_lock();
         let registry = default_backend_registry();
         assert_eq!(registry.ids(), vec!["native", "chromium"]);
 
@@ -801,8 +842,40 @@ mod tests {
         assert_eq!(selection.name, "native");
         assert!(selection.has_warnings());
         assert!(selection.warnings[0].contains("not available"));
+        // No explicit reset: the guard restores the default on drop.
+    }
 
-        NativeWebviewBackend::set_linked(false);
+    /// Pins the deferred gap described in `docs/design/adapter-contract.md`:
+    /// once surface creation is wired through the registry (step 3), a backend
+    /// that `select()` hands out MUST be able to create a surface.
+    ///
+    /// Today `NativeWebviewBackend` is a descriptor whose `create_surface()`
+    /// always fails, so announcing the engine as linked re-opens the very
+    /// failure this contract forbids -- "selectable but unusable". This test
+    /// asserts the CURRENT (known-incomplete) state so the gap is visible in
+    /// test output and cannot be silently forgotten. When step 3 lands, flip
+    /// the assertion to `is_ok()` and the guard becomes a real invariant.
+    #[test]
+    fn descriptor_still_cannot_create_surfaces_even_when_announced() {
+        let _guard = NativeWebviewBackend::test_lock();
+
+        NativeWebviewBackend::set_linked(true);
+        let registry = default_backend_registry();
+        let selection = registry
+            .select_with(None)
+            .expect("native is available once announced");
+
+        // The documented gap: selectable, but not yet able to build a surface.
+        let result = selection
+            .value
+            .create_surface(&SurfaceSpec::with_url("about:blank"));
+        assert!(
+            result.is_err(),
+            "step 3 not done: expected the descriptor to \
+             refuse; wire surface creation through the registry and flip this \
+             assertion to is_ok()"
+        );
+        // No explicit reset: the guard restores the default on drop.
     }
 
     #[test]
