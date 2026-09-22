@@ -349,6 +349,10 @@ jobs:
         if: needs.path-filter.outputs.needs_rust_checks == 'true'
         run: vx just unsafe-audit
 
+      - name: Check host-adapter contract Rust/Python capability parity
+        if: needs.path-filter.outputs.needs_rust_checks == 'true'
+        run: vx python scripts/ci/check_contract_capability_parity.py
+
       - name: Install system dependencies
         if: needs.path-filter.outputs.needs_rust_checks == 'true'
         run: |

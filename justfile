@@ -197,6 +197,8 @@ ci-grep:
     vx python scripts/ci/check_capture_file_drop_defaults.py
     @echo "[ci-grep] RFC 0016 Browser-mode capture_file_drop guard..."
     vx python scripts/ci/check_browser_no_drag_drop_capture.py
+    @echo "[ci-grep] host-adapter contract Rust/Python capability parity guard..."
+    vx python scripts/ci/check_contract_capability_parity.py
 
 # Run all tests
 [unix]
@@ -204,6 +206,7 @@ test:
     @echo "Running CI grep guards (RFC 0016 §5 / RFC 0017 §5)..."
     vx just ci-grep
     @echo "Running workspace crate tests..."
+    vx cargo test -p auroraview-contract
     vx cargo test -p auroraview-core
     vx cargo test -p auroraview-pack
     vx cargo test -p auroraview-cli
@@ -232,6 +235,7 @@ test:
     @echo "Running CI grep guards (RFC 0016 §5 / RFC 0017 §5)..."
     vx just ci-grep
     @echo "Running workspace crate tests..."
+    vx cargo test -p auroraview-contract
     vx cargo test -p auroraview-core
     vx cargo test -p auroraview-pack
     vx cargo test -p auroraview-cli
@@ -481,6 +485,7 @@ test-python-integration:
 test-unit:
     @echo "Running Rust unit tests..."
     vx cargo test --lib
+    vx cargo test -p auroraview-contract
     vx cargo test -p auroraview-core
     vx cargo test -p auroraview-pack
     vx cargo test -p auroraview-cli

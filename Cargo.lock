@@ -598,9 +598,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "auroraview-contract"
+version = "1.0.0"
+
+[[package]]
 name = "auroraview-core"
 version = "0.5.9"
 dependencies = [
+ "auroraview-contract",
  "active-win-pos-rs",
  "askama",
  "auroraview-assets",
