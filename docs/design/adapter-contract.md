@@ -324,6 +324,26 @@ unfixed, with the reason recorded so they are not rediscovered later:
   *shape*, not its *usability*. Do the real wiring (`BackendFactory` →
   `BackendRegistry`) before freezing it.
 
+### 8.2 Pinned deferred gap: "selectable but unusable"
+
+**This is the one known hole in the descriptor design.** `NativeWebviewBackend`
+is a descriptor whose `create_surface()` always fails. Once the linking crate
+calls `set_linked(true)`, `select()` will hand it out — and it still cannot build
+a surface. The failure this contract forbids ("I'm here" while being unable to
+work) does not disappear; only its trigger changes from "always" to "after the
+announcement".
+
+It is pinned by
+`backend::tests::descriptor_still_cannot_create_surfaces_even_when_announced`,
+which asserts the *current* incomplete state so the gap shows up in test output
+and cannot be silently forgotten. **When surface creation is wired through the
+registry (step 3), flip that assertion to `is_ok()`** and it becomes a real
+invariant instead of a reminder.
+
+Preferred way to close it (makes the bad state unrepresentable rather than
+merely tested): have `set_linked` take the surface factory, so announcing and
+being able to create are one action.
+
 ## 9. Verification
 
 ```bash
