@@ -5,6 +5,7 @@ import importlib
 import importlib.util
 import json
 import sys
+import types
 
 import pytest
 
@@ -67,6 +68,33 @@ class ExplodingBackend(StubBackend):
 
     def is_main_thread(self):
         raise RuntimeError("probe failed")
+
+
+class NoMainThreadBackend(StubBackend):
+    """Selectable backend whose host main-thread probe fails."""
+
+    def is_main_thread(self):
+        raise RuntimeError("main thread probe failed")
+
+
+class ImportShim:
+    """Stand-in for :mod:`importlib` injecting import failures.
+
+    ``auroraview.diagnostics`` reaches for ``importlib.import_module`` through
+    the module attribute, so swapping the attribute is enough to make one
+    specific module blow up. Everything else delegates to the real importlib.
+    """
+
+    def __init__(self, failures=None, modules=None):
+        self.failures = dict(failures or {})
+        self.modules = dict(modules or {})
+
+    def import_module(self, name, package=None):
+        if name in self.failures:
+            raise self.failures[name]
+        if name in self.modules:
+            return self.modules[name]
+        return importlib.import_module(name, package)
 
 
 class TestDiagnosticsReport:
@@ -203,6 +231,116 @@ class TestDiagnosticsRobustness:
         assert set(REQUIRED_SECTIONS) <= set(report)
         assert report["host"]["name"] is None
         assert any(entry["probe"] == "host" for entry in report["errors"])
+
+    def test_version_probe_failure_is_recorded(self, monkeypatch):
+        monkeypatch.delattr(auroraview, "__version__")
+
+        report = diagnostics()
+
+        assert report["auroraview"]["version"] is None
+        assert any(entry["probe"] == "auroraview.version" for entry in report["errors"])
+
+    def test_path_probe_failure_is_recorded(self, monkeypatch):
+        monkeypatch.setattr(auroraview, "__file__", None)
+
+        report = diagnostics()
+
+        assert report["auroraview"]["path"] is None
+        assert any(entry["probe"] == "auroraview.path" for entry in report["errors"])
+
+    def test_backend_list_failure_is_recorded(self, monkeypatch):
+        def boom():
+            raise RuntimeError("backends probe failed")
+
+        monkeypatch.setattr(_DIAGNOSTICS_MODULE, "list_dispatcher_backends", boom)
+
+        report = diagnostics()
+
+        assert report["dispatcher"]["backends"] == []
+        assert any(entry["probe"] == "dispatcher.backends" for entry in report["errors"])
+
+    def test_active_backend_failure_is_recorded(self, monkeypatch):
+        def boom():
+            raise RuntimeError("backend probe failed")
+
+        # The thread probe resolves the backend through the same entry point,
+        # so a single failure must not take the whole report down with it.
+        monkeypatch.setattr(_DIAGNOSTICS_MODULE, "get_dispatcher_backend", boom)
+
+        report = diagnostics()
+
+        assert report["dispatcher"]["backend"] is None
+        assert report["dispatcher"]["priority"] is None
+        assert report["thread"]["is_host_main_thread"] is None
+        assert any(entry["probe"] == "dispatcher.backend" for entry in report["errors"])
+        assert any(entry["probe"] == "thread.is_host_main_thread" for entry in report["errors"])
+
+    def test_host_main_thread_failure_is_recorded(self):
+        register_dispatcher_backend(NoMainThreadBackend, priority=10_000, name="NoMainThread")
+
+        report = diagnostics()
+
+        assert report["dispatcher"]["backend"] == "NoMainThread"
+        assert report["thread"]["is_host_main_thread"] is None
+        assert any(entry["probe"] == "thread.is_host_main_thread" for entry in report["errors"])
+
+    def test_qt_app_instance_failure_is_recorded(self, monkeypatch):
+        # A fake qtpy keeps this independent of which binding the runner has.
+        monkeypatch.setitem(sys.modules, "qtpy", types.SimpleNamespace(API_NAME="PySide6"))
+        monkeypatch.setattr(
+            _DIAGNOSTICS_MODULE,
+            "importlib",
+            ImportShim({"qtpy.QtCore": RuntimeError("QtCore is broken")}),
+        )
+
+        report = diagnostics()
+
+        assert report["qt"]["binding"] == "PySide6"
+        assert report["qt"]["available"] is True
+        assert report["qt"]["app_instance"] is None
+        assert any(entry["probe"] == "qt.app_instance" for entry in report["errors"])
+
+    def test_qt_binding_probe_survives_non_import_error(self, monkeypatch):
+        # Regression for the escape path: qtpy absent and a half-installed
+        # binding raising a non-ImportError must not leave diagnostics().
+        monkeypatch.setitem(sys.modules, "qtpy", None)
+        monkeypatch.setattr(_DIAGNOSTICS_MODULE, "_QT_BINDINGS", ("PySide6",))
+        monkeypatch.setattr(
+            _DIAGNOSTICS_MODULE,
+            "importlib",
+            ImportShim({"PySide6": RuntimeError("PySide6 is broken in this install")}),
+        )
+
+        report = diagnostics()
+
+        assert set(REQUIRED_SECTIONS) <= set(report)
+        assert report["qt"]["binding"] is None
+        assert report["qt"]["available"] is False
+        assert any(entry["probe"] == "qt.binding" for entry in report["errors"])
+
+    def test_qt_binding_probe_keeps_going_after_a_broken_binding(self, monkeypatch):
+        # A broken binding is recorded, and the remaining ones are still tried.
+        fake_qtcore = types.SimpleNamespace(
+            QCoreApplication=types.SimpleNamespace(instance=lambda: None)
+        )
+        monkeypatch.setitem(sys.modules, "qtpy", None)
+        monkeypatch.setattr(_DIAGNOSTICS_MODULE, "_QT_BINDINGS", ("BrokenQt", "WorkingQt"))
+        monkeypatch.setattr(
+            _DIAGNOSTICS_MODULE,
+            "importlib",
+            ImportShim(
+                failures={"BrokenQt": OSError("BrokenQt is half-installed")},
+                modules={"WorkingQt": types.SimpleNamespace(), "WorkingQt.QtCore": fake_qtcore},
+            ),
+        )
+
+        report = diagnostics()
+
+        assert report["qt"]["binding"] == "WorkingQt"
+        assert report["qt"]["available"] is True
+        assert report["qt"]["app_instance"] is False
+        assert any(entry["probe"] == "qt.binding" for entry in report["errors"])
+        assert not [e for e in report["errors"] if e["probe"] == "qt.app_instance"]
 
     def test_env_override_is_reported(self, monkeypatch):
         monkeypatch.setenv("AURORAVIEW_DISPATCHER", "fallback")
