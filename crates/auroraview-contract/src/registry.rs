@@ -125,7 +125,18 @@ impl<T> Registry<T> {
 
     /// Register a pre-built [`Entry`].
     pub fn register_entry(&mut self, entry: Entry<T>) {
-        self.entries.push(entry);
+        // A name identifies a slot. Registering the same name twice replaces the
+        // previous entry rather than appending a duplicate: two entries sharing
+        // a name would make `unregister` ambiguous (it removes the first match
+        // only) and would let a stale candidate shadow a live one.
+        match self
+            .entries
+            .iter_mut()
+            .find(|existing| existing.name == entry.name)
+        {
+            Some(existing) => *existing = entry,
+            None => self.entries.push(entry),
+        }
         self.entries
             .sort_by_key(|entry| std::cmp::Reverse(entry.priority));
     }
@@ -242,6 +253,10 @@ impl<T> Registry<T> {
     ) -> Option<Selection<T>> {
         let mut warnings = Vec::new();
 
+        // Candidate already constructed and probed under the override, so the
+        // priority pass must not build it a second time.
+        let mut probed_name: Option<&str> = None;
+
         if let Some(requested) = env_override {
             let requested = requested.trim();
             if !requested.is_empty() {
@@ -251,6 +266,7 @@ impl<T> Registry<T> {
                     .find(|entry| entry.name.eq_ignore_ascii_case(requested))
                 {
                     Some(entry) => {
+                        probed_name = Some(entry.name.as_str());
                         let value = entry.create();
                         if Self::check(&mut predicate, &value, &entry.name, &mut warnings) {
                             return Some(Selection {
@@ -275,6 +291,9 @@ impl<T> Registry<T> {
         }
 
         for entry in &self.entries {
+            if probed_name == Some(entry.name.as_str()) {
+                continue;
+            }
             let value = entry.create();
             if Self::check(&mut predicate, &value, &entry.name, &mut warnings) {
                 return Some(Selection {
@@ -454,6 +473,51 @@ mod tests {
         assert_eq!(selection.name, "good");
         assert!(!selection.via_env_override);
         assert!(selection.warnings.iter().any(|w| w.contains("panicked")));
+    }
+
+    #[test]
+    fn registering_the_same_name_twice_replaces_rather_than_duplicating() {
+        // Two entries sharing a name would make `unregister` ambiguous: it
+        // removes the first match only, leaving a stale candidate behind.
+        let mut registry = Registry::new();
+        registry.register("dup", 10, || "first".to_string());
+        registry.register("dup", 99, || "second".to_string());
+
+        assert_eq!(registry.names(), vec!["dup"]);
+        assert_eq!(registry.len(), 1);
+        assert_eq!(registry.get("dup"), Some("second".to_string()));
+
+        assert!(registry.unregister("dup"));
+        assert!(registry.is_empty(), "no stale duplicate may survive");
+    }
+
+    #[test]
+    fn an_override_candidate_is_only_constructed_once() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+
+        let builds = Arc::new(AtomicUsize::new(0));
+        let mut registry = Registry::new();
+        let counter = Arc::clone(&builds);
+        registry.register("flaky", 100, move || {
+            counter.fetch_add(1, Ordering::SeqCst);
+            "flaky".to_string()
+        });
+        registry.register("good", 50, || "good".to_string());
+
+        // "flaky" is named by the override but fails the predicate, so selection
+        // falls through to priority order. It must not be built a second time
+        // on the way past.
+        let selection = registry
+            .select(Some("flaky"), |value| value != "flaky")
+            .expect("must fall back to a healthy candidate");
+
+        assert_eq!(selection.name, "good");
+        assert_eq!(
+            builds.load(Ordering::SeqCst),
+            1,
+            "the override candidate must be constructed once, not twice"
+        );
     }
 
     #[test]

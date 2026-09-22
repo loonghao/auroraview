@@ -135,8 +135,16 @@ class Registry(object):
         """
         display = name or self._spec_name(spec)
         # Replace an existing registration with the same identity.
-        for index, (_priority, existing, _name) in enumerate(self._entries):
-            if existing is spec or existing == spec:
+        # A name identifies a slot. Registering the same name twice replaces
+        # the previous entry rather than appending a duplicate: two entries
+        # sharing a name would make `unregister` ambiguous (it removes the first
+        # match only) and would let a stale candidate shadow a live one.
+        for index, (_priority, existing, existing_name) in enumerate(self._entries):
+            if (
+                existing_name == display
+                or existing is spec
+                or existing == spec
+            ):
                 self._entries[index] = (priority, spec, display)
                 self._sort()
                 return
@@ -199,6 +207,7 @@ class Registry(object):
         host detection for everyone.
         """
         warnings: List[str] = []
+        probed_name: Optional[str] = None
 
         def check(value: Any, display: str) -> bool:
             """Run the predicate, treating a raising candidate as unusable."""
@@ -225,6 +234,7 @@ class Registry(object):
                     )
                 else:
                     spec, display = match
+                    probed_name = display
                     value = self._instantiate(spec, display)
                     if value is not None and check(value, display):
                         return Selection(value, display, True, warnings)
@@ -233,7 +243,11 @@ class Registry(object):
                         "falling back to priority order".format(display)
                     )
 
+        # The override candidate was already built and probed above; the
+        # priority pass must not build it a second time.
         for _priority, spec, display in self._entries:
+            if display == probed_name:
+                continue
             value = self._instantiate(spec, display)
             if value is not None and check(value, display):
                 return Selection(value, display, False, warnings)

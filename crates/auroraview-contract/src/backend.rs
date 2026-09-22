@@ -369,6 +369,31 @@ impl BackendRegistry {
 /// `create_surface()` cannot work.
 static NATIVE_LINKED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
+/// Serializes tests that flip [`NATIVE_LINKED`].
+///
+/// The flag is process-wide by design (that is what lets the linking crate
+/// announce itself), but tests run in parallel, so any test that changes it
+/// must hold this lock. Without it the suite is flaky: a test that asserts
+/// "unannounced" can observe another test's "announced" value.
+static TEST_LINK_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Guard returned by [`NativeWebviewBackend::test_lock`].
+///
+/// Restores the linkage flag to its default (`false`) on drop so a test that
+/// announces the backend cannot leak that into the next test.
+#[doc(hidden)]
+pub struct LinkageTestGuard(
+    // Held only for its RAII lifetime: the mutex serializes tests, and this
+    // Drop impl restores the default. The value itself is never read.
+    #[allow(dead_code)] std::sync::MutexGuard<'static, ()>,
+);
+
+impl Drop for LinkageTestGuard {
+    fn drop(&mut self) {
+        NativeWebviewBackend::set_linked(false);
+    }
+}
+
 /// The platform webview backend: WebView2 / WKWebView / WebKitGTK.
 ///
 /// Declared here so both families are visible in one place. This type is a
@@ -388,6 +413,20 @@ impl NativeWebviewBackend {
     /// create surfaces.
     pub fn set_linked(linked: bool) {
         NATIVE_LINKED.store(linked, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    /// Lock guarding tests that call [`Self::set_linked`].
+    ///
+    /// Tests run in parallel against one process-wide flag, so each test that
+    /// flips it must hold this lock for its whole body. Returns a guard that
+    /// also restores the default (`false`) on drop.
+    #[doc(hidden)]
+    pub fn test_lock() -> LinkageTestGuard {
+        // A poisoned mutex still guards correctly here; the flag is a bool.
+        let guard = TEST_LINK_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        LinkageTestGuard(guard)
     }
 
     /// Whether the native webview engine has been announced as linked.
@@ -626,14 +665,9 @@ mod tests {
     // grouped into this one test to keep them from racing each other.
     #[test]
     fn native_backend_availability_follows_the_linkage_announcement() {
-        // Restore the default on exit so test ordering cannot leak state.
-        struct Restore;
-        impl Drop for Restore {
-            fn drop(&mut self) {
-                NativeWebviewBackend::set_linked(false);
-            }
-        }
-        let _restore = Restore;
+        // Held for the whole body: the flag is process-wide and other tests
+        // read it. Dropping the guard restores the default (`false`).
+        let _guard = NativeWebviewBackend::test_lock();
 
         assert_eq!(NativeWebviewBackend.id(), "native");
         assert_eq!(NativeWebviewBackend.family(), BackendFamily::Native);
@@ -674,6 +708,7 @@ mod tests {
 
     #[test]
     fn native_backend_reports_cdp_as_unsupported_with_a_remediation() {
+        let _guard = NativeWebviewBackend::test_lock();
         NativeWebviewBackend::set_linked(true);
         let support = NativeWebviewBackend.probe(Features::CDP);
         assert!(!support.is_supported());
@@ -687,6 +722,7 @@ mod tests {
 
     #[test]
     fn native_backend_reports_transparency_as_unknown_not_unsupported() {
+        let _guard = NativeWebviewBackend::test_lock();
         NativeWebviewBackend::set_linked(true);
         let support = NativeWebviewBackend.probe(Features::TRANSPARENCY);
         assert!(support.is_unknown(), "must not guess: {}", support);
@@ -696,6 +732,7 @@ mod tests {
 
     #[test]
     fn native_backend_reports_declared_capabilities_as_supported() {
+        let _guard = NativeWebviewBackend::test_lock();
         NativeWebviewBackend::set_linked(true);
         assert!(NativeWebviewBackend
             .probe(Features::NATIVE_EMBEDDING)
@@ -770,6 +807,7 @@ mod tests {
 
     #[test]
     fn default_registry_lists_both_but_selects_nothing_until_announced() {
+        let _guard = NativeWebviewBackend::test_lock();
         let registry = default_backend_registry();
         assert_eq!(registry.ids(), vec!["native", "chromium"]);
 
