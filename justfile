@@ -197,6 +197,8 @@ ci-grep:
     vx python scripts/ci/check_capture_file_drop_defaults.py
     @echo "[ci-grep] RFC 0016 Browser-mode capture_file_drop guard..."
     vx python scripts/ci/check_browser_no_drag_drop_capture.py
+    @echo "[ci-grep] host-adapter contract Rust/Python capability parity guard..."
+    vx python scripts/ci/check_contract_capability_parity.py
 
 # Run all tests
 [unix]

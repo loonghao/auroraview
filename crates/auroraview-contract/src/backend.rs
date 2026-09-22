@@ -36,6 +36,10 @@ pub const ENV_BACKEND: &str = "AURORAVIEW_BACKEND";
 
 /// Engine family behind a backend.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Adding a variant is a minor (additive) change; removing or renaming one
+/// is breaking and requires a major bump coordinated across every host
+/// repository. See the version policy in `Cargo.toml`.
+#[non_exhaustive]
 pub enum BackendFamily {
     /// The platform's own webview control.
     Native,
@@ -353,14 +357,66 @@ impl BackendRegistry {
     }
 }
 
+/// Whether the crate that links the native engine has announced itself.
+///
+/// The contract crate is dependency-free and therefore cannot link a WebView
+/// engine itself, nor can it detect whether one is linked. The crate that does
+/// link one (today `auroraview`/wry, in future `auroraview-core`) calls
+/// [`NativeWebviewBackend::set_linked`] at start-up.
+///
+/// Until then `available()` is `false` and `missing_requirement()` says who
+/// should have announced it -- a backend must never claim to be present while
+/// `create_surface()` cannot work.
+static NATIVE_LINKED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 /// The platform webview backend: WebView2 / WKWebView / WebKitGTK.
 ///
-/// Declared here so both families are visible in one place. Surface creation is
-/// delegated to the crate that links the engine (today: `auroraview`/wry); this
-/// descriptor states the capabilities of that path and is what capability
-/// probing reports.
+/// Declared here so both families are visible in one place. This type is a
+/// **descriptor**: it declares what the native path can do, and its
+/// `create_surface()` always fails because the contract crate links no engine.
+/// Availability is announced by the crate that does link one -- see
+/// [`NativeWebviewBackend::set_linked`].
 #[derive(Debug, Default, Clone, Copy)]
 pub struct NativeWebviewBackend;
+
+impl NativeWebviewBackend {
+    /// Announce that the native webview engine is linked into this build.
+    ///
+    /// Called by the crate that links wry (or an equivalent), not by the
+    /// contract. Until this is called the backend reports itself unavailable, so
+    /// `BackendRegistry::select()` will not hand out a backend that cannot
+    /// create surfaces.
+    pub fn set_linked(linked: bool) {
+        NATIVE_LINKED.store(linked, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    /// Whether the native webview engine has been announced as linked.
+    pub fn linked() -> bool {
+        NATIVE_LINKED.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    /// Capability answers for the native path, assuming it is linked.
+    ///
+    /// Split out from [`RenderBackend::probe`] so callers that already know the
+    /// engine is linked (and tests that must not touch the global flag) can ask
+    /// about capabilities without depending on the announcement state.
+    pub fn probe_when_linked(&self, feature: Features) -> CapabilitySupport {
+        match feature {
+            Features::CDP => CapabilitySupport::unsupported(
+                "the platform webview does not expose a Chrome DevTools Protocol endpoint",
+                "select the 'chromium' backend (AURORAVIEW_BACKEND=chromium)",
+            ),
+            Features::TRANSPARENCY => CapabilitySupport::unknown(
+                "transparency depends on the platform compositor; verify at runtime",
+            ),
+            other if self.capabilities().contains(other) => CapabilitySupport::Supported,
+            other => CapabilitySupport::unsupported(
+                format!("the native backend does not provide {}", other),
+                "select a different backend via AURORAVIEW_BACKEND",
+            ),
+        }
+    }
+}
 
 impl RenderBackend for NativeWebviewBackend {
     fn id(&self) -> &'static str {
@@ -376,11 +432,18 @@ impl RenderBackend for NativeWebviewBackend {
     }
 
     fn available(&self) -> bool {
-        true
+        Self::linked()
     }
 
     fn missing_requirement(&self) -> Option<String> {
-        None
+        if Self::linked() {
+            return None;
+        }
+        Some(
+            "no crate has linked the native webview (wry) and announced it; \
+             the crate that links the engine must call              NativeWebviewBackend::set_linked(true)"
+                .to_string(),
+        )
     }
 
     fn capabilities(&self) -> Features {
@@ -395,20 +458,17 @@ impl RenderBackend for NativeWebviewBackend {
     }
 
     fn probe(&self, feature: Features) -> CapabilitySupport {
-        match feature {
-            Features::CDP => CapabilitySupport::unsupported(
-                "the platform webview does not expose a Chrome DevTools Protocol endpoint",
-                "select the 'chromium' backend (AURORAVIEW_BACKEND=chromium)",
-            ),
-            Features::TRANSPARENCY => CapabilitySupport::unknown(
-                "transparency depends on the platform compositor; verify at runtime",
-            ),
-            other if self.capabilities().contains(other) => CapabilitySupport::Supported,
-            other => CapabilitySupport::unsupported(
-                format!("the native backend does not provide {}", other),
-                "select a different backend via AURORAVIEW_BACKEND",
-            ),
+        if !self.available() {
+            return CapabilitySupport::unsupported(
+                format!(
+                    "the native backend is not linked into this build, so {}                      cannot be provided",
+                    feature
+                ),
+                self.missing_requirement()
+                    .unwrap_or_else(|| "link the native backend".to_string()),
+            );
         }
+        self.probe_when_linked(feature)
     }
 
     fn create_surface(&self, _spec: &SurfaceSpec) -> BackendResult<Box<dyn RenderSurface>> {
@@ -519,17 +579,102 @@ pub fn default_backend_registry() -> BackendRegistry {
 mod tests {
     use super::*;
 
+    /// A native backend that is always available, for testing capability logic
+    /// without touching the process-wide linkage flag.
+    #[derive(Default)]
+    struct _AvailableBackend;
+
+    impl RenderBackend for _AvailableBackend {
+        fn id(&self) -> &'static str {
+            "native"
+        }
+
+        fn display_name(&self) -> &'static str {
+            "Available native backend (test)"
+        }
+
+        fn family(&self) -> BackendFamily {
+            BackendFamily::Native
+        }
+
+        fn available(&self) -> bool {
+            true
+        }
+
+        fn missing_requirement(&self) -> Option<String> {
+            None
+        }
+
+        fn capabilities(&self) -> Features {
+            NativeWebviewBackend.capabilities()
+        }
+
+        fn probe(&self, feature: Features) -> CapabilitySupport {
+            NativeWebviewBackend.probe_when_linked(feature)
+        }
+
+        fn create_surface(&self, _spec: &SurfaceSpec) -> BackendResult<Box<dyn RenderSurface>> {
+            Err(BackendError::unsupported(
+                "create_surface",
+                "test backend",
+                "not implemented",
+            ))
+        }
+    }
+
+    // `NATIVE_LINKED` is process-wide state, so every test that flips it is
+    // grouped into this one test to keep them from racing each other.
     #[test]
-    fn native_backend_declares_the_system_webview_path() {
-        let backend = NativeWebviewBackend;
-        assert_eq!(backend.id(), "native");
-        assert_eq!(backend.family(), BackendFamily::Native);
-        assert!(backend.available());
-        assert_eq!(backend.missing_requirement(), None);
+    fn native_backend_availability_follows_the_linkage_announcement() {
+        // Restore the default on exit so test ordering cannot leak state.
+        struct Restore;
+        impl Drop for Restore {
+            fn drop(&mut self) {
+                NativeWebviewBackend::set_linked(false);
+            }
+        }
+        let _restore = Restore;
+
+        assert_eq!(NativeWebviewBackend.id(), "native");
+        assert_eq!(NativeWebviewBackend.family(), BackendFamily::Native);
+
+        // Unannounced: must not claim to be present, and must say who should
+        // have announced it. A backend that is "here" but cannot create a
+        // surface is the exact failure this prevents.
+        NativeWebviewBackend::set_linked(false);
+        assert!(!NativeWebviewBackend.available());
+        let missing = NativeWebviewBackend
+            .missing_requirement()
+            .expect("unannounced backend must explain what is missing");
+        assert!(missing.contains("set_linked"), "{}", missing);
+
+        // Unannounced -> every probe is a structured "unsupported" with a hint.
+        for flag in Features::iter_flags() {
+            let support = NativeWebviewBackend.probe(flag);
+            assert!(
+                !support.is_supported(),
+                "an unannounced backend must not claim {}",
+                flag
+            );
+            assert!(
+                support.how_to_enable().is_some(),
+                "missing hint for {}",
+                flag
+            );
+        }
+
+        // Announced: capabilities are reported honestly again.
+        NativeWebviewBackend::set_linked(true);
+        assert!(NativeWebviewBackend.available());
+        assert_eq!(NativeWebviewBackend.missing_requirement(), None);
+        assert!(NativeWebviewBackend
+            .probe(Features::NATIVE_EMBEDDING)
+            .is_supported());
     }
 
     #[test]
     fn native_backend_reports_cdp_as_unsupported_with_a_remediation() {
+        NativeWebviewBackend::set_linked(true);
         let support = NativeWebviewBackend.probe(Features::CDP);
         assert!(!support.is_supported());
         assert_eq!(
@@ -537,21 +682,26 @@ mod tests {
             Some("select the 'chromium' backend (AURORAVIEW_BACKEND=chromium)")
         );
         assert!(support.reason().expect("reason").contains("DevTools"));
+        NativeWebviewBackend::set_linked(false);
     }
 
     #[test]
     fn native_backend_reports_transparency_as_unknown_not_unsupported() {
+        NativeWebviewBackend::set_linked(true);
         let support = NativeWebviewBackend.probe(Features::TRANSPARENCY);
         assert!(support.is_unknown(), "must not guess: {}", support);
         assert_eq!(support.how_to_enable(), None);
+        NativeWebviewBackend::set_linked(false);
     }
 
     #[test]
     fn native_backend_reports_declared_capabilities_as_supported() {
+        NativeWebviewBackend::set_linked(true);
         assert!(NativeWebviewBackend
             .probe(Features::NATIVE_EMBEDDING)
             .is_supported());
         assert!(NativeWebviewBackend.probe(Features::COOKIES).is_supported());
+        NativeWebviewBackend::set_linked(false);
     }
 
     #[test]
@@ -619,38 +769,52 @@ mod tests {
     }
 
     #[test]
-    fn default_registry_prefers_native_but_lists_both() {
+    fn default_registry_lists_both_but_selects_nothing_until_announced() {
         let registry = default_backend_registry();
         assert_eq!(registry.ids(), vec!["native", "chromium"]);
+
+        // Nothing is linked into this crate, so nothing is selectable. Returning
+        // `None` is the honest answer -- handing out a backend whose
+        // `create_surface()` can only fail would be worse.
         assert_eq!(
             registry.list(),
             vec![
-                (100, "native".to_string(), true),
+                (100, "native".to_string(), false),
                 (50, "chromium".to_string(), false)
             ]
         );
+        assert!(registry.select_with(None).is_none());
 
+        // Once the linking crate announces itself, native wins by priority.
+        NativeWebviewBackend::set_linked(true);
         let selection = registry
             .select_with(None)
-            .expect("native must be available");
+            .expect("native must be available once announced");
         assert_eq!(selection.name, "native");
         assert!(!selection.has_warnings());
-    }
 
-    #[test]
-    fn backend_override_falls_back_with_a_warning_when_unavailable() {
-        let registry = default_backend_registry();
+        // An override naming an unavailable backend degrades to native with a
+        // warning rather than failing.
         let selection = registry
             .select_with(Some("chromium"))
             .expect("must fall back to native");
         assert_eq!(selection.name, "native");
         assert!(selection.has_warnings());
         assert!(selection.warnings[0].contains("not available"));
+
+        NativeWebviewBackend::set_linked(false);
     }
 
     #[test]
     fn registry_reports_capabilities_per_backend() {
-        let registry = default_backend_registry();
+        // Built from a local "available" backend rather than the global linkage
+        // flag: tests run in parallel, and flipping shared state from two tests
+        // at once is a race regardless of how carefully each one restores it.
+        let mut registry = BackendRegistry::new();
+        registry.register("native", 100, || {
+            Arc::new(_AvailableBackend) as Arc<dyn RenderBackend>
+        });
+
         let report = registry.report("native").expect("native report");
         assert!(report.supported().contains(&"NATIVE_EMBEDDING"));
         assert!(report

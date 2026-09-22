@@ -67,6 +67,36 @@ adapter crate can depend on it without pulling in a WebView engine, and core can
 accept adapters without naming them. A new host becomes a new crate that
 registers itself.
 
+### 3.1 Version and evolution policy (S2 prerequisite)
+
+Zero dependencies solve “adapters don't drag in a WebView at compile time”. They
+do **not** solve “there is only one contract type at runtime”. Once S2 splits
+`auroraview-maya`, `-unreal` and `-unity` into separate repositories that each
+depend on `auroraview-contract = "x.y"`, a version skew makes Cargo resolve
+**two copies** of the crate into one process. Two copies means two distinct
+`dyn HostAdapter` types, so an adapter registers into a `HostRegistry` that core
+never reads — the host is silently “not detected”, with no error anywhere.
+
+This is the classic trait-crate split failure and it must be settled *before*
+the repositories exist, not after. Three decisions:
+
+1. **The contract is versioned independently** (`version = "1.0.0"`, not
+   `version.workspace = true`). Tying it to the workspace would let every core
+   release-please bump move it and invite the skew above.
+2. **`1.0` is additive-only.** Adding a variant to a `#[non_exhaustive]` enum or
+   a new capability bit is a minor bump. Removing or renaming anything is a major
+   bump coordinated across every host repository. The public enums
+   (`UiFramework`, `ThreadModel`, `EmbedMode`, `BackendFamily`,
+   `CapabilitySupport`) are therefore `#[non_exhaustive]`.
+3. **Core re-exports the contract** so adapters depend on
+   `auroraview_core::contract` rather than on `auroraview-contract` directly.
+   That guarantees one copy per process.
+
+   **Done**: `auroraview-core` depends on `auroraview-contract = "1.0"` and
+   re-exports it as `pub use auroraview_contract as contract;`. Adapters should
+   therefore `use auroraview_core::contract::HostAdapter;`. The re-export is
+   pinned by `crates/auroraview-core/tests/contract_reexport.rs`.
+
 ## 4. Host adapter contract
 
 Rust (`crates/auroraview-contract/src/host.rs`), Python
@@ -163,12 +193,25 @@ Both required families are represented:
 
 | Backend | Family | `available()` | Notes |
 |---|---|---|---|
-| `NativeWebviewBackend` | Native | true (links wry) | WebView2 / WKWebView / WebKitGTK; the path in use today |
+| `NativeWebviewBackend` | Native | **false until announced** | WebView2 / WKWebView / WebKitGTK; the path in use today |
 | `ChromiumBackend` | Chromium | **false** | declared, not linked — the whole point of the capability contract |
 
-`ChromiumBackend` being present-but-unavailable is intentional. It makes the
-second path a first-class citizen of the contract instead of a TODO, and it is
-exactly the situation the probing convention exists to describe.
+Both backends are **descriptors**: the contract crate has no dependencies and
+therefore links no engine, so `create_surface()` on either one always returns a
+structured `Unsupported`.
+
+`NativeWebviewBackend` reports `available() == false` until the crate that links
+the engine calls `NativeWebviewBackend::set_linked(true)`. The earlier draft of
+this document claimed `available()` was `true` “(links wry)” — that was false,
+and worse, it described a backend that claims to be present while
+`create_surface()` can only fail. A backend must never do that.
+
+This also means `default_backend_registry().select()` returns `None` until the
+linking crate announces itself, rather than handing out a backend that cannot
+build a surface. That is the honest answer.
+
+`ChromiumBackend` being permanently unavailable is intentional: it makes the
+second path a first-class citizen of the contract instead of a TODO.
 
 ### 5.1 Capability probing never fails
 
@@ -207,10 +250,24 @@ Both registries use one idiom, in both languages:
 - **a failed override degrades to priority order with a warning**, never an error
 - **a candidate that raises while probed is skipped with a warning** — discovery
   is shared infrastructure, so one broken third-party adapter must not take down
-  host detection for everyone
+  host detection for everyone. Python catches `Exception`; Rust catches
+  unwinding panics with `catch_unwind(AssertUnwindSafe(..))`. Neither can rescue
+  a `panic = "abort"` build, so the contract still requires `detect()` /
+  `available()` to stay panic-free — the guard is defence in depth, not a
+  licence to panic.
 
 This is the same design as `thread_dispatcher.registry`, so there is one
 extension idiom in AuroraView, not two.
+
+### 6.1 Cross-language parity
+
+The contract is declared twice — in Rust and in Python — so the `Feature` bit
+values and each backend's declared capability set are duplicated by design and
+can drift silently. Neither side's unit tests can see the other.
+
+`scripts/ci/check_contract_capability_parity.py` (wired into `just ci-grep`) is
+a grep guard that fails the build if the two sides disagree. It caught the
+`MAIN_THREAD_DISPATCH` mismatch that a code review spotted by eye.
 
 ## 7. Migration impact (what moves in S2)
 

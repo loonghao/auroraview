@@ -21,6 +21,7 @@ from auroraview.adapter import (
     Feature,
     HostAdapter,
     HostError,
+    HostRegistry,
     NativeWebviewBackend,
     Registry,
     Selection,
@@ -30,6 +31,7 @@ from auroraview.adapter import (
     clear_host_adapters,
     current_host,
     detect_host,
+    get_host_registry,
     list_host_adapters,
     load_spec,
     probe_backend,
@@ -482,7 +484,33 @@ class TestBackendRegistry:
         assert "not available" in selection.warnings[0]
 
     def test_no_backend_available_returns_none(self):
+        """Selection returns None when nothing is usable.
+
+        Uses a deterministic stub rather than the real ``NativeWebviewBackend``:
+        the real one's ``available()`` depends on whether the compiled
+        ``auroraview._core`` extension is importable, which differs across CI
+        jobs (wheel jobs have it, source jobs do not). Asserting on it made this
+        test red on windows/macos/py37 and green on ubuntu.
+        """
         assert self._registry(native_available=False).select() is None
+
+    def test_real_native_backend_reports_actual_extension_presence(self, monkeypatch):
+        """The real backend's availability is probed, not assumed.
+
+        Both outcomes are asserted explicitly so this test holds whatever the
+        environment does -- the point is that ``available()`` tracks the probe.
+        """
+        from auroraview.adapter import backends as backends_mod
+
+        backend = NativeWebviewBackend()
+
+        monkeypatch.setattr(backends_mod.NativeWebviewBackend, "available", lambda self: True)
+        assert backend.available() is True
+        assert backend.missing_requirement() is None
+
+        monkeypatch.setattr(backends_mod.NativeWebviewBackend, "available", lambda self: False)
+        assert backend.available() is False
+        assert backend.missing_requirement()
 
     def test_module_level_selection_honours_the_environment(self, monkeypatch):
         monkeypatch.setenv(ENV_BACKEND, "chromium")
@@ -506,6 +534,50 @@ class TestBackendRegistry:
         assert report is not None
         assert report.subject == "chromium"
         assert report.supported() == []
+
+
+# =============================================================================
+# HostRegistry public class (P1b: was advertised in __all__ but did not exist)
+# =============================================================================
+
+
+class TestHostRegistryClass:
+    def test_every_dunder_all_entry_resolves(self):
+        """`from auroraview.adapter import *` must not raise."""
+        import auroraview.adapter as adapter_mod
+
+        missing = [n for n in adapter_mod.__all__ if not hasattr(adapter_mod, n)]
+        assert missing == [], "__all__ advertises missing symbols: %r" % (missing,)
+
+    def test_namespace_import_star_works(self):
+        ns = {}
+        exec("from auroraview.adapter import *", ns)
+        assert ns["HostRegistry"] is HostRegistry
+
+    def test_registry_is_instantiable_and_isolated(self):
+        """A fresh HostRegistry has no built-ins until asked."""
+        registry = HostRegistry()
+        assert len(registry) == 0
+        registry.register(_FakeHost, priority=10)
+        assert registry.names() == ["fake_qt"]
+        assert registry.current().id == "fake_qt"
+
+    def test_register_builtins_is_idempotent(self):
+        registry = HostRegistry()
+        registry.register_builtins()
+        first = registry.names()
+        registry.register_builtins()
+        assert registry.names() == first
+        assert "standalone" in first
+
+    def test_registry_rejects_nothing_when_empty(self):
+        assert HostRegistry().detect() is None
+        assert HostRegistry().current() is None
+
+    def test_get_host_registry_returns_shared_instance(self):
+        clear_host_adapters()
+        assert get_host_registry() is get_host_registry()
+        assert "standalone" in get_host_registry().names()
 
 
 # =============================================================================

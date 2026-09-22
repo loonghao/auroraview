@@ -185,6 +185,33 @@ impl<T> Registry<T> {
             .map(|entry| entry.create())
     }
 
+    /// Run `predicate` against one candidate.
+    ///
+    /// A panicking predicate is converted into "not usable" plus a warning, so a
+    /// single broken candidate cannot abort discovery for everyone. This is the
+    /// Rust counterpart of the same guarantee in the Python registry.
+    ///
+    /// Only unwinding panics are caught; a build with `panic = "abort"` cannot
+    /// be rescued, which is why the contract still requires `predicate`
+    /// implementations to stay panic-free.
+    fn check(
+        predicate: &mut impl FnMut(&T) -> bool,
+        value: &T,
+        display: &str,
+        warnings: &mut Vec<String>,
+    ) -> bool {
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| predicate(value))) {
+            Ok(result) => result,
+            Err(_) => {
+                warnings.push(format!(
+                    "'{}' panicked during selection; treating it as unavailable",
+                    display
+                ));
+                false
+            }
+        }
+    }
+
     /// First candidate (priority order) satisfying `predicate`.
     pub fn first(&self, predicate: impl FnMut(&T) -> bool) -> Option<Selection<T>> {
         self.select(None, predicate)
@@ -197,12 +224,17 @@ impl<T> Registry<T> {
     /// order and a warning is recorded on the returned [`Selection`] -- an
     /// unusable override never turns into a hard error.
     ///
-    /// A candidate that *panics* while being probed still aborts the process:
-    /// Rust has no `catch_unwind` guarantee for `dyn FnMut`. The contract
-    /// requirement is therefore that `predicate` implementations (notably
+    /// A candidate that *panics* while being probed is treated as unusable and
+    /// recorded as a warning, not propagated: discovery is shared
+    /// infrastructure, so one broken third-party adapter must not take down host
+    /// detection for everyone. This mirrors the Python registry's guarantee.
+    ///
+    /// Unwinding panics are caught with `catch_unwind`. This cannot rescue a
+    /// build compiled with `panic = "abort"`, nor non-unwinding aborts; the
+    /// contract requirement that `predicate` implementations (notably
     /// [`crate::host::HostAdapter::detect`] and
-    /// [`crate::backend::RenderBackend::available`]) must not panic -- both are
-    /// documented as cheap and infallible.
+    /// [`crate::backend::RenderBackend::available`]) stay panic-free still
+    /// holds.
     pub fn select(
         &self,
         env_override: Option<&str>,
@@ -220,7 +252,7 @@ impl<T> Registry<T> {
                 {
                     Some(entry) => {
                         let value = entry.create();
-                        if predicate(&value) {
+                        if Self::check(&mut predicate, &value, &entry.name, &mut warnings) {
                             return Some(Selection {
                                 value,
                                 name: entry.name.clone(),
@@ -244,7 +276,7 @@ impl<T> Registry<T> {
 
         for entry in &self.entries {
             let value = entry.create();
-            if predicate(&value) {
+            if Self::check(&mut predicate, &value, &entry.name, &mut warnings) {
                 return Some(Selection {
                     value,
                     name: entry.name.clone(),
@@ -379,6 +411,49 @@ mod tests {
     #[test]
     fn no_match_returns_none() {
         assert!(registry().first(|_| false).is_none());
+    }
+
+    #[test]
+    fn a_panicking_predicate_is_skipped_not_propagated() {
+        // Mirrors the Python guarantee in `adapter/registry.py`: discovery is
+        // shared infrastructure, so one broken third-party candidate must not
+        // take down host detection for everyone.
+        let mut registry = Registry::new();
+        registry.register("panicky", 100, || "panicky".to_string());
+        registry.register("good", 50, || "good".to_string());
+
+        let selection = registry
+            .first(|value| {
+                if value == "panicky" {
+                    panic!("this candidate is broken on purpose");
+                }
+                true
+            })
+            .expect("must fall through to the healthy candidate");
+
+        assert_eq!(selection.name, "good");
+        assert!(selection.has_warnings());
+        assert!(selection.warnings[0].contains("panicked"));
+    }
+
+    #[test]
+    fn a_panicking_predicate_under_an_override_also_falls_back() {
+        let mut registry = Registry::new();
+        registry.register("panicky", 100, || "panicky".to_string());
+        registry.register("good", 50, || "good".to_string());
+
+        let selection = registry
+            .select(Some("panicky"), |value| {
+                if value == "panicky" {
+                    panic!("this candidate is broken on purpose");
+                }
+                true
+            })
+            .expect("must fall through to the healthy candidate");
+
+        assert_eq!(selection.name, "good");
+        assert!(!selection.via_env_override);
+        assert!(selection.warnings.iter().any(|w| w.contains("panicked")));
     }
 
     #[test]

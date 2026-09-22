@@ -141,6 +141,7 @@ __all__ = [
     "HostRegistry",
     "AdapterPriority",
     "ENV_HOST",
+    "get_host_registry",
     "register_host_adapter",
     "unregister_host_adapter",
     "clear_host_adapters",
@@ -203,29 +204,103 @@ class AdapterPriority(object):
 #: Spec accepted by :func:`register_host_adapter`.
 HostSpec = Union[Type[HostAdapter], Callable[[], HostAdapter], str]
 
+
+class HostRegistry(object):
+    """Registry of host adapters.
+
+    Wraps the shared :class:`~auroraview.adapter.registry.Registry` so host
+    adapters use exactly the same priority / lazy-spec / env-override mechanics
+    as render backends.
+
+    The process-wide instance is available via :func:`get_host_registry`.
+    """
+
+    def __init__(self) -> None:
+        self._registry: Registry = Registry(base=HostAdapter, kind="host adapter")
+        self._builtins_registered = False
+
+    def register(self, adapter: "HostSpec", priority: int = 0, name: str = "") -> None:
+        """Register an adapter class, factory, or ``"module:ClassName"`` spec.
+
+        When *name* is omitted it defaults to the adapter's contract ``id``, so
+        ``AURORAVIEW_HOST=maya`` matches the registered name.
+        """
+        if not name and isinstance(adapter, type):
+            adapter_id = getattr(adapter, "id", None)
+            if isinstance(adapter_id, str):
+                name = adapter_id
+        self._registry.register(adapter, priority=priority, name=name)
+
+    def unregister(self, name: str) -> bool:
+        """Remove an adapter by name."""
+        return self._registry.unregister(name)
+
+    def clear(self) -> None:
+        """Remove every adapter."""
+        self._registry.clear()
+        self._builtins_registered = False
+
+    def names(self) -> List[str]:
+        """Registered adapter names in priority order."""
+        return self._registry.names()
+
+    def __len__(self) -> int:
+        return len(self._registry)
+
+    def list(self) -> List[Tuple[int, str, bool]]:
+        """``(priority, name, detected)`` for every adapter, highest first."""
+        result: List[Tuple[int, str, bool]] = []
+        for priority, _spec, name in self._registry.entries:
+            adapter = self._registry.build(name)
+            result.append((priority, name, bool(adapter and adapter.detect())))
+        return result
+
+    def detect(self, env_override: Optional[str] = None) -> Optional[Selection]:
+        """Detect the host, honouring an override (defaults to ``AURORAVIEW_HOST``)."""
+        if env_override is None:
+            env_override = os.environ.get(ENV_HOST, "")
+        return self._registry.select(lambda adapter: adapter.detect(), env_override=env_override)
+
+    def current(self) -> Optional[HostInfo]:
+        """Return a :class:`HostInfo` snapshot of the detected host."""
+        selection = self.detect()
+        if selection is None:
+            return None
+        return selection.value.info()
+
+    def register_builtins(self) -> None:
+        """Register the built-in host adapters. Idempotent."""
+        if self._builtins_registered:
+            return
+        self._builtins_registered = True
+        self.register(MayaHostAdapter, priority=AdapterPriority.MAYA)
+        self.register(HoudiniHostAdapter, priority=AdapterPriority.HOUDINI)
+        self.register(NukeHostAdapter, priority=AdapterPriority.NUKE)
+        self.register(BlenderHostAdapter, priority=AdapterPriority.BLENDER)
+        self.register(MaxHostAdapter, priority=AdapterPriority.MAX)
+        self.register(UnrealHostAdapter, priority=AdapterPriority.UNREAL)
+        self.register(PowerPointHostAdapter, priority=AdapterPriority.NON_PYTHON)
+        self.register(StandaloneHostAdapter, priority=AdapterPriority.STANDALONE)
+
+
 _BUILTINS_REGISTERED = False
-_HOST_REGISTRY: Optional[Registry] = None
+_HOST_REGISTRY: Optional[HostRegistry] = None
 
 
-def _registry() -> Registry:
+def get_host_registry() -> HostRegistry:
     """Return the process-wide host registry, registering built-ins on first use."""
     global _HOST_REGISTRY, _BUILTINS_REGISTERED
 
     if _HOST_REGISTRY is None:
-        _HOST_REGISTRY = Registry(base=HostAdapter, kind="host adapter")
+        _HOST_REGISTRY = HostRegistry()
 
-    if not _BUILTINS_REGISTERED:
-        _BUILTINS_REGISTERED = True
-        register_host_adapter(MayaHostAdapter, priority=AdapterPriority.MAYA)
-        register_host_adapter(HoudiniHostAdapter, priority=AdapterPriority.HOUDINI)
-        register_host_adapter(NukeHostAdapter, priority=AdapterPriority.NUKE)
-        register_host_adapter(BlenderHostAdapter, priority=AdapterPriority.BLENDER)
-        register_host_adapter(MaxHostAdapter, priority=AdapterPriority.MAX)
-        register_host_adapter(UnrealHostAdapter, priority=AdapterPriority.UNREAL)
-        register_host_adapter(PowerPointHostAdapter, priority=AdapterPriority.NON_PYTHON)
-        register_host_adapter(StandaloneHostAdapter, priority=AdapterPriority.STANDALONE)
-
+    _HOST_REGISTRY.register_builtins()
     return _HOST_REGISTRY
+
+
+def _registry() -> HostRegistry:
+    """Backwards-compatible alias for :func:`get_host_registry`."""
+    return get_host_registry()
 
 
 def register_host_adapter(adapter: HostSpec, priority: int = 0, name: str = "") -> None:
@@ -241,10 +316,6 @@ def register_host_adapter(adapter: HostSpec, priority: int = 0, name: str = "") 
 
     Registering the same adapter twice updates its priority in place.
     """
-    if not name and isinstance(adapter, type):
-        adapter_id = getattr(adapter, "id", None)
-        if isinstance(adapter_id, str):
-            name = adapter_id
     _registry().register(adapter, priority=priority, name=name)
 
 
@@ -258,9 +329,7 @@ def clear_host_adapters() -> None:
 
     Mainly for tests: ``register_host_adapter`` mutates process-wide state.
     """
-    global _BUILTINS_REGISTERED
     _registry().clear()
-    _BUILTINS_REGISTERED = False
 
 
 def list_host_adapters() -> List[Tuple[int, str, bool]]:
@@ -270,12 +339,7 @@ def list_host_adapters() -> List[Tuple[int, str, bool]]:
     :func:`auroraview.utils.thread_dispatcher.list_dispatcher_backends` so
     diagnostics output looks the same in both languages.
     """
-    result: List[Tuple[int, str, bool]] = []
-    for priority, _spec, name in _registry().entries:
-        adapter = _registry().build(name)
-        detected = bool(adapter is not None and adapter.detect())
-        result.append((priority, name, detected))
-    return result
+    return _registry().list()
 
 
 def detect_host(env_override: Optional[str] = None) -> Optional[Selection]:
@@ -291,13 +355,13 @@ def detect_host(env_override: Optional[str] = None) -> Optional[Selection]:
         standalone adapter, so this only returns ``None`` if even that was
         unregistered.
     """
-    if env_override is None:
-        env_override = os.environ.get(ENV_HOST, "")
-    return _registry().select(lambda adapter: adapter.detect(), env_override=env_override)
+    return _registry().detect(env_override=env_override)
 
 
 def current_host(env_override: Optional[str] = None) -> Optional[HostInfo]:
     """Return a :class:`HostInfo` snapshot of the detected host."""
+    if env_override is None:
+        return _registry().current()
     selection = detect_host(env_override=env_override)
     if selection is None:
         return None

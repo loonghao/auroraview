@@ -292,11 +292,28 @@ class NativeWebviewBackend(RenderBackend):
             return False
 
     def missing_requirement(self) -> Optional[str]:
-        """Nothing is missing: this backend ships with the wheel."""
-        return None
+        """What is missing when :meth:`available` is ``False``.
+
+        Returns ``None`` only when the backend really is usable. A backend must
+        never report itself unavailable while claiming nothing is missing -- that
+        is the same inconsistency as Rust's ``available() == true`` paired with a
+        ``create_surface()`` that always fails.
+        """
+        if self.available():
+            return None
+        return (
+            "the compiled auroraview._core extension is not importable from this "
+            "interpreter; install a released auroraview wheel for it"
+        )
 
     def capabilities(self) -> int:
-        """Capabilities of the native path."""
+        """Capabilities of the native path.
+
+        Kept bit-for-bit identical to ``NativeWebviewBackend::capabilities`` in
+        ``crates/auroraview-contract/src/backend.rs``; the CI grep guard
+        ``scripts/ci/check_contract_capability_parity.py`` fails if the two
+        drift apart.
+        """
         return (
             Feature.NATIVE_EMBEDDING
             | Feature.OUT_OF_PROCESS
@@ -304,6 +321,7 @@ class NativeWebviewBackend(RenderBackend):
             | Feature.JS_EVAL_RESULT
             | Feature.COOKIES
             | Feature.FILE_PROTOCOL
+            | Feature.MAIN_THREAD_DISPATCH
             | Feature.MULTI_WINDOW
         )
 

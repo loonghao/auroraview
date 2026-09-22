@@ -182,6 +182,10 @@ impl std::ops::Sub for Features {
 ///
 /// Never an error: see the module docs.
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Adding a variant is a minor (additive) change; removing or renaming one
+/// is breaking and requires a major bump coordinated across every host
+/// repository. See the version policy in `Cargo.toml`.
+#[non_exhaustive]
 pub enum CapabilitySupport {
     /// Supported.
     Supported,

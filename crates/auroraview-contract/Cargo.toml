@@ -1,6 +1,20 @@
 [package]
 name = "auroraview-contract"
-version.workspace = true
+# Deliberately NOT `version.workspace = true`.
+#
+# This crate is published separately from the auroraview workspace once S2
+# splits the per-host packages out: `auroraview-maya`, `auroraview-unreal` and
+# friends will each depend on `auroraview-contract = "1.x"`. Tying its version to
+# the workspace would mean every core release-please bump moves the contract,
+# and a core 0.6 / contract 0.5 skew can make Cargo resolve *two* copies of this
+# crate into one process. Two copies means two distinct `dyn HostAdapter` types,
+# so an adapter would register into a `HostRegistry` that core never reads --
+# "host not detected" with no error anywhere.
+#
+# Policy: 1.0 is additive-only. Adding a variant to a `#[non_exhaustive]` enum
+# or a new capability bit is a minor bump; removing or renaming anything is a
+# major bump and must be coordinated across every host repository.
+version = "1.0.0"
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true

@@ -32,6 +32,10 @@ pub const ENV_HOST: &str = "AURORAVIEW_HOST";
 ///
 /// This decides how a surface is parented, not how it is rendered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Adding a variant is a minor (additive) change; removing or renaming one
+/// is breaking and requires a major bump coordinated across every host
+/// repository. See the version policy in `Cargo.toml`.
+#[non_exhaustive]
 pub enum UiFramework {
     /// Qt widgets (Maya, Houdini, Nuke, 3ds Max).
     Qt,
@@ -74,6 +78,10 @@ impl UiFramework {
 
 /// Thread affinity the host imposes on UI work.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Adding a variant is a minor (additive) change; removing or renaming one
+/// is breaking and requires a major bump coordinated across every host
+/// repository. See the version policy in `Cargo.toml`.
+#[non_exhaustive]
 pub enum ThreadModel {
     /// Host UI thread: the Qt main thread or a Win32 message thread.
     HostUiThread,
@@ -109,6 +117,10 @@ impl ThreadModel {
 
 /// How a surface is attached to the host window.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Adding a variant is a minor (additive) change; removing or renaming one
+/// is breaking and requires a major bump coordinated across every host
+/// repository. See the version policy in `Cargo.toml`.
+#[non_exhaustive]
 pub enum EmbedMode {
     /// The surface is parented into a host-provided native window.
     NativeChild,
