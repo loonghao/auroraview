@@ -54,6 +54,8 @@ pub mod json;
 pub mod menu;
 /// Timing metrics for WebView lifecycle.
 pub mod metrics;
+/// Parent/child IPC (host-agnostic child window bridge).
+pub mod parent_ipc;
 /// Dynamic port allocation utilities.
 pub mod port;
 /// Protocol handling utilities.
