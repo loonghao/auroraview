@@ -136,9 +136,36 @@ follow_imports = "normal"
 strict_optional = true
 
 # Pytest configuration
+#
+# This section is the single source of truth for pytest settings. Do NOT add a
+# `pytest.ini` / `tox.ini` / `setup.cfg` anywhere under `tests/`: pytest picks
+# its inifile by walking *up* from the CLI path arguments and stopping at the
+# first directory that owns one, so a config file next to (or below) the test
+# tree silently shadows this entire section -- including `addopts`.
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-ra -q --strict-markers --cov=auroraview --cov-report=term-missing --cov-report=html --cov-report=xml --timeout=60"
+# Coverage flags deliberately live OUT of `addopts`. They used to be here, but
+# `addopts` applies to every invocation, and `[tool.coverage.report] fail_under`
+# is 35: any single-file run (the DCC integration jobs, `pytest -k` subsets)
+# reports well under 35% and would fail the job. Coverage is therefore passed
+# explicitly by the jobs that actually consume `coverage.xml`.
+# `-q` is also kept out: addopts are applied before CLI flags, so a `-q` here
+# cancels the `-v` that every CI job passes and flattens the CI logs.
+addopts = "-ra --strict-markers --timeout=60"
+# `--strict-markers` in `addopts` is NOT enough on its own: `addopts` are parsed
+# as command-line flags, while the marker check in pytest reads the *ini* value
+# `strict_markers`. A flag coming from `addopts` therefore downgrades an
+# unregistered marker to a warning instead of an error. Set the ini option too,
+# which is what actually makes unregistered markers fail.
+strict_markers = true
+# `pythonpath` entries are resolved relative to `rootdir`. The removed
+# `tests/pytest.ini` declared `pythonpath = .` while it was itself the rootdir,
+# so it put `<repo>/tests` on `sys.path`; spell that out explicitly now that
+# rootdir is the repo root.
+pythonpath = ["tests"]
+# Merged from the removed `tests/pytest.ini` (pytest-asyncio settings).
+asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "function"
 # Default selection for a bare `pytest` at the repo root (the only invocation
 # that reads `testpaths`; every CI/just/nox entry passes explicit paths).
 # The two root-level dispatcher suites are listed explicitly: they are pure
@@ -159,17 +186,36 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 timeout = 60
 timeout_method = "thread"
+# Belt and braces for the marker check above: turns `PytestUnknownMarkWarning`
+# into an error even for markers applied outside pytest's `markers` lookup.
+filterwarnings = ["error::pytest.PytestUnknownMarkWarning"]
+# Union of the markers previously declared in `pyproject.toml` and
+# `tests/pytest.ini`, plus the ones that were only registered ad-hoc from
+# `tests/conftest.py` or not registered at all. With `--strict-markers` an
+# undeclared marker is a hard error, so every marker used anywhere in the
+# suite has to be listed here.
 markers = [
-    "unit: Unit tests",
+    "asyncio: Async tests",
+    "blender: Tests that require Blender",
+    "cdp: Tests using Chrome DevTools Protocol",
+    "e2e: End-to-end tests",
+    "edge_webdriver: Tests that use Edge WebDriver (Selenium)",
+    "flaky: Flaky tests (auto-rerun up to 2 times)",
+    "godot: Tests that require Godot",
+    "headless: Headless tests (no display required)",
     "integration: Integration tests",
-    "slow: Slow running tests (deselect with '-m \"not slow\"')",
-    "ui: UI tests (requires display)",
     "maya: Maya-specific tests",
+    "openscad: Tests that require OpenSCAD",
+    "playwright: Tests that use Playwright",
     "qt: Qt-specific tests",
     "qt_related: Tests related to Qt subsystems (requires qtpy installed, but not a live display/runtime)",
-    "headless: Headless tests (no display required)",
-    "e2e: End-to-end tests",
-    "flaky: Flaky tests (auto-rerun up to 2 times)",
+    "serial: Tests that must run serially",
+    "slow: Slow running tests (deselect with '-m \"not slow\"')",
+    "smoke: Small smoke tests",
+    "ui: UI tests (requires display)",
+    "unit: Unit tests",
+    "webview2_cdp: Tests that connect to WebView2 via CDP (Windows only)",
+    "xvfb: Tests that use Xvfb virtual display (Linux only)",
 ]
 
 # Coverage configuration

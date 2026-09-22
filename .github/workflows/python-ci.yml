@@ -180,7 +180,8 @@ jobs:
           pytest tests/python/unit/ \
             tests/test_thread_dispatcher.py \
             tests/test_thread_safety_diagnosis.py \
-            -v --tb=short --timeout=60
+            -v --tb=short --timeout=60 \
+            --cov=auroraview --cov-report=xml
 
       - name: Upload coverage (Python 3.11 on ubuntu only)
         if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
