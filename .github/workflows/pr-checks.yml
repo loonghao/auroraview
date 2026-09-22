@@ -617,28 +617,61 @@ jobs:
       - name: Install llvm-tools-preview (vx managed Rust)
         run: vx rustup component add llvm-tools-preview
 
-      - name: Fix llvm-profdata in vx toolchain
+      - name: Fix llvm-tools in vx toolchain
         if: runner.os == 'Linux'
         run: |
-          VX_PROFDATA="$(vx rustc --print sysroot)/lib/rustlib/$(vx rustc -vV | awk '/host:/ {print $2}')/bin/llvm-profdata"
-          if [ ! -f "$VX_PROFDATA" ]; then
-            echo "llvm-profdata not found at $VX_PROFDATA, linking from system toolchain..."
-            SYS_RUSTC="$HOME/.cargo/bin/rustc"
-            if [ -x "$SYS_RUSTC" ]; then
-              SYS_PROFDATA="$("$SYS_RUSTC" --print sysroot)/lib/rustlib/$("$SYS_RUSTC" -vV | awk '/host:/ {print $2}')/bin/llvm-profdata"
-              if [ -f "$SYS_PROFDATA" ]; then
-                mkdir -p "$(dirname "$VX_PROFDATA")"
-                ln -sf "$SYS_PROFDATA" "$VX_PROFDATA"
-                echo "Linked system llvm-profdata to vx toolchain"
-              else
-                echo "WARNING: system llvm-profdata not found at $SYS_PROFDATA"
-              fi
-            else
-              echo "WARNING: system rustc not found at $SYS_RUSTC"
-            fi
-          else
-            echo "llvm-profdata already present in vx toolchain"
+          # vx installs its own Rust sysroot (~/.vx/store/rust/...) that does not ship the
+          # llvm-tools-preview binaries: `vx rustup component add llvm-tools-preview` reports
+          # "component llvm-tools is up to date" while <sysroot>/lib/rustlib/<host>/bin stays
+          # empty. cargo-llvm-cov needs llvm-profdata (merge) and llvm-cov (export/report) from
+          # that directory, so link every llvm tool the vx sysroot is missing from the
+          # runner-provided toolchain (dtolnay/rust-toolchain with llvm-tools-preview).
+          set -euo pipefail
+
+          VX_SYSROOT="$(vx rustc --print sysroot)"
+          HOST_TRIPLE="$(vx rustc -vV | awk '/^host:/ {print $2}')"
+          VX_BIN="$VX_SYSROOT/lib/rustlib/$HOST_TRIPLE/bin"
+          SYS_RUSTC="$HOME/.cargo/bin/rustc"
+
+          if [ ! -x "$SYS_RUSTC" ]; then
+            echo "::error::system rustc not found at $SYS_RUSTC; cannot repair vx llvm-tools"
+            exit 1
           fi
+
+          SYS_BIN="$("$SYS_RUSTC" --print sysroot)/lib/rustlib/$("$SYS_RUSTC" -vV | awk '/^host:/ {print $2}')/bin"
+          if [ ! -d "$SYS_BIN" ]; then
+            echo "::error::system llvm-tools directory not found at $SYS_BIN"
+            exit 1
+          fi
+
+          mkdir -p "$VX_BIN"
+          linked=0
+          while IFS= read -r -d '' tool; do
+            name="$(basename "$tool")"
+            if [ ! -e "$VX_BIN/$name" ]; then
+              ln -sf "$tool" "$VX_BIN/$name"
+              echo "Linked $name -> $tool"
+              linked=$((linked + 1))
+            fi
+          done < <(find "$SYS_BIN" -mindepth 1 -maxdepth 1 ! -type d -print0)
+          echo "Linked $linked llvm tool(s) into $VX_BIN"
+
+          # Fail here instead of later with an opaque "No such file or directory" from
+          # cargo-llvm-cov: a missing tool would otherwise surface only in the report step.
+          missing=0
+          for tool in llvm-profdata llvm-cov; do
+            if [ -x "$VX_BIN/$tool" ]; then
+              echo "[OK] $tool available at $VX_BIN/$tool"
+            else
+              echo "::error::$tool still missing in vx sysroot ($VX_BIN/$tool)"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+          "$VX_BIN/llvm-cov" --version
+          "$VX_BIN/llvm-profdata" --version
 
       - name: Build frontend assets (required by auroraview-assets)
         run: vx just ci-assets-build
@@ -666,6 +699,18 @@ jobs:
 
       - name: Run tests with coverage
         run: vx just ci-rust-coverage-lcov
+
+      - name: Verify Rust coverage report
+        if: runner.os == 'Linux'
+        run: |
+          # Guard against a silently degraded signal: the lane must prove the report step
+          # really produced an lcov file, not just that the recipe exited zero.
+          if [ ! -s rust-coverage.lcov ]; then
+            echo "::error::rust-coverage.lcov was not produced (missing or empty)"
+            exit 1
+          fi
+          echo "[OK] rust-coverage.lcov produced: $(wc -l < rust-coverage.lcov) lines, $(wc -c < rust-coverage.lcov) bytes"
+          head -5 rust-coverage.lcov
 
       - name: Run doc tests
         run: vx just ci-docs-rust
