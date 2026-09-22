@@ -37,18 +37,25 @@ pub struct WindowHandle {
 }
 
 impl WindowHandle {
-    /// Resolve a handle from an optional flag value, falling back to
-    /// `AURORAVIEW_PARENT_HWND`.
+    /// Resolve a handle from an optional flag value.
     ///
     /// `0` (a null `HWND`) is treated as "not supplied".
-    pub fn resolve(flag: Option<&str>) -> Option<Self> {
-        if let Some(raw) = flag.and_then(parse_hwnd).filter(|raw| *raw != 0) {
-            return Some(Self {
+    ///
+    /// The env fallback lives in [`ParentTargets::resolve`] so it can be
+    /// suppressed per-role; see that method for why.
+    fn resolve_flag(flag: Option<&str>) -> Option<Self> {
+        flag.and_then(parse_hwnd)
+            .filter(|raw| *raw != 0)
+            .map(|raw| Self {
                 raw,
                 source: HandleSource::Flag,
-            });
-        }
+            })
+    }
 
+    /// Resolve a handle from `AURORAVIEW_PARENT_HWND`.
+    ///
+    /// `0` (a null `HWND`) is treated as "not supplied".
+    fn resolve_env() -> Option<Self> {
         let env_value = std::env::var(ENV_PARENT_HWND).ok()?;
         parse_hwnd(&env_value)
             .filter(|raw| *raw != 0)
@@ -56,6 +63,19 @@ impl WindowHandle {
                 raw,
                 source: HandleSource::Env,
             })
+    }
+
+    /// Resolve a handle from an optional flag value, falling back to
+    /// `AURORAVIEW_PARENT_HWND`.
+    ///
+    /// `0` (a null `HWND`) is treated as "not supplied".
+    ///
+    /// Production code resolves both roles together via
+    /// [`ParentTargets::resolve`], which needs to suppress the env fallback
+    /// per role; this is the single-handle form kept for callers and tests.
+    #[cfg(test)]
+    fn resolve(flag: Option<&str>) -> Option<Self> {
+        Self::resolve_flag(flag).or_else(Self::resolve_env)
     }
 }
 
@@ -70,10 +90,31 @@ pub struct ParentTargets {
 
 impl ParentTargets {
     /// Resolve both targets from the CLI flags.
+    ///
+    /// An explicit flag on **either** role suppresses the env fallback for the
+    /// other one. Without that guard, `run --owner-hwnd 0x1234` in a child
+    /// process (where the host has already set `AURORAVIEW_PARENT_HWND`)
+    /// resolves `owner` from the flag *and* `parent` from the env; `apply()`
+    /// then prefers `parent` and silently hands back a clipped `WS_CHILD`
+    /// window instead of the floating tool window that was asked for.
     pub fn resolve(parent: Option<&str>, owner: Option<&str>) -> Self {
+        let parent = WindowHandle::resolve_flag(parent);
+        let owner = WindowHandle::resolve_flag(owner);
+
+        // Only fall back to the environment when neither role was given
+        // explicitly, so an env-supplied parent cannot outrank an explicit
+        // `--owner-hwnd`. With no flag at all the environment still feeds both
+        // roles, and `apply()` picks the `parent` one.
+        let explicit = parent.is_some() || owner.is_some();
+        let env = if explicit {
+            None
+        } else {
+            WindowHandle::resolve_env()
+        };
+
         Self {
-            parent: WindowHandle::resolve(parent),
-            owner: WindowHandle::resolve(owner),
+            parent: parent.or(env),
+            owner: owner.or(env),
         }
     }
 
@@ -196,6 +237,33 @@ mod tests {
 
         let detached = ParentTargets::resolve(None, None);
         assert!(!detached.is_embedded());
+    }
+
+    #[test]
+    fn explicit_owner_flag_suppresses_the_environment_parent() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        // Child mode: the host already exported AURORAVIEW_PARENT_HWND. Asking
+        // for `--owner-hwnd` must yield an owned window, not let the env fill
+        // the `parent` role (which `apply()` prefers) behind the user's back.
+        std::env::set_var(ENV_PARENT_HWND, "0xABCD");
+        let targets = ParentTargets::resolve(None, Some("0x1234"));
+        std::env::remove_var(ENV_PARENT_HWND);
+
+        assert_eq!(targets.parent, None, "env must not fill the parent role");
+        assert_eq!(targets.owner.map(|h| h.raw), Some(0x1234));
+        assert_eq!(targets.owner.map(|h| h.source), Some(HandleSource::Flag));
+    }
+
+    #[test]
+    fn explicit_parent_flag_suppresses_the_environment_owner() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        std::env::set_var(ENV_PARENT_HWND, "0xABCD");
+        let targets = ParentTargets::resolve(Some("0x1234"), None);
+        std::env::remove_var(ENV_PARENT_HWND);
+
+        assert_eq!(targets.parent.map(|h| h.raw), Some(0x1234));
+        assert_eq!(targets.parent.map(|h| h.source), Some(HandleSource::Flag));
+        assert_eq!(targets.owner, None, "env must not fill the owner role");
     }
 
     #[test]
