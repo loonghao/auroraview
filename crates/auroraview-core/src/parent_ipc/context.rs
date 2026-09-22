@@ -74,7 +74,9 @@ pub fn parse_hwnd(raw: &str) -> Option<isize> {
         return None;
     }
 
-    let (digits, radix) = match trimmed.strip_prefix("0x").or_else(|| trimmed.strip_prefix("0X"))
+    let (digits, radix) = match trimmed
+        .strip_prefix("0x")
+        .or_else(|| trimmed.strip_prefix("0X"))
     {
         Some(hex) => (hex, 16),
         None => (trimmed, 10),
@@ -100,8 +102,10 @@ mod tests {
             ENV_EXAMPLE_NAME,
             ENV_PARENT_HWND,
         ];
-        let saved: Vec<(String, Option<String>)> =
-            keys.iter().map(|k| (k.to_string(), env::var(k).ok())).collect();
+        let saved: Vec<(String, Option<String>)> = keys
+            .iter()
+            .map(|k| (k.to_string(), env::var(k).ok()))
+            .collect();
 
         for (key, value) in vars {
             match value {

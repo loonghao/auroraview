@@ -105,7 +105,11 @@ pub struct RunArgs {
     /// wants for an in-viewport panel.
     ///
     /// Defaults to `AURORAVIEW_PARENT_HWND` when the flag is omitted.
-    #[arg(long = "parent-hwnd", value_name = "HWND", conflicts_with = "owner_hwnd")]
+    #[arg(
+        long = "parent-hwnd",
+        value_name = "HWND",
+        conflicts_with = "owner_hwnd"
+    )]
     pub parent_hwnd: Option<String>,
 
     /// Attach the window as an owned top-level window of this native handle.
@@ -689,16 +693,15 @@ pub fn run_webview(args: RunArgs) -> Result<()> {
                 // wry's WebView is !Sync, so parent commands are forwarded to
                 // the event loop instead of being applied on the reader thread.
                 // The handle is kept alive for the lifetime of the run.
-                let _command_handle = bridge.on_command(move |data| {
-                    match resolve_parent_command(&data) {
+                let _command_handle =
+                    bridge.on_command(move |data| match resolve_parent_command(&data) {
                         Some(event) => {
                             if proxy.send_event(event).is_err() {
                                 tracing::debug!("[CLI] Event loop gone, dropping parent command");
                             }
                         }
                         None => tracing::warn!("[CLI] Unsupported parent command: {}", data),
-                    }
-                });
+                    });
 
                 if args.exit_on_parent_disconnect {
                     let proxy = event_loop.create_proxy();

@@ -46,12 +46,10 @@ mod bridge;
 mod context;
 mod protocol;
 
-pub use bridge::{
-    BridgeConfig, BridgeError, HandshakeState, ParentBridge, ReconnectPolicy,
-};
+pub use bridge::{BridgeConfig, BridgeError, HandshakeState, ParentBridge, ReconnectPolicy};
 pub use context::{is_child_mode, parse_hwnd, ChildInfo};
 pub use protocol::{
-    ErrorCode, FrameError, FrameReader, Message, MessageKind, ENV_CHILD_ID, ENV_EXAMPLE_NAME,
-    ENV_PARENT_HWND, ENV_PARENT_ID, ENV_PARENT_PORT, MAX_FRAME_BYTES, PROTOCOL_VERSION,
-    READY_EVENT, CLOSING_EVENT, COMMAND_EVENT, DEFAULT_HOST, FRAME_DELIMITER, UTF8_BOM,
+    ErrorCode, FrameError, FrameReader, Message, MessageKind, CLOSING_EVENT, COMMAND_EVENT,
+    DEFAULT_HOST, ENV_CHILD_ID, ENV_EXAMPLE_NAME, ENV_PARENT_HWND, ENV_PARENT_ID, ENV_PARENT_PORT,
+    FRAME_DELIMITER, MAX_FRAME_BYTES, PROTOCOL_VERSION, READY_EVENT, UTF8_BOM,
 };

@@ -220,9 +220,7 @@ impl ParentBridge {
     pub fn connect_with_config(config: BridgeConfig) -> Result<Self, BridgeError> {
         let stream = Self::tcp_connect(&config)?;
         let bridge = Self::from_stream(config, stream)
-            .ok_or_else(|| {
-                BridgeError::Io(io::Error::other("failed to split the IPC socket"))
-            })?;
+            .ok_or_else(|| BridgeError::Io(io::Error::other("failed to split the IPC socket")))?;
         bridge.start_handshake();
         Ok(bridge)
     }
@@ -265,9 +263,9 @@ impl ParentBridge {
 
     fn tcp_connect(config: &BridgeConfig) -> Result<TcpStream, BridgeError> {
         let addr = format!("{}:{}", config.host, config.port);
-        let socket = addr.parse().map_err(|e| {
-            io::Error::new(io::ErrorKind::InvalidInput, format!("{}: {}", addr, e))
-        })?;
+        let socket = addr
+            .parse()
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, format!("{}: {}", addr, e)))?;
         TcpStream::connect_timeout(&socket, config.connect_timeout).map_err(BridgeError::Io)
     }
 
@@ -327,7 +325,8 @@ impl ParentBridge {
 
     /// Send an event to the parent, stamped with this child's id.
     pub fn send_event(&self, event: &str, data: serde_json::Value) -> Result<(), BridgeError> {
-        let message = Message::event(event, data).with_child_id(self.shared.config.child_id.clone());
+        let message =
+            Message::event(event, data).with_child_id(self.shared.config.child_id.clone());
         self.send(&message)
     }
 
@@ -640,11 +639,7 @@ impl ParentBridge {
         let _ = reader.set_read_timeout(Some(read_timeout));
 
         {
-            let mut writer = self
-                .shared
-                .writer
-                .lock()
-                .unwrap_or_else(|e| e.into_inner());
+            let mut writer = self.shared.writer.lock().unwrap_or_else(|e| e.into_inner());
             *writer = Some(stream);
         }
         self.set_state(HandshakeState::Pending);
@@ -714,8 +709,7 @@ fn reader_loop(weak: Weak<Shared>, mut stream: TcpStream) {
                 }
             }
             Err(e)
-                if e.kind() == io::ErrorKind::WouldBlock
-                    || e.kind() == io::ErrorKind::TimedOut =>
+                if e.kind() == io::ErrorKind::WouldBlock || e.kind() == io::ErrorKind::TimedOut =>
             {
                 continue;
             }

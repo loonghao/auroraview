@@ -487,14 +487,20 @@ mod tests {
         reader.push(b"{\"type\":\"ping\"}\n{\"type\":\"po");
         assert!(matches!(
             reader.next_frame(),
-            Some(Ok(Message { kind: MessageKind::Ping, .. }))
+            Some(Ok(Message {
+                kind: MessageKind::Ping,
+                ..
+            }))
         ));
         assert!(reader.next_frame().is_none());
 
         reader.push(b"ng\"}\n");
         assert!(matches!(
             reader.next_frame(),
-            Some(Ok(Message { kind: MessageKind::Pong, .. }))
+            Some(Ok(Message {
+                kind: MessageKind::Pong,
+                ..
+            }))
         ));
         assert!(reader.next_frame().is_none());
     }
