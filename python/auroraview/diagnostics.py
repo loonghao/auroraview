@@ -201,6 +201,14 @@ def _qt_info(errors: List[Dict[str, str]]) -> Dict[str, Any]:
             try:
                 importlib.import_module(binding_name)
             except ImportError:
+                # Not installed: the common case, keep probing the rest.
+                continue
+            except Exception as exc:  # noqa: BLE001 - diagnostics must not raise
+                # A binding that is present but broken (version mismatch,
+                # half-installed wheel) raises RuntimeError/OSError rather
+                # than ImportError. That is triage-relevant, so it is
+                # recorded; the loop still tries the remaining bindings.
+                _record_error(errors, "qt.binding", exc)
                 continue
             info["binding"] = binding_name
             break
