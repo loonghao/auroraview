@@ -127,13 +127,36 @@ class _GameThreadHost(_StaHost):
 
 
 class _AvailableBackend(NativeWebviewBackend):
-    """A native backend forced 'available', so capability logic is testable."""
+    """A native backend forced 'available', so capability logic is testable.
+
+    The real ``NativeWebviewBackend.available()`` probes whether the compiled
+    ``auroraview._core`` extension is importable, which depends on the test
+    environment. Tests that need a *deterministic* answer must use this stub
+    instead -- asserting on the real one bakes an environment assumption into
+    the test (see ``test_no_backend_available_returns_none``).
+    """
 
     def available(self):
         return True
 
     def create_surface(self, spec):
         raise NotImplementedError
+
+
+class _UnavailableBackend(NativeWebviewBackend):
+    """A backend that is deterministically unavailable.
+
+    Counterpart to :class:`_AvailableBackend`. Deliberately does not inherit the
+    real ``available()`` probe.
+    """
+
+    id = "unavailable"
+
+    def available(self):
+        return False
+
+    def missing_requirement(self):
+        return "this stub is never available"
 
 
 # =============================================================================
@@ -428,9 +451,16 @@ class TestRenderBackends:
 
 class TestBackendRegistry:
     def _registry(self, native_available=True):
+        """Build a registry whose highest-priority backend has a known state.
+
+        Uses :class:`_AvailableBackend` / :class:`_UnavailableBackend` rather
+        than the real ``NativeWebviewBackend``: the real one's ``available()``
+        depends on whether the compiled extension is importable, which differs
+        across CI jobs (wheel jobs have it, source jobs do not).
+        """
         registry = BackendRegistry()
         registry.register(
-            _AvailableBackend if native_available else NativeWebviewBackend,
+            _AvailableBackend if native_available else _UnavailableBackend,
             priority=100,
             name="native",
         )
