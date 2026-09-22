@@ -541,7 +541,10 @@ jobs:
           python -c "import dcc_mcp_core, sys; print('dcc_mcp_core', dcc_mcp_core.__version__ if hasattr(dcc_mcp_core,'__version__') else 'ok', 'on', sys.version)"
 
           # Run unit tests (skip Qt tests as PySide6 doesn't support Python 3.7)
-          pytest tests/python/unit/ -v --tb=short --timeout=60 \
+          pytest tests/python/unit/ \
+            tests/test_thread_dispatcher.py \
+            tests/test_thread_safety_diagnosis.py \
+            -v --tb=short --timeout=60 \
             --ignore=tests/python/unit/test_qt_signals.py \
             -k "not qt"
 
@@ -816,7 +819,10 @@ jobs:
           QT_OPENGL: software
           AURORAVIEW_READY_TIMEOUT: '5'
         run: |
-          pytest tests/python/unit/ -v --tb=short --cov=auroraview --cov-report=xml --timeout=60
+          pytest tests/python/unit/ \
+            tests/test_thread_dispatcher.py \
+            tests/test_thread_safety_diagnosis.py \
+            -v --tb=short --cov=auroraview --cov-report=xml --timeout=60
 
       - name: Upload coverage (3.11 on ubuntu only)
         if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
