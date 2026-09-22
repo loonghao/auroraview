@@ -232,15 +232,49 @@ if `wry::` or `tao::` reappears in a `pub fn` signature under `src/webview/backe
 ### 2.2 Follow-up 2 — replace `Option<u64>` handles with a typed `NativeHandle`
 
 **Status: not started, and now a contract-level decision.** `grep -rn NativeHandle --include=*.rs`
-returns **zero hits**. Every handle is a bare `Option<u64>`:
+returns **zero hits**. There is no shared handle type — and, importantly, **no single handle
+representation either**. The tree carries three, and they disagree about signedness:
 
-- `src/webview/backend/mod.rs:138` — `PyBindingsBackend::native_handle() -> Option<u64>`
-- `crates/auroraview-core/src/backend/traits.rs:244` — `EmbeddableBackend::native_handle() -> Option<u64>`
-- `crates/auroraview-contract/src/backend.rs:197` — `RenderSurface::native_handle() -> Option<u64>`
+**`Option<u64>`** — the contract layer and most of core:
+
 - `crates/auroraview-contract/src/backend.rs:77` — `SurfaceSpec::parent_handle: Option<u64>`
+- `crates/auroraview-contract/src/backend.rs:197` — `RenderSurface::native_handle() -> Option<u64>`
+- `crates/auroraview-contract/src/host.rs:219` — `HostInfo::parent_handle: Option<u64>`
+- `crates/auroraview-contract/src/host.rs:268` — `HostAdapter::parent_handle() -> Option<u64>`
+- `crates/auroraview-core/src/backend/factory.rs:77` — `BackendConfig::parent_handle: Option<u64>`
+- `crates/auroraview-core/src/backend/traits.rs:244` — `EmbeddableBackend::native_handle() -> Option<u64>`
+- `crates/auroraview-core/src/config.rs:73` — `parent_hwnd: Option<u64>`
+- `src/webview/backend/mod.rs:138` — `PyBindingsBackend::native_handle() -> Option<u64>`
+- `src/webview/config.rs:347` — `parent_hwnd: Option<u64>`
+- `crates/auroraview-extensions/src/view_manager.rs:117` — `parent_hwnd: Option<u64>`
+- `crates/auroraview-plugins/src/extensions/mod.rs:91`, `types.rs:312` — `parent_hwnd: Option<u64>`
 
-A bare `u64` cannot express a macOS `NSView*`, and it is unsigned on Windows where `HWND` is
-signed. The original draft proposed one neutral type:
+**`Option<isize>`** — the DCC and parent/child paths, i.e. every path that touches a real
+host window:
+
+- `crates/auroraview-core/src/parent_ipc/context.rs:27` — `ChildInfo::parent_hwnd: Option<isize>` (from #463)
+- `crates/auroraview-core/src/parent_ipc/context.rs:71` — `parse_hwnd() -> Option<isize>` (from #463)
+- `crates/auroraview-dcc/src/config.rs:109` — `parent_hwnd: Option<isize>`
+- `crates/auroraview-dcc/src/window_manager.rs:26` — `parent_hwnd: Option<isize>`
+- `crates/auroraview-dcc/src/webview.rs:51` — `webview_hwnd: Option<isize>`
+- `crates/auroraview-dcc/src/webview.rs:386` — `parent_hwnd() -> Option<isize>`
+- `src/bindings/runtime_dcc.rs:117` — `parent_hwnd: Option<isize>`
+
+**`isize`** (bare, Windows platform layer — not optional at all):
+
+- `src/platform/windows/webview2.rs:29`, `:623` — `parent_hwnd: isize`
+
+(`crates/auroraview-cli/src/cli/run.rs:113` keeps `parent_hwnd: Option<String>`; that is the
+CLI's textual argument form and is a legitimate difference, not part of this problem.)
+
+**Why this matters more than a missing table row.** The split is not random: `u64` is what the
+contract layer chose, and `isize` is what every path that actually touches a host window uses.
+That is exactly the argument the original draft made for `NativeHandle` — *"it is unsigned on
+Windows where `HWND` is signed"* — and the tree has already half-resolved it in favour of the
+signed form. The DCC paths did not wait for the contract; they voted with `isize`. Any A/B
+decision taken from the older text ("all handles are `u64`") would push the wrong way.
+
+A bare `u64` also cannot express a macOS `NSView*`. The original draft proposed one neutral type:
 
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -256,6 +290,8 @@ pub enum NativeHandle {
 published contract crate*, and that crate is versioned independently with an additive-only
 `1.0` policy. Changing `RenderSurface::native_handle()` and `SurfaceSpec::parent_handle` is
 therefore a **major-bump, coordinated-across-every-host-repo change**, not a local refactor.
+Note that the contract's `u64` is the *minority* representation on live host-window paths; it
+is the one that would have to move under option B.
 
 Two viable resolutions, to be chosen before any code moves:
 
@@ -731,7 +767,7 @@ does not close this gap on its own.
 | Work | Status | Relationship |
 | --- | --- | --- |
 | [PR #471](https://github.com/loonghao/auroraview/pull/471) — host-adapter and render-backend contracts | **merged 2026-09-22** | **Supersedes this RFC's §1/§2 contract layer and §3's entry-point proposal.** Ships `auroraview-contract` (`RenderBackend`, `RenderSurface`, `BackendRegistry`, `HostAdapter`, `HostRegistry`, `CapabilitySupport`), the Python mirror in `python/auroraview/adapter/`, and the capability-parity CI guard. §2 of this RFC is its deferred follow-up list. Design record: [`docs/design/adapter-contract.md`](../design/adapter-contract.md). |
-| [PR #463](https://github.com/loonghao/auroraview/pull/463) — parent/child IPC bridge and `--parent-hwnd` | **merged 2026-09-22** | Supplies the parent-handle plumbing that `SurfaceSpec::parent_handle` and `HostAdapter::parent_handle()` consume (`--parent-hwnd` / `AURORAVIEW_PARENT_HWND`, plus `AURORAVIEW_PARENT_ID` / `AURORAVIEW_PARENT_PORT` for child mode; see `crates/auroraview-core/src/parent_ipc/`). Resolves the "PIP-3214 path A groundwork" row from the original draft: the plumbing exists, so §2.2's handle type is the remaining question. |
+| [PR #463](https://github.com/loonghao/auroraview/pull/463) — parent/child IPC bridge and `--parent-hwnd` | **merged 2026-09-22** | Supplies the parent-handle plumbing that `SurfaceSpec::parent_handle` and `HostAdapter::parent_handle()` **will** consume once surface creation is rewired (`--parent-hwnd` / `AURORAVIEW_PARENT_HWND`, plus `AURORAVIEW_PARENT_ID` / `AURORAVIEW_PARENT_PORT` for child mode; see `crates/auroraview-core/src/parent_ipc/`). **Note the type mismatch:** #463 carries the handle as `Option<isize>` (`ChildInfo::parent_hwnd`, `parse_hwnd()`), while the contract's `SurfaceSpec::parent_handle` / `HostAdapter::parent_handle()` are `Option<u64>`, so wiring them needs one explicit, deliberate conversion — see §2.2. Resolves the "PIP-3214 path A groundwork" row from the original draft: the plumbing exists, so §2.2's handle type is the remaining question. |
 | [PR #460](https://github.com/loonghao/auroraview/pull/460) — DCC-MCP WebView adapter | **merged 2026-09-19** | Supplies the canonical Python adapter and the `auroraview-webview` skill. §3.4 keeps `detect_host_dcc()` as the fallback and reuses the skill layout as the template for G6. §4.2 resolves its contract conflict with the Rust `CdpAuroraViewAdapter`. **Merged first, as the original draft required.** |
 | RFC 0007 | — | Splits WebView/Browser into feature crates. This RFC is orthogonal — 0007 composes *features above* the WebView, this one abstracts *the renderer below* it. |
 | RFC 0011 (unified IPC) | — | `RenderSurface`'s event path is the backend-facing edge of the same IPC contract; it must stay message-compatible. #463's `parent_ipc/` module is the concrete realization for the parent/child case. |
