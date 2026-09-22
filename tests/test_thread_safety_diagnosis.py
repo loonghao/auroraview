@@ -22,6 +22,13 @@ from auroraview.utils.thread_dispatcher import (
     run_on_main_thread,
 )
 
+# Every test in this module runs against a dispatcher registry pinned to the
+# fallback backend, so a QApplication leaked by an earlier module in a shared
+# pytest run cannot redirect dispatch to QtDispatcherBackend (whose
+# QTimer.singleShot() work never runs without a Qt event loop). See the
+# `isolated_dispatcher` fixture in tests/conftest.py.
+pytestmark = pytest.mark.usefixtures("isolated_dispatcher")
+
 
 class TestThreadSafetyDiagnosis:
     """Tests validating thread safety diagnosis findings."""

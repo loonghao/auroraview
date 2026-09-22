@@ -30,6 +30,13 @@ from auroraview.utils.thread_dispatcher import (
     unregister_dispatcher_backend,
 )
 
+# Every test in this module runs against a dispatcher registry pinned to the
+# fallback backend. Without it, a QApplication leaked by an earlier module in a
+# shared pytest run makes QtDispatcherBackend win selection, and its
+# QTimer.singleShot() work is never dispatched because pytest runs no Qt event
+# loop. See the `isolated_dispatcher` fixture in tests/conftest.py.
+pytestmark = pytest.mark.usefixtures("isolated_dispatcher")
+
 
 class TestThreadDispatcherBackend:
     """Tests for ThreadDispatcherBackend abstract class."""
