@@ -1,8 +1,19 @@
 # AuroraView adapter contract and pluggable backend abstraction
 
-**Status**: prototype, in-branch. S1 of the per-host package split (PIP-3195).
+**Status**: contracts merged (PR #471); prototype, in-branch. S1 of the per-host
+package split (PIP-3195).
 **Scope**: contracts + a runnable prototype. No repository is created, no code is
 migrated (that is S2 and needs owner authorisation).
+
+**Companion RFC**: [RFC 0019 — Pluggable Rendering Backend and Host Adapter
+Contract](../rfcs/0019-pluggable-backend-and-host-adapter-contract.md). This document is
+the design record for the contracts below; RFC 0019 §2 carries the follow-up work this
+design deliberately deferred (the three wry/tao signatures on `PyBindingsBackend`, the
+`NativeHandle` handle type, and rewiring `BackendFactory` to delegate to
+`BackendRegistry`). Terminology in the two documents is intentionally identical —
+`RenderBackend`, `RenderSurface`, `SurfaceSpec`, `BackendRegistry`, `HostAdapter`,
+`HostRegistry`, `Features` and `CapabilitySupport` mean the same thing in both. If they
+drift, treat the merged code as authoritative and fix the document.
 
 ## 1. Why this exists
 
@@ -295,7 +306,8 @@ compiles today breaks.
   backend chosen and how does an adapter depend on core". Complementary.
 - **Surface creation is not rewired.** `BackendRegistry` selects; construction
   still goes through `auroraview.core`. Rewiring it is the next step once the
-  contract is agreed.
+  contract is agreed — tracked as [RFC 0019](../rfcs/0019-pluggable-backend-and-host-adapter-contract.md) §2,
+  which is scoped to exactly the follow-ups listed here.
 - **No CI matrix changes yet** (S3).
 
 ## 9. Verification
