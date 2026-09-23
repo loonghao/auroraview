@@ -178,6 +178,8 @@ jobs:
           CI: 'true'
         run: |
           pytest tests/python/unit/ \
+            tests/test_install_scripts.py \
+            tests/test_ipc_channel.py \
             tests/test_thread_dispatcher.py \
             tests/test_thread_safety_diagnosis.py \
             -v --tb=short --timeout=60 \
@@ -240,7 +242,7 @@ jobs:
           wheel_file=$(ls -t dist/*.whl | head -1)
           echo "Installing wheel: $wheel_file"
           pip install "$wheel_file"
-          pip install pytest pytest-cov pytest-timeout qtpy "PySide6<6.7"
+          pip install pytest pytest-cov pytest-timeout qtpy "PySide6<6.7" pyyaml
 
       - name: Run integration tests
         env:
@@ -254,6 +256,12 @@ jobs:
             --ignore=tests/python/integration/test_gallery_real_e2e.py \
             --ignore=tests/python/integration/test_gallery_contract.py \
             --ignore=tests/python/integration/test_gallery_plugin_api.py
+
+      # Blocking gate: fail when pytest collects a suite that no CI job ever
+      # executes. `testpaths` cannot catch this -- it is only read by a bare
+      # `pytest`, and every CI entry point passes explicit paths.
+      - name: Check for test suites drifting out of the CI run set
+        run: python scripts/ci/check_test_drift.py
 
   # Python 3.7 compatibility test
   python37-compat:
