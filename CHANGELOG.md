@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.11](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.10...auroraview-v0.5.11) (2026-09-26)
+
+
+### Features
+
+* **contract:** add host-adapter and render-backend contracts ([a760fc8](https://github.com/loonghao/auroraview/commit/a760fc89aa853765fef202856ec4378a61d6d300))
+* **dcc-mcp:** expose AuroraView as a DCC-MCP WebView adapter ([d378ea9](https://github.com/loonghao/auroraview/commit/d378ea9fd5851855ba6c81cde3fdb6e0b9ca4b24))
+* host-agnostic parent/child IPC bridge and --parent-hwnd embedding ([#463](https://github.com/loonghao/auroraview/issues/463)) ([5d9e9a9](https://github.com/loonghao/auroraview/commit/5d9e9a97fd2182b31f0c83d2513c44940b8cdc66))
+* **python:** add diagnostics() runtime report for host and thread triage ([14569c7](https://github.com/loonghao/auroraview/commit/14569c71031e19df39645d4c7b27bd0c27eab46c))
+
+
+### Bug Fixes
+
+* **ci:** link full llvm-tools set into vx toolchain for rust coverage ([200a382](https://github.com/loonghao/auroraview/commit/200a38240c120edecc7ca27e1a876b530d5d8b0f))
+* **contract:** registry duplicate-name protection, no double probe, test-race fix ([#472](https://github.com/loonghao/auroraview/issues/472)) ([c511384](https://github.com/loonghao/auroraview/commit/c5113847fd50fedb99171bf0856c6ee72b4d0df6))
+* **python:** isolate Qt binding probe failures in diagnostics() ([3582c9d](https://github.com/loonghao/auroraview/commit/3582c9da02fb16de373c2ee8d303923ee5ab32b5))
+* **python:** isolate Qt binding probe failures in diagnostics() ([3582c9d](https://github.com/loonghao/auroraview/commit/3582c9da02fb16de373c2ee8d303923ee5ab32b5))
+* **python:** isolate Qt binding probe failures in diagnostics() ([7f4ee98](https://github.com/loonghao/auroraview/commit/7f4ee9847e182e9d5fae2a894fdade776a0f6eca))
+* release GIL during blocking event loop and close windows on drop ([#464](https://github.com/loonghao/auroraview/issues/464)) ([d70c7a6](https://github.com/loonghao/auroraview/commit/d70c7a6511d27e1bcf54ecf296ec029eef4d9ef3))
+* route cross-thread close through the close channel and shorten CI ready timeout ([#466](https://github.com/loonghao/auroraview/issues/466)) ([f71aa85](https://github.com/loonghao/auroraview/commit/f71aa859c5499b0cb29a6e9899fbe690246f94b3))
+
+
+### Documentation
+
+* **rfc:** add RFC 0019 pluggable backend and host adapter contract, aligned to auroraview-contract ([#462](https://github.com/loonghao/auroraview/issues/462)) ([9ab258d](https://github.com/loonghao/auroraview/commit/9ab258d6e1c41180e600dfbf017f3b3c48972a0f))
+
 ## [0.5.10](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.9...auroraview-v0.5.10) (2026-07-02)
 
 
