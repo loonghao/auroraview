@@ -606,7 +606,7 @@ jobs:
           components: llvm-tools-preview
 
       - name: Setup Python (required for pyo3 linking in coverage)
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
 
@@ -780,7 +780,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -865,7 +865,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
 
@@ -903,7 +903,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
 
@@ -1113,7 +1113,7 @@ jobs:
           cache-key-suffix: 'pr-gallery-e2e'
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
 
@@ -1277,7 +1277,7 @@ jobs:
           cache-key-suffix: 'pr-gallery-pack-${{ matrix.target }}'
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
 
