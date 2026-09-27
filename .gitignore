@@ -151,3 +151,8 @@ e2e-report.json
 .trae/skills/
 .codebuddy/skills/
 .agents/skills/
+
+# Transient CI / audit scratch files accidentally committed to the repo root
+audit-result.json
+clippy_check.txt
+commit_msg.txt
