@@ -161,6 +161,12 @@ build-cli:
     vx cargo build -p auroraview-cli --release
     @echo "[OK] CLI built: target/release/auroraview.exe"
 
+# Build the Rust API documentation
+doc:
+    @echo "Building Rust API documentation..."
+    vx cargo doc
+    @echo "[OK] Rust API documentation built to target/doc/"
+
 # Build all workspace crates (including SDK assets)
 [unix]
 build-all: assets-build sdk-build-all
@@ -1509,6 +1515,11 @@ example-screenshot EXAMPLE:
 example-list:
     @echo "Available examples:"
     vx uv run python scripts/screenshot_examples.py --list
+
+# Run the auroraview application entry point (same as the `auroraview`
+# console script installed by the wheel)
+auroraview *ARGS:
+    vx uv run python -m auroraview.__main__ {{ARGS}}
 
 # Generate all documentation screenshots (gallery + examples)
 docs-screenshots: gallery-screenshots example-screenshots
