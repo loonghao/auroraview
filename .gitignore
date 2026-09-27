@@ -151,3 +151,8 @@ e2e-report.json
 .trae/skills/
 .codebuddy/skills/
 .agents/skills/
+
+# Local audit / lint run artifacts leaked into the repo root (PIP-3735)
+audit-result.json
+clippy_check.txt
+commit_msg.txt
