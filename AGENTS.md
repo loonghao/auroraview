@@ -64,6 +64,29 @@ AuroraView 是一个面向 DCC（Maya/Houdini/Blender 等）的轻量 WebView �
 
 ---
 
+## Agent 契约文件
+
+`AGENTS.md` 是本仓库根目录**唯一**的 agent 契约文件。Codex、OpenCode、Cursor、
+GitHub Copilot、Windsurf、Cline、Roo Code、Kiro、Trae、Augment 都原生读取它，
+Claude Code 在没有 `CLAUDE.md` 时回退到它 —— 所以不要新增 `CLAUDE.md`、
+`GEMINI.md`、`CURSOR.md` 或任何其他厂商专属变体。
+
+原先的 `CLAUDE.md` 与 `GEMINI.md` 已删除：两者内容逐字节相同（仅标题行不同），
+且只指向本文件的「快速链接」列表，其中每一条都已在本文件上方的导航表中。
+
+**Gemini CLI 例外**：Gemini CLI 的上下文文件默认为 `GEMINI.md`。要让它读取
+`AGENTS.md`，需在 `~/.gemini/settings.json` 中一次性设置 `context.fileName`：
+
+```json
+{
+  "context": {
+    "fileName": ["AGENTS.md", "GEMINI.md"]
+  }
+}
+```
+
+---
+
 ## 外部参考
 
 - **仓库**: https://github.com/loonghao/auroraview
