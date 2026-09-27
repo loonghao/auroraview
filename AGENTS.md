@@ -1,72 +1,97 @@
-# AuroraView — AI Agent 导航图
+# AGENTS.md — AuroraView
 
-> 渐进式披露入口。先读此图，再按任务类型跳转到对应深度文档。
+> Lightweight WebView framework for DCC hosts (Maya, Houdini, Blender, 3ds Max…):
+> Rust core + PyO3 bindings, WebView2 embedded into a Qt host on Windows.
+> Navigation map for AI agents, not a reference manual. Follow the links; do not
+> read everything up front.
 
-## 项目一句话
+## Build & test
 
-AuroraView 是一个面向 DCC（Maya/Houdini/Blender 等）的轻量 WebView 框架，Rust 核心 + PyO3 Python 绑定，Windows 优先使用 WebView2 嵌入 Qt 宿主。
-
----
-
-## 按任务快速导航
-
-| 你的任务 | 先去这里 | 说明 |
-|---|---|---|
-| **了解整体架构与约定** | `llms.txt` | AI 友好的核心用法索引（5 分钟速读） |
-| **写代码 / 改逻辑 / Review** | `.codebuddy/rules/` | 8 个按主题划分的执行约定，是 CI 与本地开发的真实约束 |
-| **查完整 API 与架构细节** | `llms-full.txt` | 完整用法索引，包含所有 API 签名与模块说明 |
-| **给人看的详细文档** | `docs/` | VitePress 站点，含 DCC 集成指南、API 文档、RFC |
-| **了解打包/发布/CI** | `.codebuddy/rules/08-architecture.mdc` | 项目结构、auroraview-pack 打包系统、CI 流程 |
-| **前端 JS ↔ Python 通信** | `.codebuddy/rules/05-frontend-api.mdc` + `.codebuddy/rules/07-event-system.mdc` | `window.auroraview` 协议与事件分发 |
-| **Python 层接口** | `.codebuddy/rules/06-python-api.mdc` | `AuroraView` 基类、`bind_call`、`emit` |
-| **测试策略** | `.codebuddy/rules/03-testing.mdc` | rstest / pytest、CI 矩阵、性能基线 |
-
----
-
-## 30 秒项目速览
-
-- **命令入口**：所有工具命令通过 `vx` 执行，任务编排通过 `vx just <task>`。
-- **兼容底线**：Python 3.7+，不引入第三方 Python 依赖（仅一个 `.pyd`）。
-- **测试入口**：`vx just test`（统一本地与 CI）。
-- **构建入口**：`vx just build`。
-- **技术栈**：Rust（windows-rs / webview2-com / PyO3）+ Python ABI3 wheel + TypeScript SDK。
-- **事件循环**：Qt 宿主负责事件循环，Rust 不接管消息泵。
-
----
-
-## 目录结构地图
-
-```
-├── crates/                 Rust crates
-│   ├── auroraview-core/    核心协议与 WebView 后端抽象
-│   ├── auroraview-cli/     CLI 工具与 Skills 分发
-│   └── ...
-├── python/auroraview/      Python 包（AuroraView 基类、DCC 宿主层）
-├── packages/               TS/JS 包（前端 SDK）
-│   └── auroraview-sdk/
-├── gallery/                Gallery 演示应用（E2E 验证基准）
-├── examples/               示例代码
-├── docs/                   面向开发者的详细文档（VitePress）
-├── submodules/             Git submodules（pack / protect / signals / extensions）
-└── .codebuddy/rules/       AI 代理执行约定（真相之源）
+```bash
+vx just dev      # install deps (vx uv sync --group dev) + build extension module
+vx just build    # build the extension module (maturin develop)
+vx just test     # Rust crate tests + Python unit/integration tests
+vx just check    # format + lint + test (run before opening a PR)
+vx just lint     # unsafe-audit + clippy + ruff
+vx just format   # cargo fmt + ruff format
 ```
 
----
+Every tool command goes through `vx`; task orchestration goes through
+`vx just <recipe>`. Do not call `cargo` / `pytest` / `maturin` directly — the
+`just` recipes carry the platform- and feature-specific flags. Full recipe list:
+`vx just --list`.
 
-## 关键约定速查（不可违背）
+## Repo layout
 
-1. **禁止裸命令**：永远 `vx just build`，不要直接 `cargo build` 或 `pytest`。
-2. **禁止代码内 emoji**：保持专业风格。
-3. **函数命名**：简短精炼，使用行业标准术语，避免 `optimized`、`fixed` 等词。
-4. **测试位置**：Rust 集成测试放在各 crate 的 `tests/` 目录，使用 `rstest`；不要内联单元测试。
-5. **Skills 真相源**：官方 Skills 在 `crates/auroraview-cli/skills/<name>/SKILL.md`；`.cursor/skills/`、`.claude/skills/` 只是本地镜像，禁止复制。
-6. **JS 事件统一**：Rust 层事件分发统一使用 `window.auroraview.trigger()`，不混用原生 `CustomEvent`。
+| Path | Role |
+|---|---|
+| `crates/` | Rust crates (`auroraview-core` protocol + WebView backend abstraction, `auroraview-cli`, `auroraview-pack`, …) |
+| `python/auroraview/` | Python package — `AuroraView` base class and DCC host layer |
+| `packages/auroraview-sdk/` | TypeScript/JS front-end SDK |
+| `gallery/` | Gallery demo app, used as the E2E baseline |
+| `examples/` | Runnable examples |
+| `tests/` | Python unit + integration tests; Rust integration tests live in `crates/<name>/tests/` |
+| `docs/` | VitePress site for humans (DCC integration, API, RFCs); `docs/zh/` is the Chinese mirror |
+| `llms.txt` | AI-friendly core usage index (5-minute read) |
+| `llms-full.txt` | Complete usage index — every API signature and module note |
+| `.codebuddy/rules/` | Topic-split execution rules — the real constraints behind CI and local dev |
 
----
+## Task → where to look
 
-## 外部参考
+| Your task | Go here |
+|---|---|
+| Understand the architecture and conventions | `llms.txt` |
+| Write / change / review code | `.codebuddy/rules/` (8 topic files) |
+| Look up full API and architecture detail | `llms-full.txt` |
+| Human-readable deep docs | `docs/` |
+| Packaging, release, CI | `.codebuddy/rules/08-architecture.mdc` |
+| Front-end JS ↔ Python bridge | `.codebuddy/rules/05-frontend-api.mdc` + `07-event-system.mdc` |
+| Python layer API | `.codebuddy/rules/06-python-api.mdc` |
+| Test strategy | `.codebuddy/rules/03-testing.mdc` |
 
-- **仓库**: https://github.com/loonghao/auroraview
-- **PyPI**: https://pypi.org/project/auroraview
-- **CHANGELOG**: `./CHANGELOG.md`
-- **CONTRIBUTING**: `./CONTRIBUTING.md`
+## 30-second orientation
+
+- **Commands**: all tools via `vx`, all tasks via `vx just <recipe>`.
+- **Compatibility floor**: Python 3.7+, no third-party Python runtime deps (a single `.pyd`).
+- **Stack**: Rust (windows-rs / webview2-com / PyO3) + Python abi3 wheel + TypeScript SDK.
+- **Event loop**: the Qt host owns the event loop — Rust does not take over the message pump.
+
+## Release
+
+- release-please drives versioning from Conventional Commits on `main`.
+- `feat:` → minor, `fix:` → patch, `chore:`/`docs:`/`ci:` → **no release**.
+- Use `chore:`/`docs:` for config and doc work so release-please does not cut a
+  valueless version.
+- release-please also bumps `Cargo.toml` (`workspace.package.version`),
+  `pyproject.toml` and `packages/auroraview-sdk/package.json`. Never edit those
+  versions by hand.
+
+## Do / Don't
+
+- **Do** single-source agent instructions here. This is the only agent contract
+  file at the repo root.
+- **Don't** add `CLAUDE.md` / `GEMINI.md` / `CURSOR.md` / `ANTHROPIC.md` /
+  `OPENAI.md` / `COPILOT.md` / `CODEBUDDY.md` / `.cursorrules` / `.clinerules` /
+  `.windsurfrules` at the root. Vendor-specific notes live under
+  `docs/integrations/`, linked from here.
+- **Do** run `vx just build` / `vx just test` — never bare `cargo build` or `pytest`.
+- **Don't** put emoji in code.
+- **Do** keep function names short and use industry-standard terms; avoid
+  `optimized`, `fixed`, and similar noise words.
+- **Do** put Rust integration tests in each crate's `tests/` directory using
+  `rstest`; **don't** write inline unit tests.
+- **Do** treat `crates/auroraview-cli/skills/<name>/SKILL.md` as the source of
+  truth for Skills — `.cursor/skills/` and `.claude/skills/` are local mirrors,
+  never copy into them.
+- **Do** dispatch all front-end events through `window.auroraview.trigger()`;
+  **don't** mix in native `CustomEvent`.
+- **Don't** hardcode an exact version in tests (`assert __version__ == "X.Y.Z"`)
+  — release-please bumps will break it. Use `>=` or read package metadata.
+- **Don't** commit build artifacts to the repo root (`audit-result.json`,
+  `clippy_check.txt`, `commit_msg.txt`, `coverage.json`).
+
+## References
+
+- Repository: https://github.com/loonghao/auroraview
+- PyPI: https://pypi.org/project/auroraview
+- `./CHANGELOG.md`, `./CONTRIBUTING.md`
