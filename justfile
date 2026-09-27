@@ -785,6 +785,12 @@ release:
     vx uv run maturin build --release --features "ext-module,python-bindings,win-webview2"
     @echo "Wheels built in target/wheels/"
 
+# Launch the AuroraView CLI (`python -m auroraview.__main__`).
+# Moved here from `vx.toml [scripts]`, where the command took no arguments.
+# See docs/guide/cli.md for the flags, including `--url`.
+auroraview *ARGS:
+    vx uv run python -m auroraview.__main__ {{ARGS}}
+
 # Run examples
 example EXAMPLE:
     @echo "Running example: {{EXAMPLE}}"
