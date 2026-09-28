@@ -1,5 +1,7 @@
 [tools]
 just = "latest"
+# exception: pinned to the .python-version (3.11) of this repo, not the 3.12
+# baseline default. Bump both together when moving off 3.11.
 python = "3.11"
 rust = "1.90.0"
 uv = "latest"
@@ -7,13 +9,12 @@ uv = "latest"
 # Windows-only toolchain pieces. Gated via the `os` field so that
 # `vx sync` on Linux / macOS CI runners does not try to install
 # MSVC build tools or rcedit (which have no non-Windows binaries).
-rcedit = { version = "latest", os = ["windows"] }
-msvc = { version = "14.42", os = ["windows"] }
-
-
-[settings]
-auto_install = true
-cache_duration = "7d"
+# Both are artifact tools: their version ends up in the packaged exe, so they
+# are pinned instead of floating on `latest`.
+rcedit = { version = "2.0.0", os = ["windows"] }
+# MSVC is host-provided (Visual Studio Build Tools): vx cannot install a
+# numbered MSVC version, so it must be requested as "system".
+msvc = { version = "system", os = ["windows"] }
 
 # No [scripts] here on purpose: every entry was a verbatim `just xxx` mirror of
 # a justfile recipe, so the two copies drifted silently whenever a recipe was
