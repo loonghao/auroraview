@@ -49,8 +49,9 @@ jobs:
           fetch-depth: 0
 
       - name: Setup vx
-        uses: loonghao/vx@vx-v0.9.26
+        uses: loonghao/vx@vx-v0.9.33
         with:
+          version: '0.9.33'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Show installed tools

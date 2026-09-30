@@ -90,8 +90,11 @@ runs:
           pkg-config
 
     - name: Setup vx helpers
-      uses: loonghao/vx@vx-v0.8.15
+      # `version` defaults to `latest`, so the action ref alone does not pin the
+      # vx binary. Keep it identical to the version that generated vx.lock.
+      uses: loonghao/vx@vx-v0.9.33
       with:
+        version: '0.9.33'
         github-token: ${{ github.token }}
         tools: 'just bun'
         cache: 'false'
