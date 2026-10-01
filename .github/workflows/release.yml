@@ -252,8 +252,9 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup vx helpers
-        uses: loonghao/vx@vx-v0.9.26
+        uses: loonghao/vx@vx-v0.9.33
         with:
+          version: '0.9.33'
           github-token: ${{ github.token }}
           tools: 'just bun'
           cache: 'false'

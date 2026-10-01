@@ -31,8 +31,14 @@ runs:
   using: 'composite'
   steps:
     - name: Install vx
-      uses: loonghao/vx@vx-v0.8.15
+      # The action ref alone does not pin the binary: the `version` input
+      # defaults to `latest`, so install.sh downloads the newest vx at run time.
+      # Pin it explicitly to the version that generated vx.lock -- an older vx
+      # cannot consume the lock format, and a newer one can resolve tool
+      # versions the lock never pinned.
+      uses: loonghao/vx@vx-v0.9.33
       with:
+        version: '0.9.33'
         github-token: ${{ github.token }}
         cache: false
 

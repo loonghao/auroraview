@@ -291,8 +291,9 @@ jobs:
           fetch-depth: 0
 
       - name: Setup vx
-        uses: loonghao/vx@vx-v0.9.26
+        uses: loonghao/vx@vx-v0.9.33
         with:
+          version: '0.9.33'
           github-token: ${{ secrets.GITHUB_TOKEN }}
           tools: 'bun'
           cache: 'false'
@@ -326,8 +327,9 @@ jobs:
           components: rustfmt,clippy
 
       - name: Setup vx
-        uses: loonghao/vx@vx-v0.9.26
+        uses: loonghao/vx@vx-v0.9.33
         with:
+          version: '0.9.33'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Cache Rust
@@ -404,8 +406,9 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
 
       - name: Setup vx helpers
-        uses: loonghao/vx@vx-v0.9.26
+        uses: loonghao/vx@vx-v0.9.33
         with:
+          version: '0.9.33'
           github-token: ${{ secrets.GITHUB_TOKEN }}
           tools: 'just bun'
           cache: 'false'
@@ -616,8 +619,9 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
 
       - name: Setup vx helpers
-        uses: loonghao/vx@vx-v0.9.26
+        uses: loonghao/vx@vx-v0.9.33
         with:
+          version: '0.9.33'
           github-token: ${{ secrets.GITHUB_TOKEN }}
           tools: 'just bun'
           cache: 'false'
