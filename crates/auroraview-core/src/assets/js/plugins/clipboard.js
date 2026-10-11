@@ -26,6 +26,7 @@
     }
   }
   function initPlugin(name, api) {
+    if (typeof window === "undefined") return;
     if (window.auroraview) {
       attachPlugin(name, api);
     } else {

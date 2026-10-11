@@ -93,9 +93,9 @@ vx just --justfile packages/auroraview-offscreen/justfile runtime-verify P:/arti
 
 The bundle includes `electron/`, `helper/`, both publisher licenses,
 `runtime-lock.json`, provenance/checksums and `bundle-manifest.json`.
-`event_bridge.js` comes from the SDK build at
-`packages/auroraview-sdk/dist/inject/event_bridge.js`; no second bridge source is
-maintained here. The SDK also exports the asset as
+`event_bridge.js` comes from the web SDK release (try-auroraview/auroraview-web-sdk),
+vendored into `crates/auroraview-core/src/assets/js/core/`; no second bridge source
+is maintained here. The SDK also exports the asset as
 `@auroraview/sdk/inject/event-bridge`.
 
 For a native renderer check with an already acquired verified runtime:

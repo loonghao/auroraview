@@ -10,7 +10,6 @@ name: PR Checks
 # - Dependency chains are respected (e.g., core changes trigger CLI tests)
 #
 # Artifact Reuse Strategy:
-# - sdk-build: Builds SDK once, artifacts reused by gallery-e2e and gallery-pack
 # - cli-build: Builds CLI once, artifacts reused by gallery-pack
 # - pre-build: Builds wheels once, artifacts reused by python-tests, wheel-build, qt-tests, gallery-pack
 # - This eliminates duplicate builds and significantly reduces CI time
@@ -57,7 +56,6 @@ jobs:
       # High-level category flags
       rust: ${{ steps.filter.outputs.rust }}
       python: ${{ steps.filter.outputs.python }}
-      sdk: ${{ steps.filter.outputs.sdk }}
       gallery: ${{ steps.filter.outputs.gallery }}
       docs: ${{ steps.filter.outputs.docs }}
       ci: ${{ steps.filter.outputs.ci }}
@@ -77,7 +75,6 @@ jobs:
       needs_wheel: ${{ steps.composite.outputs.needs_wheel }}
       needs_rust_checks: ${{ steps.composite.outputs.needs_rust_checks }}
       needs_python_tests: ${{ steps.composite.outputs.needs_python_tests }}
-      needs_sdk_build: ${{ steps.composite.outputs.needs_sdk_build }}
       needs_gallery_tests: ${{ steps.composite.outputs.needs_gallery_tests }}
       needs_docs_build: ${{ steps.composite.outputs.needs_docs_build }}
       # Rust crate dependency flags (includes transitive deps)
@@ -127,8 +124,6 @@ jobs:
               - 'pyproject.toml'
               - 'tests/python/**'
               - 'noxfile.py'
-            sdk:
-              - 'packages/auroraview-sdk/**'
             gallery:
               - 'gallery/**'
             docs:
@@ -204,13 +199,12 @@ jobs:
         run: |
           rust="${{ steps.filter.outputs.rust }}"
           python="${{ steps.filter.outputs.python }}"
-          sdk="${{ steps.filter.outputs.sdk }}"
           gallery="${{ steps.filter.outputs.gallery }}"
           docs="${{ steps.filter.outputs.docs }}"
           ci="${{ steps.filter.outputs.ci }}"
 
           # needs_wheel: when Rust, Python, or SDK changes (need to rebuild wheel)
-          if [[ "$rust" == "true" || "$python" == "true" || "$sdk" == "true" || "$ci" == "true" ]]; then
+          if [[ "$rust" == "true" || "$python" == "true" || "$ci" == "true" ]]; then
             echo "needs_wheel=true" >> $GITHUB_OUTPUT
           else
             echo "needs_wheel=false" >> $GITHUB_OUTPUT
@@ -230,15 +224,8 @@ jobs:
             echo "needs_python_tests=false" >> $GITHUB_OUTPUT
           fi
 
-          # needs_sdk_build: when SDK changes
-          if [[ "$sdk" == "true" || "$ci" == "true" ]]; then
-            echo "needs_sdk_build=true" >> $GITHUB_OUTPUT
-          else
-            echo "needs_sdk_build=false" >> $GITHUB_OUTPUT
-          fi
-
           # needs_gallery_tests: when Gallery or SDK changes (Gallery depends on SDK)
-          if [[ "$gallery" == "true" || "$sdk" == "true" || "$ci" == "true" ]]; then
+          if [[ "$gallery" == "true" || "$ci" == "true" ]]; then
             echo "needs_gallery_tests=true" >> $GITHUB_OUTPUT
           else
             echo "needs_gallery_tests=false" >> $GITHUB_OUTPUT
@@ -260,7 +247,6 @@ jobs:
           echo "|----------|---------|----------|" >> $GITHUB_STEP_SUMMARY
           echo "| Rust | ${{ steps.filter.outputs.rust }} | Rust checks, CLI build |" >> $GITHUB_STEP_SUMMARY
           echo "| Python | ${{ steps.filter.outputs.python }} | Python tests |" >> $GITHUB_STEP_SUMMARY
-          echo "| SDK | ${{ steps.filter.outputs.sdk }} | SDK build |" >> $GITHUB_STEP_SUMMARY
           echo "| Gallery | ${{ steps.filter.outputs.gallery }} | Gallery E2E |" >> $GITHUB_STEP_SUMMARY
           echo "| Docs | ${{ steps.filter.outputs.docs }} | Docs build |" >> $GITHUB_STEP_SUMMARY
           echo "| CI | ${{ steps.filter.outputs.ci }} | All checks |" >> $GITHUB_STEP_SUMMARY
@@ -278,7 +264,6 @@ jobs:
           echo "- needs_wheel: ${{ steps.composite.outputs.needs_wheel }}" >> $GITHUB_STEP_SUMMARY
           echo "- needs_rust_checks: ${{ steps.composite.outputs.needs_rust_checks }}" >> $GITHUB_STEP_SUMMARY
           echo "- needs_python_tests: ${{ steps.composite.outputs.needs_python_tests }}" >> $GITHUB_STEP_SUMMARY
-          echo "- needs_sdk_build: ${{ steps.composite.outputs.needs_sdk_build }}" >> $GITHUB_STEP_SUMMARY
           echo "- needs_gallery_tests: ${{ steps.composite.outputs.needs_gallery_tests }}" >> $GITHUB_STEP_SUMMARY
           echo "- needs_docs_build: ${{ steps.composite.outputs.needs_docs_build }}" >> $GITHUB_STEP_SUMMARY
 
@@ -443,17 +428,6 @@ jobs:
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
   # =============================================================================
-  # SDK Build - TypeScript SDK (parallel, no dependencies)
-  # =============================================================================
-  sdk-build:
-    name: SDK CI
-    needs: [path-filter]
-    if: needs.path-filter.outputs.needs_sdk_build == 'true'
-    uses: ./.github/workflows/sdk-ci.yml
-    with:
-      artifact-prefix: 'pr-'
-    secrets: inherit
-
   # =============================================================================
   # Pre-build Wheels - Build ABI3 wheels for all platforms
   # Only runs when code changes require wheel rebuild
@@ -462,11 +436,10 @@ jobs:
     name: Pre-build Wheel (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
-    needs: [path-filter, sdk-build]
+    needs: [path-filter]
     if: |
       always() &&
-      (needs.path-filter.outputs.needs_wheel == 'true') &&
-      (needs.sdk-build.result == 'success' || needs.sdk-build.result == 'skipped')
+      (needs.path-filter.outputs.needs_wheel == 'true')
     strategy:
       fail-fast: false
       matrix:
@@ -487,12 +460,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Download SDK assets
-        if: needs.sdk-build.result == 'success'
-        uses: actions/download-artifact@v8
-        with:
-          name: pr-sdk-assets
-          path: crates/auroraview-core/src/assets/js/
+      - name: Vendor SDK inject assets
+        run: vx just sdk-assets
 
       - name: Build and Test Wheel
         uses: ./.github/actions/build-wheel
@@ -1067,11 +1036,10 @@ jobs:
     name: Gallery Frontend Build
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [path-filter, sdk-build]
+    needs: [path-filter]
     if: |
       always() &&
-      needs.path-filter.outputs.needs_gallery_tests == 'true' &&
-      (needs.sdk-build.result == 'success' || needs.sdk-build.result == 'skipped')
+      needs.path-filter.outputs.needs_gallery_tests == 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -1081,16 +1049,6 @@ jobs:
           install-dependencies: 'false'
           cache-key-suffix: 'pr-gallery-frontend'
 
-      - name: Download SDK package
-        if: needs.sdk-build.result == 'success'
-        uses: actions/download-artifact@v8
-        with:
-          name: pr-sdk-package
-          path: packages/auroraview-sdk/dist/
-
-      - name: Build SDK (fallback)
-        if: needs.sdk-build.result == 'skipped'
-        run: vx just sdk-build
 
       - name: Build Gallery frontend
         run: |
@@ -1113,11 +1071,10 @@ jobs:
     name: Gallery E2E Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [path-filter, sdk-build, gallery-frontend]
+    needs: [path-filter, gallery-frontend]
     if: |
       always() &&
       needs.path-filter.outputs.needs_gallery_tests == 'true' &&
-      (needs.sdk-build.result == 'success' || needs.sdk-build.result == 'skipped') &&
       needs.gallery-frontend.result == 'success'
     steps:
       - uses: actions/checkout@v7
@@ -1133,18 +1090,6 @@ jobs:
         with:
           python-version: '3.11'
 
-      # Download pre-built SDK package if available
-      - name: Download SDK package
-        if: needs.sdk-build.result == 'success'
-        uses: actions/download-artifact@v8
-        with:
-          name: pr-sdk-package
-          path: packages/auroraview-sdk/dist/
-
-      # Build SDK only if sdk-build was skipped (no SDK changes)
-      - name: Build SDK (fallback)
-        if: needs.sdk-build.result == 'skipped'
-        run: vx just sdk-build
 
       - name: Download Gallery frontend artifact
         uses: actions/download-artifact@v8
@@ -1254,7 +1199,7 @@ jobs:
     name: Gallery Pack Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
-    needs: [path-filter, cli-build, pre-build, sdk-build, gallery-frontend]
+    needs: [path-filter, cli-build, pre-build, gallery-frontend]
     if: |
       always() &&
       needs.path-filter.outputs.needs_gallery_tests == 'true' &&
@@ -1356,13 +1301,6 @@ jobs:
         if: needs.cli-build.result == 'skipped' && runner.os != 'Windows'
         run: vx just ci-cli-build ${{ matrix.target }}
 
-      # Download pre-built SDK package if available
-      - name: Download SDK package
-        if: needs.sdk-build.result == 'success'
-        uses: actions/download-artifact@v8
-        with:
-          name: pr-sdk-package
-          path: packages/auroraview-sdk/dist/
 
       - name: Download Gallery frontend artifact
         uses: actions/download-artifact@v8
@@ -1370,10 +1308,6 @@ jobs:
           name: gallery-frontend-dist
           path: gallery/dist/
 
-      # Build SDK only if sdk-build was skipped
-      - name: Build SDK (fallback)
-        if: needs.sdk-build.result == 'skipped'
-        run: vx just sdk-build
 
       - name: Pack Gallery (generate executable)
         shell: bash
@@ -1532,7 +1466,7 @@ jobs:
   pr-ready:
     name: PR Ready
     runs-on: ubuntu-latest
-    needs: [path-filter, pre-build, python37-test, quick-checks, clippy, python-tests, rust-tests, wheel-build, qt-tests, cli-build, gallery-frontend, gallery-e2e, gallery-pack, sdk-build, benchmark, docs-build]
+    needs: [path-filter, pre-build, python37-test, quick-checks, clippy, python-tests, rust-tests, wheel-build, qt-tests, cli-build, gallery-frontend, gallery-e2e, gallery-pack, benchmark, docs-build]
     if: always()
     steps:
       - name: Check results
@@ -1581,7 +1515,6 @@ jobs:
           gallery-frontend|${{ needs.gallery-frontend.result }}
           gallery-e2e|${{ needs.gallery-e2e.result }}
           gallery-pack|${{ needs.gallery-pack.result }}
-          sdk-build|${{ needs.sdk-build.result }}
           benchmark|${{ needs.benchmark.result }}
           docs-build|${{ needs.docs-build.result }}
           EOF

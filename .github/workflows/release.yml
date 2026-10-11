@@ -88,9 +88,6 @@ jobs:
       artifacts-available: ${{ steps.check.outputs.available }}
       pr-run-id: ${{ steps.check.outputs.run_id }}
       source-sha: ${{ steps.check.outputs.source_sha }}
-      sdk-available: ${{ steps.check.outputs.sdk_available }}
-      sdk-run-id: ${{ steps.check.outputs.sdk_run_id }}
-      sdk-source-sha: ${{ steps.check.outputs.sdk_source_sha }}
     steps:
       - uses: actions/checkout@v7
 
@@ -118,17 +115,10 @@ jobs:
             }
 
             core.setOutput('available', 'false');
-            core.setOutput('sdk_available', 'false');
             let wheelsAvailable = false;
-            let sdkAvailable = false;
             const wheelNames = [
               'wheels-linux-x86_64', 'wheels-windows-x64', 'wheels-macos-universal2-apple-darwin',
               'wheels-linux-x86_64-py37', 'wheels-windows-x64-py37',
-            ];
-            const sdkJobs = [
-              'SDK CI / Type Check', 'SDK CI / Unit Tests (Node 20)', 'SDK CI / Unit Tests (Node 22)',
-              'SDK CI / Coverage Report', 'SDK CI / Build Package', 'SDK CI / Build Assets',
-              'SDK CI / E2E Tests', 'SDK CI / Gallery Integration', 'SDK CI / SDK Ready',
             ];
 
             for (const candidate of candidates) {
@@ -150,21 +140,10 @@ jobs:
                   core.setOutput('run_id', String(run.id));
                   core.setOutput('source_sha', candidate.sha);
                 }
-                if (!sdkAvailable && hasArtifact('pr-sdk-npm-consumer')) {
-                  const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
-                    ...context.repo, run_id: run.id, filter: 'latest', per_page: 100,
-                  });
-                  if (sdkJobs.every(name => jobs.some(job => job.name === name && job.status === 'completed' && job.conclusion === 'success'))) {
-                    sdkAvailable = true;
-                    core.setOutput('sdk_available', 'true');
-                    core.setOutput('sdk_run_id', String(run.id));
-                    core.setOutput('sdk_source_sha', candidate.sha);
-                  }
-                }
-                if (wheelsAvailable && sdkAvailable) return;
+                if (wheelsAvailable) return;
               }
             }
-            console.log(`Verified reuse: wheels=${wheelsAvailable}, sdk=${sdkAvailable}; unavailable stages will build`);
+            console.log(`Verified reuse: wheels=${wheelsAvailable}; unavailable stages will build`);
 
   # Download and re-upload artifacts from PR workflow (if available)
   reuse-pr-wheels:
@@ -300,288 +279,6 @@ jobs:
             git commit -m "docs: update gallery screenshots [skip ci]"
             git push
             echo "Screenshots updated and pushed"
-          fi
-
-  # Promote the exact npm archive already checked on an identical source tree.
-  reuse-pr-sdk:
-    name: Reuse PR SDK Archive
-    runs-on: ubuntu-latest
-    needs: [check-pr-artifacts]
-    if: |
-      always() &&
-      needs.check-pr-artifacts.result == 'success' &&
-      needs.check-pr-artifacts.outputs.sdk-available == 'true' &&
-      !inputs.force-rebuild
-    steps:
-      - name: Download verified PR npm archive
-        uses: actions/download-artifact@v8
-        with:
-          name: pr-sdk-npm-consumer
-          path: npm-artifacts/
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ needs.check-pr-artifacts.outputs.sdk-run-id }}
-
-      - name: Promote npm archive for release verification
-        uses: actions/upload-artifact@v7
-        with:
-          name: release-sdk-npm-consumer
-          path: npm-artifacts/
-          if-no-files-found: error
-          retention-days: 7
-
-  # Build SDK only when a verified archive from the same tree is unavailable.
-  build-sdk:
-    name: SDK CI
-    needs: [release-please, check-tag, check-pr-artifacts]
-    if: |
-      always() &&
-      ((needs.release-please.result == 'success' && needs.release-please.outputs.release_created == 'true') ||
-       (needs.check-tag.result == 'success' && needs.check-tag.outputs.is_tag == 'true')) &&
-      (needs.check-pr-artifacts.result != 'success' || needs.check-pr-artifacts.outputs.sdk-available != 'true' || inputs.force-rebuild)
-    uses: ./.github/workflows/sdk-ci.yml
-    with:
-      artifact-prefix: 'release-'
-    secrets: inherit
-
-  # (Removed) `build-mcp` / MCP CI reusable workflow.
-  # The Python `auroraview-mcp` package was retired in favour of the Rust
-  # `crates/auroraview-mcp` adapter + `dcc-mcp-core`'s gateway — see #364.
-
-  # Publish SDK to npm via OIDC Trusted Publishing.
-  # No NPM_TOKEN needed — npm authenticates via GitHub's OIDC token (id-token: write).
-  # Requires one-time setup: add this repo as a trusted publisher on npm's package page.
-  # npm granular access tokens with write permission now expire after 90 days max (Nov 2025),
-  # so OIDC trusted publishing is the only solution with no expiry.
-  npm-publish:
-    name: Publish to npm
-    runs-on: ubuntu-latest
-    needs: [release-please, check-tag, reuse-pr-sdk, build-sdk]
-    if: |
-      always() &&
-      ((needs.release-please.result == 'success' && needs.release-please.outputs.release_created == 'true') ||
-       (needs.check-tag.result == 'success' && needs.check-tag.outputs.is_tag == 'true')) &&
-      (needs.reuse-pr-sdk.result == 'success' || needs.build-sdk.result == 'success')
-    environment:
-      name: npm
-      url: https://www.npmjs.com/package/@auroraview/sdk
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
-          package-manager-cache: false
-
-      - name: Install npm trusted publishing CLI
-        shell: bash
-        run: npm install -g npm@11
-
-      - name: Verify npm trusted publishing toolchain
-        shell: bash
-        run: |
-          node --version
-          npm --version
-
-          node <<'NODE'
-          const { execFileSync } = require("node:child_process");
-
-          function parse(version) {
-            return version.split(".").map((part) => Number(part));
-          }
-
-          function atLeast(actual, minimum) {
-            for (let index = 0; index < minimum.length; index += 1) {
-              const actualPart = actual[index] || 0;
-              const minimumPart = minimum[index] || 0;
-              if (actualPart > minimumPart) return true;
-              if (actualPart < minimumPart) return false;
-            }
-            return true;
-          }
-
-          const nodeVersion = process.versions.node;
-          const npmVersion = execFileSync("npm", ["--version"], { encoding: "utf8" }).trim();
-
-          if (!atLeast(parse(nodeVersion), [22, 14, 0])) {
-            throw new Error(`npm trusted publishing requires Node >= 22.14.0; found ${nodeVersion}`);
-          }
-
-          if (!atLeast(parse(npmVersion), [11, 5, 1])) {
-            throw new Error(`npm trusted publishing requires npm >= 11.5.1; found ${npmVersion}`);
-          }
-          NODE
-
-      - name: Verify npm connectivity
-        shell: bash
-        run: |
-          echo "Checking npm registry connectivity..."
-          npm ping || echo "WARNING: npm ping failed (non-blocking)"
-
-      - name: Verify package configuration
-        shell: bash
-        run: |
-          cd packages/auroraview-sdk
-          echo "Package: $(node -p 'require("./package.json").name')"
-          echo "Version: $(node -p 'require("./package.json").version')"
-          echo "Registry: $(node -p 'require("./package.json").publishConfig?.registry || "default"')"
-          echo "Access: $(node -p 'require("./package.json").publishConfig?.access || "default"')"
-
-      - name: Download verified npm archive
-        uses: actions/download-artifact@v8
-        with:
-          name: release-sdk-npm-consumer
-          path: npm-artifacts/
-
-      - name: Verify npm archive and consumer receipt
-        id: archive
-        shell: bash
-        env:
-          RELEASE_TAG: ${{ needs.release-please.outputs.tag_name || needs.check-tag.outputs.tag_name }}
-        run: |
-          node --input-type=commonjs <<'NODE'
-          const assert = require('node:assert/strict');
-          const { execFileSync } = require('node:child_process');
-          const { createHash } = require('node:crypto');
-          const { appendFileSync, lstatSync, readFileSync, realpathSync } = require('node:fs');
-          const path = require('node:path');
-
-          const expected = JSON.parse(readFileSync('packages/auroraview-sdk/package.json', 'utf8'));
-          assert.equal(expected.name, '@auroraview/sdk', 'Unexpected SDK package name');
-          assert.equal(process.env.RELEASE_TAG, `auroraview-v${expected.version}`, 'Release tag and SDK version differ');
-          const repository = `git+https://github.com/${process.env.GITHUB_REPOSITORY}.git`;
-          assert.equal(expected.repository?.url, repository, 'SDK repository differs from publishing repository');
-
-          const directory = realpathSync('npm-artifacts');
-          const receiptPath = path.join(directory, 'sdk-package-receipt.json');
-          assert(lstatSync(receiptPath).isFile(), 'Consumer receipt must be a regular file');
-          const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
-          assert.equal(receipt.status, 'passed', 'Installed npm consumer validation did not pass');
-          assert.equal(receipt.stage, 'complete', 'Consumer validation did not complete');
-          assert.equal(receipt.offline_install, true, 'Archive was not tested offline');
-          assert.equal(receipt.consumer_removed, true, 'Consumer cleanup did not pass');
-          assert.equal(receipt.consumer?.package, expected.name, 'Receipt package name differs');
-          assert.equal(receipt.consumer?.version, expected.version, 'Receipt package version differs');
-
-          const filename = receipt.tarball?.filename;
-          assert.equal(typeof filename, 'string', 'Receipt archive filename is missing');
-          assert(/^[A-Za-z0-9][A-Za-z0-9._+-]*\.tgz$/.test(filename), 'Archive filename must be a contained tgz basename');
-          assert.equal(filename, path.basename(filename), 'Archive path escapes the artifact directory');
-          assert.equal(filename, path.win32.basename(filename), 'Archive path contains Windows separators');
-          const archive = path.join(directory, filename);
-          assert(lstatSync(archive).isFile(), 'Archive must be a regular file');
-          assert.equal(path.dirname(realpathSync(archive)), directory, 'Archive resolves outside the artifact directory');
-          const bytes = readFileSync(archive);
-          assert.equal(bytes.length, receipt.tarball.size, 'Archive size differs from receipt');
-          assert.match(receipt.tarball.sha256, /^[a-f0-9]{64}$/, 'Receipt SHA256 is invalid');
-          assert.equal(createHash('sha256').update(bytes).digest('hex'), receipt.tarball.sha256, 'Archive SHA256 differs from receipt');
-          const integrity = `sha512-${createHash('sha512').update(bytes).digest('base64')}`;
-          assert.equal(receipt.tarball.integrity, integrity, 'Archive integrity differs from receipt');
-
-          const metadata = JSON.parse(execFileSync('tar', ['-xOf', archive, 'package/package.json'], {
-            encoding: 'utf8', timeout: 10000, maxBuffer: 1024 * 1024,
-          }));
-          assert.equal(metadata.name, expected.name, 'Packed package name differs');
-          assert.equal(metadata.version, expected.version, 'Packed package version differs');
-          assert.equal(metadata.repository?.url, repository, 'Packed repository differs from publishing repository');
-          appendFileSync(process.env.GITHUB_OUTPUT, `path=${archive}\nversion=${expected.version}\nintegrity=${integrity}\n`);
-          console.log(`Verified ${filename}: ${receipt.tarball.sha256}`);
-          NODE
-
-      - name: Publish to npm (OIDC Trusted Publishing)
-        id: npm-publish
-        shell: bash
-        env:
-          VERIFIED_ARCHIVE: ${{ steps.archive.outputs.path }}
-          SDK_VERSION: ${{ steps.archive.outputs.version }}
-          VERIFIED_INTEGRITY: ${{ steps.archive.outputs.integrity }}
-        run: |
-          VERSION="$SDK_VERSION"
-          echo "Publishing @auroraview/sdk@$VERSION via OIDC trusted publishing..."
-
-          if EXISTING_DIST=$(npm view "@auroraview/sdk@$VERSION" dist --json --registry https://registry.npmjs.org 2>/dev/null); then
-            EXISTING_DIST="$EXISTING_DIST" node --input-type=commonjs <<'NODE'
-          const assert = require('node:assert/strict');
-          const existing = JSON.parse(process.env.EXISTING_DIST);
-          assert.equal(existing.integrity, process.env.VERIFIED_INTEGRITY, 'Immutable npm version conflicts with the verified archive');
-          NODE
-            echo "Version $VERSION already published with the verified archive integrity, skipping"
-            echo "publish_result=skipped" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # OIDC trusted publishing: npm uses the GitHub-issued OIDC token
-          # to authenticate — no NPM_TOKEN secret needed.
-          # Prerequisite: trusted publisher configured on npm for this repo+workflow.
-          publish_log=$(mktemp)
-          set +e
-          npm publish "$VERIFIED_ARCHIVE" --registry https://registry.npmjs.org --provenance --access public --ignore-scripts 2>&1 | tee "$publish_log"
-          publish_status=${PIPESTATUS[0]}
-          set -e
-
-          if [ "$publish_status" -eq 0 ]; then
-            echo "publish_result=success" >> "$GITHUB_OUTPUT"
-            echo "Published @auroraview/sdk@$VERSION via OIDC trusted publishing"
-            exit 0
-          fi
-
-          echo "publish_result=failed" >> "$GITHUB_OUTPUT"
-          echo ""
-          echo "========== npm publish FAILED (exit code $publish_status) =========="
-          echo ""
-
-          if grep -Eiq 'trusted publishing|trusted publisher|not linked' "$publish_log"; then
-            echo "ERROR: Trusted publishing is not configured for this npm package/repository pair."
-            echo ""
-            echo "TO FIX — add this repo as a trusted publisher on npm:"
-            echo "  1. Go to https://www.npmjs.com/package/@auroraview/sdk/access"
-            echo "  2. Click 'Trusted Publishers' → 'Add Trusted Publisher'"
-            echo "  3. Set: Owner=try-auroraview, Repository=auroraview, Workflow filename=release.yml, Environment=npm"
-            echo "  4. Save, then re-run this workflow"
-          elif grep -Eiq 'ENEEDAUTH|E401|authentication|must be logged in|not authorized' "$publish_log"; then
-            echo "ERROR: npm authentication failed."
-            echo ""
-            echo "Make sure Trusted Publishing is configured (see above)."
-            echo ""
-            echo "NOTE: npm granular access tokens now have a max lifetime of 90 days."
-            echo "Trusted Publishing (OIDC) is the only solution with no expiry."
-            echo "See: https://github.blog/changelog/2025-09-29-npm-granular-access-token-max-expiration-90-days/"
-          elif grep -qi 'EOTP' "$publish_log"; then
-            echo "ERROR: npm is requesting a one-time password (EOTP)."
-            echo ""
-            echo "This should not happen with OIDC trusted publishing."
-            echo "Check that the npm package's 2FA settings allow automation:"
-            echo "  https://www.npmjs.com/package/@auroraview/sdk/access"
-            echo "  Set 'Publishing access' → 'Require two-factor authentication for write actions'"
-          else
-            echo "See the publish log above for the full error output."
-            echo ""
-            echo "Known causes:"
-            echo "  - Trusted publisher not configured (most common)"
-            echo "  - Package name mismatch"
-            echo "  - Version already exists (checked above)"
-          fi
-          echo ""
-          exit "$publish_status"
-
-      - name: NPM Publish Summary
-        if: always()
-        shell: bash
-        run: |
-          echo "## npm Publish Results" >> $GITHUB_STEP_SUMMARY
-          RESULT="${{ steps.npm-publish.outputs.publish_result }}"
-          if [ "$RESULT" == "success" ]; then
-            echo "- Published @auroraview/sdk successfully via OIDC trusted publishing" >> $GITHUB_STEP_SUMMARY
-          elif [ "$RESULT" == "skipped" ]; then
-            echo "- Skipped: version already exists on npm" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- npm publish failed" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**npm token policy (Nov 2025):** all granular access tokens with write permission expire after 90 days max." >> $GITHUB_STEP_SUMMARY
-            echo "**Solution:** Use OIDC trusted publishing — no tokens, no expiry, no rotation." >> $GITHUB_STEP_SUMMARY
-            echo "Configure at: https://www.npmjs.com/package/@auroraview/sdk/access → Trusted Publishers" >> $GITHUB_STEP_SUMMARY
-            echo "Owner: try-auroraview | Repository: auroraview | Workflow filename: release.yml | Environment: npm" >> $GITHUB_STEP_SUMMARY
           fi
 
   # (Removed) `mcp-pypi-publish` — the standalone `auroraview-mcp` PyPI package

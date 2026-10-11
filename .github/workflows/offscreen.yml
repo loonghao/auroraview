@@ -4,9 +4,7 @@ on:
   pull_request:
     paths:
       - 'packages/auroraview-offscreen/**'
-      - 'packages/auroraview-sdk/src/inject/event_bridge.ts'
-      - 'packages/auroraview-sdk/package.json'
-      - 'packages/auroraview-sdk/tsup.config.ts'
+      - 'crates/auroraview-core/src/assets/js/core/event_bridge.js'
       - 'python/auroraview/integration/backend.py'
       - 'python/auroraview/integration/bridge.py'
       - 'python/auroraview/integration/__init__.py'
@@ -22,9 +20,7 @@ on:
     branches: [main]
     paths:
       - 'packages/auroraview-offscreen/**'
-      - 'packages/auroraview-sdk/src/inject/event_bridge.ts'
-      - 'packages/auroraview-sdk/package.json'
-      - 'packages/auroraview-sdk/tsup.config.ts'
+      - 'crates/auroraview-core/src/assets/js/core/event_bridge.js'
       - 'python/auroraview/integration/backend.py'
       - 'python/auroraview/integration/bridge.py'
       - 'python/auroraview/integration/__init__.py'

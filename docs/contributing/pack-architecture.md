@@ -5,8 +5,8 @@ user-facing [Application Packing](../guide/packing.md) guide or the crate
 README. Preserved here when the `.codebuddy/` agent configuration directory was
 removed; the constraints below are still normative.
 
-The `REPOSITORY` metadata in `Cargo.toml`, `pyproject.toml`,
-`packages/auroraview-sdk/package.json` and the install scripts must all agree —
+The `REPOSITORY` metadata in `Cargo.toml` and `pyproject.toml`
+and the install scripts must all agree —
 `vx just check-repository-links` enforces this.
 
 ## Builders

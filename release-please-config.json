@@ -21,11 +21,6 @@
           "type": "toml",
           "path": "pyproject.toml",
           "jsonpath": "$.project.version"
-        },
-        {
-          "type": "json",
-          "path": "packages/auroraview-sdk/package.json",
-          "jsonpath": "$.version"
         }
       ]
     }

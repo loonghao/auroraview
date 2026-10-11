@@ -1,0 +1,100 @@
+name: Sync SDK Assets
+
+# Vendor the inject scripts built by try-auroraview/auroraview-web-sdk into the
+# crate asset trees that rust-embed compiles into the AuroraView binary.
+# The SDK owns those scripts; this repo only tracks a pinned, checksum-verified copy.
+
+on:
+  schedule:
+    # Check for a newer SDK release daily, offset from the hour to avoid the rush.
+    - cron: '43 6 * * *'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "SDK version to vendor (default: latest release)"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    name: Sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Resolve target SDK version
+        id: resolve
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REQUESTED: ${{ inputs.version }}
+          SDK_REPO: try-auroraview/auroraview-web-sdk
+        run: |
+          set -euo pipefail
+          if [[ -n "$REQUESTED" ]]; then
+            target="$REQUESTED"
+          else
+            target=$(gh release view --repo "$SDK_REPO" --json tagName --jq '.tagName' | sed -E 's/^.*-?v//')
+          fi
+          current=$(tr -d '[:space:]' < .auroraview-sdk-version 2>/dev/null || echo "")
+          echo "target=$target" >> "$GITHUB_OUTPUT"
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          if [[ "$target" == "$current" ]]; then
+            echo "unchanged=true" >> "$GITHUB_OUTPUT"
+            echo "Already pinned to SDK assets $target"
+          else
+            echo "unchanged=false" >> "$GITHUB_OUTPUT"
+            echo "SDK assets $current -> $target"
+          fi
+
+      - name: Vendor assets
+        if: steps.resolve.outputs.unchanged == 'false'
+        env:
+          AURORAVIEW_SDK_ASSETS_VERSION: ${{ steps.resolve.outputs.target }}
+        run: |
+          chmod +x scripts/ci/fetch_sdk_assets.sh
+          bash scripts/ci/fetch_sdk_assets.sh
+          printf '%s\n' "${AURORAVIEW_SDK_ASSETS_VERSION}" > .auroraview-sdk-version
+
+      - name: Open pull request
+        if: steps.resolve.outputs.unchanged == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET: ${{ steps.resolve.outputs.target }}
+          CURRENT: ${{ steps.resolve.outputs.current }}
+        run: |
+          set -euo pipefail
+          branch="chore/sdk-assets-v${TARGET}"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            echo "Branch $branch already exists; skipping."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add .auroraview-sdk-version \
+            crates/auroraview-core/src/assets/js/core \
+            crates/auroraview-core/src/assets/js/plugins \
+            crates/auroraview-extensions/src/assets/js
+          if git diff --cached --quiet; then
+            echo "No asset changes to commit."
+            exit 0
+          fi
+          git commit -m "chore: vendor SDK inject assets v${TARGET}" \
+                     -m "Vendored from try-auroraview/auroraview-web-sdk v${TARGET} (previously ${CURRENT:-none})."
+          git push origin "$branch"
+          gh pr create \
+            --title "chore: vendor SDK inject assets v${TARGET}" \
+            --body "Automated sync of the AuroraView web SDK inject scripts from [try-auroraview/auroraview-web-sdk@v${TARGET}](https://github.com/try-auroraview/auroraview-web-sdk/releases/tag/v${TARGET}).
+
+          Previous pin: ${CURRENT:-none}
+
+          These scripts are embedded into the binary by \`auroraview-core\` / \`auroraview-extensions\` via rust-embed. Review the diff for behaviour changes to the injected bridge and plugin APIs before merging." \
+            --base main \
+            --head "$branch" \
+            --label automated || echo "PR already open or creation failed; continuing."

@@ -149,12 +149,12 @@ install:
 
 # Build the extension module
 [unix]
-build: assets-build sdk-build-assets
+build: assets-build sdk-assets
     @echo "Building extension module..."
     vx uv run maturin develop --features "ext-module,python-bindings,abi3-py38,win-webview2"
 
 [windows]
-build: assets-build sdk-build-assets
+build: assets-build sdk-assets
     @echo "Building extension module with MSVC..."
     $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; vx rustc -vV
     $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx cargo -vV
@@ -162,12 +162,12 @@ build: assets-build sdk-build-assets
 
 # Build with release optimizations
 [unix]
-build-release: assets-build sdk-build-assets
+build-release: assets-build sdk-assets
     @echo "Building release version..."
     vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
 
 [windows]
-build-release: assets-build sdk-build-assets
+build-release: assets-build sdk-assets
     @echo "Building release version with MSVC..."
     $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; vx rustc -vV
     $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx cargo -vV
@@ -175,13 +175,13 @@ build-release: assets-build sdk-build-assets
 
 # Build Python library (PyO3 bindings)
 [unix]
-rebuild-pylib: assets-build sdk-build-assets
+rebuild-pylib: assets-build sdk-assets
     @echo "Building Python library with maturin..."
     vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2"
     @echo "[OK] Python library rebuilt and installed successfully!"
 
 [windows]
-rebuild-pylib: assets-build sdk-build-assets
+rebuild-pylib: assets-build sdk-assets
     @echo "Building Python library with maturin (MSVC)..."
     $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; vx rustc -vV
     $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx cargo -vV
@@ -190,13 +190,13 @@ rebuild-pylib: assets-build sdk-build-assets
 
 # Build Python library with verbose output
 [unix]
-rebuild-pylib-verbose: assets-build sdk-build-assets
+rebuild-pylib-verbose: assets-build sdk-assets
     @echo "Building Python library with maturin (verbose)..."
     vx uv run maturin develop --release --features "ext-module,python-bindings,abi3-py38,win-webview2" --verbose
     @echo "[OK] Python library rebuilt and installed successfully!"
 
 [windows]
-rebuild-pylib-verbose: assets-build sdk-build-assets
+rebuild-pylib-verbose: assets-build sdk-assets
     @echo "Building Python library with maturin (verbose, MSVC)..."
     $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; vx rustc -vV
     $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx cargo -vV
@@ -211,7 +211,7 @@ build-cli:
 
 # Build all workspace crates (including SDK assets)
 [unix]
-build-all: assets-build sdk-build-all
+build-all: assets-build sdk-assets
     @echo "Building all workspace crates..."
     vx cargo build -p auroraview-core
     vx cargo build -p auroraview-pack
@@ -220,7 +220,7 @@ build-all: assets-build sdk-build-all
     @echo "[OK] All crates built successfully!"
 
 [windows]
-build-all: assets-build sdk-build-all
+build-all: assets-build sdk-assets
     @echo "Building all workspace crates with MSVC..."
     $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; Write-Host "Using Rust target: $env:CARGO_BUILD_TARGET"; vx rustc -vV
     $env:CARGO_BUILD_TARGET = "{{windows_rust_target}}"; vx cargo build -p auroraview-core
@@ -631,7 +631,20 @@ ci-install:
 ci-assets-build: assets-build
     @echo "[OK] CI frontend assets prepared!"
 
-ci-sdk-assets: sdk-build-assets
+# Inject scripts for the Rust core. They are built and released by
+# try-auroraview/auroraview-web-sdk; this repo vendors a pinned, checksum-verified
+# copy. Bump .auroraview-sdk-version (or run the sync-sdk-assets workflow) to upgrade.
+[unix]
+sdk-assets:
+    @bash scripts/ci/fetch_sdk_assets.sh
+    @echo "[OK] SDK assets vendored!"
+
+[windows]
+sdk-assets:
+    @bash scripts/ci/fetch_sdk_assets.sh
+    @echo "[OK] SDK assets vendored!"
+
+ci-sdk-assets: sdk-assets
     @echo "[OK] CI SDK assets prepared!"
 
 # CI build command - consistent across all platforms
@@ -1201,137 +1214,6 @@ maya-debug:
     @echo "  maya_outliner.main()"
     @echo ""
 
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# SDK Commands (TypeScript SDK for frontend)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-# Install SDK dependencies
-sdk-install:
-    @echo "Installing SDK dependencies..."
-    cd packages/auroraview-sdk; vx bun install
-    @echo "[OK] SDK dependencies installed!"
-
-# Build SDK npm package
-[unix]
-sdk-build: sdk-install
-    @echo "Building SDK npm package..."
-    cd packages/auroraview-sdk; vx bun run build
-    @echo "[OK] SDK built in packages/auroraview-sdk/dist/"
-
-[windows]
-sdk-build: sdk-install
-    @echo "Building SDK npm package..."
-    cd packages/auroraview-sdk; vx bun run build
-    @echo "[OK] SDK built in packages/auroraview-sdk/dist/"
-
-# Build SDK assets (inject scripts for Rust)
-[unix]
-sdk-build-assets: sdk-install
-    @echo "Building SDK assets (inject scripts)..."
-    cd packages/auroraview-sdk; vx bun run build:assets
-    @echo "[OK] Assets built in crates/auroraview-core/src/assets/js/"
-
-[windows]
-sdk-build-assets: sdk-install
-    @echo "Building SDK assets (inject scripts)..."
-    cd packages/auroraview-sdk; vx bun run build:assets
-    @echo "[OK] Assets built in crates/auroraview-core/src/assets/js/"
-
-# Build SDK all (npm package + assets)
-sdk-build-all: sdk-install
-    @echo "Building SDK (all)..."
-    cd packages/auroraview-sdk; vx bun run build:all
-    @echo "[OK] SDK and assets built!"
-
-# Run SDK unit tests
-[unix]
-sdk-test: sdk-install
-    @echo "Running SDK unit tests..."
-    cd packages/auroraview-sdk; vx bun run test
-    @echo "[OK] SDK tests passed!"
-
-[windows]
-sdk-test: sdk-install
-    @echo "Running SDK unit tests..."
-    cd packages/auroraview-sdk; vx bun run test
-    @echo "[OK] SDK tests passed!"
-
-# Run SDK tests with coverage
-[unix]
-sdk-test-cov: sdk-install
-    @echo "Running SDK tests with coverage..."
-    cd packages/auroraview-sdk; vx bun run test:coverage
-    @echo "[OK] SDK coverage report: packages/auroraview-sdk/coverage/"
-
-[windows]
-sdk-test-cov: sdk-install
-    @echo "Running SDK tests with coverage..."
-    cd packages/auroraview-sdk; vx bun run test:coverage
-    @echo "[OK] SDK coverage report: packages/auroraview-sdk/coverage/"
-
-# Run SDK E2E tests (requires Playwright)
-[unix]
-sdk-test-e2e: sdk-playwright-install sdk-build
-    @echo "Running SDK E2E tests..."
-    @# E2E test HTML imports from /dist/index.js; npx serve roots at test-app/
-    @ln -sfn "{{justfile_directory()}}/packages/auroraview-sdk/dist" \
-             "{{justfile_directory()}}/packages/auroraview-sdk/tests/e2e/test-app/dist"
-    cd packages/auroraview-sdk; vx bun run test:e2e
-    @echo "[OK] SDK E2E tests passed!"
-
-[windows]
-sdk-test-e2e: sdk-playwright-install sdk-build
-    @echo "Running SDK E2E tests..."
-    # E2E test HTML imports from /dist/index.js; npx serve roots at test-app/
-    if (!(Test-Path "packages/auroraview-sdk/tests/e2e/test-app/dist")) { cmd /c mklink /D "packages\auroraview-sdk\tests\e2e\test-app\dist" "{{justfile_directory()}}\packages\auroraview-sdk\dist" }
-    cd packages/auroraview-sdk; vx bun run test:e2e
-    @echo "[OK] SDK E2E tests passed!"
-
-# Run all SDK tests (unit + E2E)
-[unix]
-sdk-test-all: sdk-playwright-install
-    @echo "Running all SDK tests..."
-    cd packages/auroraview-sdk; vx bun run test:all
-    @echo "[OK] All SDK tests passed!"
-
-[windows]
-sdk-test-all: sdk-playwright-install
-    @echo "Running all SDK tests..."
-    cd packages/auroraview-sdk; vx bun run test:all
-    @echo "[OK] All SDK tests passed!"
-
-# Run SDK type check
-[unix]
-sdk-typecheck: sdk-install
-    @echo "Running SDK type check..."
-    cd packages/auroraview-sdk; vx bun run typecheck
-    @echo "[OK] SDK type check passed!"
-
-[windows]
-sdk-typecheck: sdk-install
-    @echo "Running SDK type check..."
-    cd packages/auroraview-sdk; vx bun run typecheck
-    @echo "[OK] SDK type check passed!"
-
-# Install Playwright for SDK E2E tests
-[unix]
-sdk-playwright-install: sdk-install
-    @echo "Installing Playwright for SDK E2E tests..."
-    cd packages/auroraview-sdk; vx bun run playwright install chromium --with-deps
-    @echo "[OK] Playwright installed!"
-
-[windows]
-sdk-playwright-install: sdk-install
-    @echo "Installing Playwright for SDK E2E tests..."
-    cd packages/auroraview-sdk; vx bun run playwright install chromium --with-deps
-    @echo "[OK] Playwright installed!"
-
-# Full SDK CI check (typecheck + test + coverage + build)
-sdk-ci: sdk-install sdk-typecheck sdk-test-cov sdk-build-all
-    @echo "[OK] SDK CI check passed!"
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # Gallery Commands
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1343,7 +1225,7 @@ gallery-ci-install:
     @echo "[OK] Gallery dependencies installed!"
 
 # Build gallery frontend using bun (CI/local parity path)
-gallery-ci-build: sdk-build gallery-ci-install
+gallery-ci-build: gallery-ci-install
     @echo "Building gallery frontend (bun)..."
     cd gallery; vx bun run build
     @echo "[OK] Gallery built in gallery/dist/"
@@ -1356,7 +1238,7 @@ gallery-ci-playwright-install:
 
 
 # Build gallery frontend (builds SDK first)
-gallery-build: sdk-build
+gallery-build:
     @echo "Building gallery frontend..."
     cd gallery; vx bun install; vx bun run build
     @echo "[OK] Gallery built in gallery/dist/"

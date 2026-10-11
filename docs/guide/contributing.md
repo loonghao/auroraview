@@ -24,11 +24,6 @@ rustup update stable
 # Install Python development dependencies
 pip install -e ".[dev]"
 
-# Install Node.js dependencies for SDK
-cd packages/auroraview-sdk
-npm install
-cd ../..
-
 # Verify setup
 just check
 ```
@@ -67,10 +62,6 @@ cargo build
 
 # Build Python wheel (development)
 maturin develop
-
-# Build TypeScript SDK
-cd packages/auroraview-sdk
-npm run build
 ```
 
 ### Testing
@@ -84,10 +75,6 @@ cargo test
 
 # Python tests only
 pytest tests/python/
-
-# SDK tests only
-cd packages/auroraview-sdk
-npm test
 ```
 
 ### Linting
@@ -103,10 +90,6 @@ cargo fmt --check
 # Python linting
 ruff check python/
 ruff format --check python/
-
-# TypeScript linting
-cd packages/auroraview-sdk
-npm run lint
 ```
 
 ### Documentation
@@ -243,7 +226,7 @@ def test_webview_title(webview):
 Use Vitest:
 
 ```typescript
-// packages/auroraview-sdk/tests/client.test.ts
+// auroraview-web-sdk/tests/sdk.test.ts
 import { describe, it, expect } from 'vitest';
 import { createAuroraView } from '../src';
 
@@ -389,7 +372,7 @@ Description of the new feature.
 1. Add TypeScript implementation:
 
 ```typescript
-// packages/auroraview-sdk/src/features/new-feature.ts
+// auroraview-web-sdk/src/features/new-feature.ts
 export async function newFeature(param: string): Promise<string> {
   const av = getAuroraView();
   return av.call('api.new_feature', { param });
@@ -399,14 +382,14 @@ export async function newFeature(param: string): Promise<string> {
 2. Export from index:
 
 ```typescript
-// packages/auroraview-sdk/src/index.ts
+// auroraview-web-sdk/src/index.ts
 export { newFeature } from './features/new-feature';
 ```
 
 3. Add tests:
 
 ```typescript
-// packages/auroraview-sdk/tests/new-feature.test.ts
+// auroraview-web-sdk/tests/new-feature.test.ts
 describe('newFeature', () => {
   it('should work', async () => {
     const result = await newFeature('test');

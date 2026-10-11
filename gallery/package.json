@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@auroraview/sdk": "file:../packages/auroraview-sdk",
+    "@auroraview/sdk": "^0.5.11",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "gsap": "^3.14.2",
