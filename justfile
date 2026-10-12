@@ -68,6 +68,11 @@ gallery-ci-stage-wheel wheel_dir:
 test-parent-ipc:
     vx cargo test -p auroraview-core --test parent_ipc_tests
 
+# Check the native parent IPC / adapter contract boundary without launching a UI.
+test-parent-handle-contract:
+    vx cargo test -p auroraview-contract
+    vx cargo test -p auroraview-core --test parent_handle_contract_tests --test contract_reexport
+
 test-webview-factory:
     vx uv run python -m pytest tests/python/integration/test_webview.py -k test_create_with_auto_show_true -v
 
