@@ -1,12 +1,13 @@
 {
   "name": "@auroraview/sdk",
-  "version": "0.5.11",
+  "version": "0.5.13",
   "description": "Framework-agnostic SDK for AuroraView WebView bridge",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
+    "./inject/event-bridge": "./dist/inject/event_bridge.js",
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",

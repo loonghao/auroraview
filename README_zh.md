@@ -7,6 +7,13 @@
 </p>
 
 <p align="center">
+  <a href="https://try-auroraview.github.io/zh/">官网</a> ·
+  <a href="https://try-auroraview.github.io/auroraview/zh/">文档</a> ·
+  <a href="https://try-auroraview.github.io/zh/#examples">宿主教程</a> ·
+  <a href="https://github.com/try-auroraview">GitHub 组织</a>
+</p>
+
+<p align="center">
   <a href="https://pypi.org/project/auroraview/"><img src="https://img.shields.io/pypi/v/auroraview.svg" alt="PyPI 版本"></a>
   <a href="https://pypi.org/project/auroraview/"><img src="https://img.shields.io/pypi/pyversions/auroraview.svg" alt="Python 版本"></a>
   <a href="https://pepy.tech/project/auroraview"><img src="https://static.pepy.tech/badge/auroraview" alt="下载量"></a>
@@ -99,7 +106,7 @@ AuroraView 为专业DCC应用程序（如Maya、3ds Max、Houdini、Blender、Ph
 - 打包：maturin + abi3 → 单个 wheel 兼容 CPython 3.7-3.13
 - 事件循环：默认阻塞式 show()；后续提供非阻塞模式以适配宿主循环
 - 延迟加载：在 show() 前设置的 URL/HTML 会保存并在创建时应用（最后写入生效）
-- IPC：Python ↔ JavaScript 双向事件总线（基于 CustomEvent）
+- IPC：通过 `window.auroraview` 提供请求/响应调用与事件
 - 协议：自定义协议与资源加载（如 dcc://）
 - 嵌入：支持父窗口句柄（HWND/NSView/WId）的 DCC 宿主嵌入（路线图）
 - 安全：可选的开发者工具、CSP 钩子、远程 URL 白名单（规划中）
@@ -109,7 +116,7 @@ AuroraView 为专业DCC应用程序（如Maya、3ds Max、Houdini、Blender、Ph
 - Python API：`auroraview.WebView` 封装 Rust 核心并提供易用增强
 - Rust 核心：使用 Arc<Mutex<...>> 的内部可变配置，安全支持 show() 前更新
 - 生命周期：在 `show()` 时创建 WebView，并应用 URL/HTML（最后写入生效）
-- JS 桥：Python 侧 `emit(event, data)`；JS 侧通过 `CustomEvent('py', {...})` 回传到 Python（IpcHandler）
+- JS 桥：Python `emit()` 送达 JavaScript `on()`；JavaScript `call()` 与 `send_event()` 送达注册的 Python 处理器
 - 日志：Rust 端 `tracing`；Python 端 `logging`
 - 测试：pytest 冒烟 + cargo 测试；CI 构建三平台 wheel
 
@@ -427,7 +434,7 @@ uvx auroraview --url https://example.com
 > uvx --python 3.7 --from auroraview python -m auroraview --url https://example.com
 > ```
 
-**[查看 CLI 文档](./docs/CLI.md)** 了解更多详情。
+**[查看 CLI 文档](./docs/zh/guide/cli.md)** 了解更多详情。
 
 ### 自定义窗口图标
 
@@ -1230,7 +1237,7 @@ run_standalone(
 > **注意**：`path_to_file_url()` 辅助函数将本地路径转换为正确的 `file:///` URL。
 > 例如：`C:\images\logo.gif` → `file:///C:/images/logo.gif`
 
-完整示例请参考 [examples/custom_protocol_example.py](./examples/custom_protocol_example.py) 和 [examples/local_assets_example.py](./examples/local_assets_example.py)。
+完整示例请参考[自定义协议指南](./docs/zh/guide/custom-protocol.md)和 [examples/local_assets_example.py](./examples/local_assets_example.py)。
 
 #### 生命周期管理
 
@@ -1307,7 +1314,7 @@ webview.eval_js(injection_script)
 webview.show()
 ```
 
-详细指南请参阅 [第三方网站集成指南](./docs/THIRD_PARTY_INTEGRATION.md)。
+Agent 与浏览器自动化请参阅 [AI Agent 与 CDP 指南](./docs/zh/guide/ai-agent-cdp.md)。
 
 ### 系统托盘支持
 
@@ -1488,16 +1495,16 @@ auroraview pack --config app.toml --no-console --build
 ## 文档
 
 ### 核心文档
--  [架构设计](./docs/ARCHITECTURE.md) - 模块化后端架构
--  [技术设计](./docs/TECHNICAL_DESIGN.md) - 技术实现细节
--  [DCC 集成指南](./docs/DCC_INTEGRATION_GUIDE.md) - DCC 应用集成
--  [第三方网站集成指南](./docs/THIRD_PARTY_INTEGRATION.md) - JavaScript注入和AI聊天集成
--  [路线图](./docs/ROADMAP.md) - 未来计划和开发
+- [架构设计](./docs/zh/guide/architecture.md) - 核心、绑定与原生宿主职责
+- [设计理念](./docs/zh/guide/design-philosophy.md) - 集成原则与实现选择
+- [DCC 集成指南](./docs/zh/dcc/index.md) - 各宿主的安装步骤与限制
+- [UI 与 Agent 工具契约](./docs/zh/guide/dcc-mcp.md) - 独立 Python 契约、借用服务与生命周期清理
+- [开发提案](./docs/rfcs/) - 设计提案及实现状态
 
 ### Maya 集成专题
-- **[Maya 集成解决方案](./docs/MAYA_SOLUTION.md)** - 推荐阅读！完整的 Maya 集成指南
-- [Maya 集成问题分析](./docs/MAYA_INTEGRATION_ISSUES.md) - 技术细节和问题根源
-- [当前状态说明](./docs/CURRENT_STATUS.md) - 已知限制和可用方案
+- [Maya 集成指南](./docs/zh/dcc/maya.md) - 安装与宿主生命周期
+- [Qt 集成](./docs/zh/guide/qt-integration.md) - 嵌入、事件循环和清理
+- [宿主与示例验证状态](https://try-auroraview.github.io/zh/#ecosystem) - 已有成果与验收边界
 
 ### 重要提示：Maya 用户必读
 
@@ -1513,20 +1520,23 @@ auroraview pack --config app.toml --no-console --build
 - 特点: 所有功能可用，包括 `eval_js()` 和 `emit()`
 - 限制: 可能有轻微阻塞，需要手动管理生命周期
 
-详细说明请查看 [Maya 集成解决方案](./docs/MAYA_SOLUTION.md)。
+详细说明请查看 [Maya 集成指南](./docs/zh/dcc/maya.md)和 [Maya Outliner 教程](https://github.com/try-auroraview/auroraview-maya-outliner)。
 
 ## DCC软件支持
 
-| DCC软件 | 状态 | Python版本 | 示例 |
-|---------|------|-----------|------|
-| Maya | [OK] 已支持 | 3.7+ | [Maya Outliner 示例](https://github.com/loonghao/auroraview-maya-outliner) |
-| 3ds Max | [OK] 已支持 | 3.7+ | - |
-| Houdini | [OK] 已支持 | 3.7+ | - |
-| Blender | [OK] 已支持 | 3.7+ | - |
-| Photoshop | [CONSTRUCTION] 计划中 | 3.7+ | - |
-| Unreal Engine | [CONSTRUCTION] 计划中 | 3.7+ | - |
+| 宿主 | 集成源码 | 教程与验证 |
+|------|----------|------------|
+| Maya | [Qt 集成指南](./docs/zh/dcc/maya.md) | [Outliner 教程](https://github.com/try-auroraview/auroraview-maya-outliner) |
+| 3ds Max | [宿主指南](./docs/zh/dcc/3dsmax.md) | 安装步骤与限制见宿主指南 |
+| Houdini | [适配器](https://github.com/try-auroraview/auroraview-houdini) | 验证记录见适配器仓库 |
+| Blender | [适配器](https://github.com/try-auroraview/auroraview-blender) | 原生 WebView 停靠验证由适配器仓库记录 |
+| Unreal Engine | [适配器](https://github.com/try-auroraview/auroraview-unreal) | 原生 Editor 停靠验证由适配器仓库记录 |
+| Unity Editor | [适配器与教程](https://github.com/try-auroraview/auroraview-unity) | Windows WebView2 集成，验证记录见适配器仓库 |
+| Nuke | [适配器](https://github.com/try-auroraview/auroraview-nuke) | 验证记录见适配器仓库 |
 
-> **📚 示例**: 查看完整的工作示例，请访问 [Maya Outliner 示例](https://github.com/loonghao/auroraview-maya-outliner) - 使用 AuroraView、Vue 3 和 TypeScript 构建的现代化 Maya Outliner。
+宿主版本、平台限制与已完成的验收检查由各适配器及[验证目录](https://try-auroraview.github.io/zh/#ecosystem)记录。
+
+> **📚 示例**: 查看完整的工作示例，请访问 [Maya Outliner 示例](https://github.com/try-auroraview/auroraview-maya-outliner) - 使用 AuroraView、Vue 3 和 TypeScript 构建的现代化 Maya Outliner。[宿主教程目录](https://try-auroraview.github.io/zh/#examples) 将可运行的演示与宿主适配器分开列出，并记录各自的验证状态。
 
 ## 开发
 
