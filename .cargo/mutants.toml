@@ -5,10 +5,9 @@
 # Use nextest for faster mutation testing
 test_tool = "nextest"
 
-# Timeout per mutant (seconds) - generous for WebView-related tests
-timeout = 120
-
-# Minimum test timeout (covers fast-completing mutants)
+# Minimum test timeout (seconds) - floor on the autoset value for WebView tests.
+# The per-mutant timeout is a CLI flag (--timeout 120 in mutation-testing.yml);
+# cargo-mutants rejects it here because Config is deny_unknown_fields.
 minimum_test_timeout = 30
 
 # Additional args passed to cargo test / nextest
