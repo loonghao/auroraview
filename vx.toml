@@ -2,7 +2,15 @@
 just = "latest"
 # exception: pinned to the .python-version (3.11) of this repo, not the 3.12
 # baseline default. Bump both together when moving off 3.11.
-python = "3.11"
+#
+# The patch is pinned exactly on purpose. A floating "3.11" makes `vx lock`
+# track the newest python-build-standalone patch (3.11.16 from 20260924), which
+# the vx install-side version index then cannot resolve -- `vx install python`
+# fails with "No version found for python matching '3.11.16'" and takes the
+# gallery / macOS arm64 CLI release jobs down. Bump the patch deliberately
+# (lock + CI + local together); vx-lock-guard verifies the pinned version
+# actually installs.
+python = "3.11.15"
 rust = "1.90.0"
 uv = "latest"
 

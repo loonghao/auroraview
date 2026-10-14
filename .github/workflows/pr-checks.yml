@@ -138,6 +138,10 @@ jobs:
             ci:
               - '.github/**'
               - 'justfile'
+              - 'scripts/ci/test_gallery_ci.py'
+              - 'scripts/ci/stage_gallery_wheel.py'
+              - 'scripts/ci/test_gallery_lifecycle.ps1'
+              - 'tests/test_gallery_cdp.py'
               - 'scripts/audit_unsafe.py'
               - 'scripts/unsafe_allowlist.txt'
               - '.pre-commit-config.yaml'
@@ -291,8 +295,9 @@ jobs:
           fetch-depth: 0
 
       - name: Setup vx
-        uses: loonghao/vx@vx-v0.9.26
+        uses: loonghao/vx@vx-v0.9.33
         with:
+          version: '0.9.33'
           github-token: ${{ secrets.GITHUB_TOKEN }}
           tools: 'bun'
           cache: 'false'
@@ -326,9 +331,16 @@ jobs:
           components: rustfmt,clippy
 
       - name: Setup vx
-        uses: loonghao/vx@vx-v0.9.26
+        uses: loonghao/vx@vx-v0.9.33
         with:
+          version: '0.9.33'
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check canonical repository links
+        run: vx just check-repository-links
+
+      - name: Check Gallery release and diagnostic contracts
+        run: vx just gallery-ci-check
 
       - name: Cache Rust
         uses: actions/cache@v5
@@ -394,7 +406,9 @@ jobs:
           df -h
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        # async-trait 0.1.89 triggers double_must_use on Clippy 1.99.
+        # Pin this lint job to 1.98.0 while retaining strict -D warnings.
+        uses: dtolnay/rust-toolchain@1.98.0
         with:
           components: clippy
 
@@ -404,8 +418,9 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
 
       - name: Setup vx helpers
-        uses: loonghao/vx@vx-v0.9.26
+        uses: loonghao/vx@vx-v0.9.33
         with:
+          version: '0.9.33'
           github-token: ${{ secrets.GITHUB_TOKEN }}
           tools: 'just bun'
           cache: 'false'
@@ -616,8 +631,9 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
 
       - name: Setup vx helpers
-        uses: loonghao/vx@vx-v0.9.26
+        uses: loonghao/vx@vx-v0.9.33
         with:
+          version: '0.9.33'
           github-token: ${{ secrets.GITHUB_TOKEN }}
           tools: 'just bun'
           cache: 'false'
@@ -1291,12 +1307,11 @@ jobs:
       - name: Install auroraview wheel
         if: needs.pre-build.result == 'success'
         shell: bash
+        env:
+          GALLERY_SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          GALLERY_WHEEL_ARTIFACT: ${{ matrix.wheel-artifact }}
         run: |
-          python -m pip install --upgrade pip
-          wheel_file=$(ls -t dist/*.whl | head -1)
-          echo "Installing wheel: $wheel_file"
-          pip install "$wheel_file"
-          python -c "import auroraview; print(f'auroraview {auroraview.__version__} installed')"
+          vx just gallery-ci-stage-wheel dist
 
       # Download pre-built CLI from cli-build job
       - name: Download pre-built CLI
@@ -1474,6 +1489,14 @@ jobs:
           name: gallery-pack-${{ matrix.os }}
           path: target/pack/auroraview-gallery${{ matrix.exe-ext }}
           retention-days: 3
+
+      - name: Upload native wheel staging receipt
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gallery-native-wheel-${{ matrix.target }}
+          path: test-results/gallery-wheel/receipt.json
+          if-no-files-found: ignore
 
   # =============================================================================
   # Docs Build - Only for documentation changes

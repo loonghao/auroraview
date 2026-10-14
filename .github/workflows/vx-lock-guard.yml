@@ -44,10 +44,14 @@ jobs:
       # ref, so the vx binary has to be pinned explicitly. An unpinned run resolves
       # through a cache key that can restore an older vx, and older vx rejects the
       # lock format written by current vx.
+      #
+      # Every other workflow and composite action in this repo pins the same
+      # version: keep them in lockstep so the vx that generates vx.lock is the
+      # vx that consumes it.
       - name: Setup vx
-        uses: loonghao/vx@v0.9.33
+        uses: loonghao/vx@vx-v0.9.33
         with:
-          version: 0.9.33
+          version: '0.9.33'
           # The action restores its cache under a shared prefix, so a cache entry
           # written by an older vx can satisfy the restore even with the version
           # pinned. install.sh skips the download when a vx binary is present, so
@@ -64,3 +68,33 @@ jobs:
           fi
 
           vx lock --check
+
+      - name: Verify the locked Python version installs
+        # `vx lock --check` only compares vx.lock against vx.toml; it never asks
+        # whether the resolved version can still be installed. vx resolves
+        # `python` from a version index that trails the python-build-standalone
+        # release feed, so `vx lock` happily pinned 3.11.16 (20260924) while
+        # `vx install python@3.11.16` failed on the release runners with
+        # "No version found for python matching '3.11.16'", taking the 0.5.11
+        # gallery and macOS arm64 CLI jobs down. Install the locked patch here
+        # so that drift fails a pull request instead of a release.
+        run: |
+          set -euo pipefail
+
+          locked_python=$(awk '
+            /^\[tools\.python\]/ { in_python = 1; next }
+            /^\[/ { in_python = 0 }
+            in_python && $1 == "version" {
+              gsub(/[^0-9.]/, "", $3)
+              print $3
+              exit
+            }
+          ' vx.lock)
+
+          if [ -z "$locked_python" ]; then
+            echo "::error::Could not read [tools.python].version from vx.lock."
+            exit 1
+          fi
+
+          echo "Locked python: $locked_python"
+          vx install "python@$locked_python"

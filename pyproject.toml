@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "auroraview"
-version = "0.5.10" # x-release-please-version
+version = "0.5.13" # x-release-please-version
 description = "AuroraView: Rust-powered WebView for Python apps & DCC embedding"
 authors = [
     {name = "Hal Long", email = "hal.long@outlook.com"}
@@ -75,10 +75,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/loonghao/auroraview"
-Documentation = "https://github.com/loonghao/auroraview#readme"
-Repository = "https://github.com/loonghao/auroraview"
-Issues = "https://github.com/loonghao/auroraview/issues"
+Homepage = "https://github.com/try-auroraview/auroraview"
+Documentation = "https://github.com/try-auroraview/auroraview#readme"
+Repository = "https://github.com/try-auroraview/auroraview"
+Issues = "https://github.com/try-auroraview/auroraview/issues"
 
 [project.scripts]
 auroraview = "auroraview.__main__:main"

@@ -51,8 +51,9 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Setup vx
-        uses: loonghao/vx@vx-v0.9.26
+        uses: loonghao/vx@vx-v0.9.33
         with:
+          version: '0.9.33'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check formatting
@@ -76,8 +77,9 @@ jobs:
           python-version: '3.11'
 
       - name: Setup vx
-        uses: loonghao/vx@vx-v0.9.26
+        uses: loonghao/vx@vx-v0.9.33
         with:
+          version: '0.9.33'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install system dependencies
@@ -142,8 +144,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Setup vx
-        uses: loonghao/vx@vx-v0.9.26
+        uses: loonghao/vx@vx-v0.9.33
         with:
+          version: '0.9.33'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download pre-built wheel
@@ -209,8 +212,9 @@ jobs:
           python-version: '3.11'
 
       - name: Setup vx
-        uses: loonghao/vx@vx-v0.9.26
+        uses: loonghao/vx@vx-v0.9.33
         with:
+          version: '0.9.33'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install system dependencies
@@ -278,8 +282,9 @@ jobs:
           python-version: '3.7'
 
       - name: Setup vx
-        uses: loonghao/vx@vx-v0.9.26
+        uses: loonghao/vx@vx-v0.9.33
         with:
+          version: '0.9.33'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install system dependencies

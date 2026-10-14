@@ -23,6 +23,54 @@ windows_rust_target := "x86_64-pc-windows-msvc"
 default:
     @vx just --list
 
+# Check canonical repository links without building or installing dependencies.
+check-repository-links:
+    vx python scripts/check_repository_links.py
+
+# Optional integration tests stay independent of GUI/native runtime acceptance.
+test-dcc-mcp:
+    vx uv run --extra dcc-mcp pytest tests/python/unit/test_dcc_mcp_adapter.py tests/python/unit/test_dcc_mcp_host.py tests/python/integration/test_dcc_mcp_registration.py tests/python/integration/test_dcc_mcp_coexistence.py tests/python/integration/test_dcc_mcp_skill_isolation.py tests/python/integration/test_dcc_mcp_tool_invocation.py -v
+
+dcc-mcp-package-check:
+    cd packages/auroraview-dcc-mcp; vx just check
+
+# Prepare pinned GitHub release artifacts using SOURCE_RUN_ID and RELEASE_TAG.
+dcc-mcp-release-prepare:
+    vx uv run --no-project --python 3.11 scripts/ci/dcc_mcp_release.py
+
+# Resume partial PyPI uploads only when existing public files match the receipt.
+dcc-mcp-release-pypi-precheck:
+    vx uv run --no-project --python 3.11 scripts/ci/dcc_mcp_release.py --check-pypi before
+
+# Publication succeeds only after official PyPI serves both selected digests.
+dcc-mcp-release-pypi-readback:
+    vx uv run --no-project --python 3.11 scripts/ci/dcc_mcp_release.py --check-pypi after
+
+# Check the release helper without publishing artifacts.
+dcc-mcp-release-check:
+    vx uvx ruff check --target-version py311 scripts/ci/dcc_mcp_release.py scripts/ci/test_dcc_mcp_release.py
+    vx uvx ruff format --check --target-version py311 scripts/ci/dcc_mcp_release.py scripts/ci/test_dcc_mcp_release.py
+    vx uv run --no-project --python 3.11 -m unittest discover -s scripts/ci -p test_dcc_mcp_release.py -v
+
+dcc-mcp-release-format:
+    vx uvx ruff format --target-version py311 scripts/ci/dcc_mcp_release.py scripts/ci/test_dcc_mcp_release.py
+
+# Validate Gallery release boundaries and failure diagnostics without launching UI.
+gallery-ci-check:
+    vx uvx ruff check --target-version py311 scripts/ci/test_gallery_ci.py scripts/ci/stage_gallery_wheel.py tests/test_gallery_cdp.py
+    vx uvx ruff format --check --target-version py311 scripts/ci/test_gallery_ci.py scripts/ci/stage_gallery_wheel.py tests/test_gallery_cdp.py
+    vx uv run --no-project --python 3.11 --with pytest --with pyyaml -m unittest discover -s scripts/ci -p test_gallery_ci.py -v
+
+# Keep native wheel files beside the source package collected by Gallery pack.
+gallery-ci-stage-wheel wheel_dir:
+    vx uv run --no-project --python 3.11 "{{justfile_directory()}}/scripts/ci/stage_gallery_wheel.py" "{{wheel_dir}}"
+
+test-parent-ipc:
+    vx cargo test -p auroraview-core --test parent_ipc_tests
+
+test-webview-factory:
+    vx uv run python -m pytest tests/python/integration/test_webview.py -k test_create_with_auto_show_true -v
+
 
 # ============================================================================
 # Submodule Migration Tasks
@@ -199,6 +247,15 @@ ci-grep:
     vx python scripts/ci/check_browser_no_drag_drop_capture.py
     @echo "[ci-grep] host-adapter contract Rust/Python capability parity guard..."
     vx python scripts/ci/check_contract_capability_parity.py
+
+# Keep Blender's test dependencies separate from the runner's Python environment.
+prepare-blender-test-site wheel site python_version:
+    vx uv pip install --target "{{site}}" --python-version "{{python_version}}" --only-binary :all: "{{wheel}}" pytest pytest-timeout pytest-asyncio
+
+# Pytest must run inside bpy; a sys.executable subprocess is an ordinary Python process.
+# The strict runner rejects missing imports, skipped cases and an empty selection.
+test-blender-host blender site:
+    "{{blender}}" --background --factory-startup --python-exit-code 1 --python scripts/ci/run_blender_tests.py -- --test-site "{{site}}" -- tests/python/integration/test_blender_integration.py -v --tb=short --timeout=60
 
 # Run all tests
 [unix]

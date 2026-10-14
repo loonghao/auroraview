@@ -4,7 +4,7 @@
 version = 2
 
 [metadata]
-generated_at = "2026-09-27T18:49:40Z"
+generated_at = "2026-09-30T10:14:08Z"
 vx_version = "0.9.33"
 platform = "x86_64-pc-windows-msvc"
 
@@ -30,18 +30,18 @@ resolved_from = "system"
 ecosystem = "generic"
 
 [tools.python]
-version = "3.11.16"
+version = "3.11.15"
 source = "python"
-resolved_from = "3.11"
+resolved_from = "3.11.15"
 ecosystem = "python"
-download_url = "https://github.com/astral-sh/python-build-standalone/releases/download/20260924/cpython-3.11.16+20260924-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
+download_url = "https://github.com/astral-sh/python-build-standalone/releases/download/20260303/cpython-3.11.15+20260303-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
 
 [tools.python.platform_urls]
-darwin-arm64 = "https://github.com/astral-sh/python-build-standalone/releases/download/20260924/cpython-3.11.16+20260924-aarch64-apple-darwin-install_only_stripped.tar.gz"
-darwin-x64 = "https://github.com/astral-sh/python-build-standalone/releases/download/20260924/cpython-3.11.16+20260924-x86_64-apple-darwin-install_only_stripped.tar.gz"
-linux-arm64 = "https://github.com/astral-sh/python-build-standalone/releases/download/20260924/cpython-3.11.16+20260924-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz"
-linux-x64 = "https://github.com/astral-sh/python-build-standalone/releases/download/20260924/cpython-3.11.16+20260924-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
-windows-x64 = "https://github.com/astral-sh/python-build-standalone/releases/download/20260924/cpython-3.11.16+20260924-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
+darwin-arm64 = "https://github.com/astral-sh/python-build-standalone/releases/download/20260303/cpython-3.11.15+20260303-aarch64-apple-darwin-install_only_stripped.tar.gz"
+darwin-x64 = "https://github.com/astral-sh/python-build-standalone/releases/download/20260303/cpython-3.11.15+20260303-x86_64-apple-darwin-install_only_stripped.tar.gz"
+linux-arm64 = "https://github.com/astral-sh/python-build-standalone/releases/download/20260303/cpython-3.11.15+20260303-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz"
+linux-x64 = "https://github.com/astral-sh/python-build-standalone/releases/download/20260303/cpython-3.11.15+20260303-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
+windows-x64 = "https://github.com/astral-sh/python-build-standalone/releases/download/20260303/cpython-3.11.15+20260303-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
 
 [tools.rcedit]
 version = "2.0.0"
