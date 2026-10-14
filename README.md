@@ -7,40 +7,47 @@
 </p>
 
 <p align="center">
+  <a href="https://try-auroraview.github.io/">Website</a> ·
+  <a href="https://try-auroraview.github.io/auroraview/">Documentation</a> ·
+  <a href="https://try-auroraview.github.io/#examples">Host tutorials</a> ·
+  <a href="https://github.com/try-auroraview">Organization</a>
+</p>
+
+<p align="center">
   <a href="https://pypi.org/project/auroraview/"><img src="https://img.shields.io/pypi/v/auroraview.svg" alt="PyPI Version"></a>
   <a href="https://pypi.org/project/auroraview/"><img src="https://img.shields.io/pypi/pyversions/auroraview.svg" alt="Python Versions"></a>
   <a href="https://pepy.tech/project/auroraview"><img src="https://static.pepy.tech/badge/auroraview" alt="Downloads"></a>
   <a href="https://codecov.io/gh/loonghao/auroraview"><img src="https://codecov.io/gh/loonghao/auroraview/branch/main/graph/badge.svg" alt="Codecov"></a>
-  <a href="https://github.com/loonghao/auroraview/actions/workflows/pr-checks.yml"><img src="https://github.com/loonghao/auroraview/actions/workflows/pr-checks.yml/badge.svg" alt="PR Checks"></a>
+  <a href="https://github.com/try-auroraview/auroraview/actions/workflows/pr-checks.yml"><img src="https://github.com/try-auroraview/auroraview/actions/workflows/pr-checks.yml/badge.svg" alt="PR Checks"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
 
 <p align="center">
   <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-1.90+-orange.svg" alt="Rust"></a>
-  <a href="https://github.com/loonghao/auroraview"><img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg" alt="Platform"></a>
-  <a href="https://github.com/loonghao/auroraview/actions/workflows/ci.yml"><img src="https://github.com/loonghao/auroraview/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
-  <a href="https://github.com/loonghao/auroraview/actions/workflows/build-wheels.yml"><img src="https://github.com/loonghao/auroraview/actions/workflows/build-wheels.yml/badge.svg?branch=main" alt="Build Wheels"></a>
-  <a href="https://github.com/loonghao/auroraview/actions/workflows/release.yml"><img src="https://github.com/loonghao/auroraview/actions/workflows/release.yml/badge.svg?branch=main" alt="Release"></a>
+  <a href="https://github.com/try-auroraview/auroraview"><img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg" alt="Platform"></a>
+  <a href="https://github.com/try-auroraview/auroraview/actions/workflows/ci.yml"><img src="https://github.com/try-auroraview/auroraview/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://github.com/try-auroraview/auroraview/actions/workflows/build-wheels.yml"><img src="https://github.com/try-auroraview/auroraview/actions/workflows/build-wheels.yml/badge.svg?branch=main" alt="Build Wheels"></a>
+  <a href="https://github.com/try-auroraview/auroraview/actions/workflows/release.yml"><img src="https://github.com/try-auroraview/auroraview/actions/workflows/release.yml/badge.svg?branch=main" alt="Release"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/loonghao/auroraview/actions/workflows/codeql.yml"><img src="https://github.com/loonghao/auroraview/actions/workflows/codeql.yml/badge.svg?branch=main" alt="CodeQL"></a>
-  <a href="https://github.com/loonghao/auroraview/actions/workflows/security-audit.yml"><img src="https://github.com/loonghao/auroraview/actions/workflows/security-audit.yml/badge.svg?branch=main" alt="Security Audit"></a>
-  <a href="https://github.com/loonghao/auroraview/releases"><img src="https://img.shields.io/github/v/release/loonghao/auroraview?display_name=tag" alt="Latest Release"></a>
+  <a href="https://github.com/try-auroraview/auroraview/actions/workflows/codeql.yml"><img src="https://github.com/try-auroraview/auroraview/actions/workflows/codeql.yml/badge.svg?branch=main" alt="CodeQL"></a>
+  <a href="https://github.com/try-auroraview/auroraview/actions/workflows/security-audit.yml"><img src="https://github.com/try-auroraview/auroraview/actions/workflows/security-audit.yml/badge.svg?branch=main" alt="Security Audit"></a>
+  <a href="https://github.com/try-auroraview/auroraview/releases"><img src="https://img.shields.io/github/v/release/try-auroraview/auroraview?display_name=tag" alt="Latest Release"></a>
   <a href="https://pre-commit.com/"><img src="https://img.shields.io/badge/pre--commit-enabled-brightgreen.svg" alt="pre-commit"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/loonghao/auroraview/stargazers"><img src="https://img.shields.io/github/stars/loonghao/auroraview?style=social" alt="GitHub Stars"></a>
-  <a href="https://github.com/loonghao/auroraview/releases"><img src="https://img.shields.io/github/downloads/loonghao/auroraview/total" alt="GitHub Downloads"></a>
-  <a href="https://github.com/loonghao/auroraview/commits/main"><img src="https://img.shields.io/github/last-commit/loonghao/auroraview" alt="Last Commit"></a>
-  <a href="https://github.com/loonghao/auroraview/graphs/commit-activity"><img src="https://img.shields.io/github/commit-activity/m/loonghao/auroraview" alt="Commit Activity"></a>
+  <a href="https://github.com/try-auroraview/auroraview/stargazers"><img src="https://img.shields.io/github/stars/try-auroraview/auroraview?style=social" alt="GitHub Stars"></a>
+  <a href="https://github.com/try-auroraview/auroraview/releases"><img src="https://img.shields.io/github/downloads/try-auroraview/auroraview/total" alt="GitHub Downloads"></a>
+  <a href="https://github.com/try-auroraview/auroraview/commits/main"><img src="https://img.shields.io/github/last-commit/try-auroraview/auroraview" alt="Last Commit"></a>
+  <a href="https://github.com/try-auroraview/auroraview/graphs/commit-activity"><img src="https://img.shields.io/github/commit-activity/m/try-auroraview/auroraview" alt="Commit Activity"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/loonghao/auroraview/issues"><img src="https://img.shields.io/github/issues/loonghao/auroraview" alt="Open Issues"></a>
-  <a href="https://github.com/loonghao/auroraview/pulls"><img src="https://img.shields.io/github/issues-pr/loonghao/auroraview" alt="Open PRs"></a>
-  <a href="https://github.com/loonghao/auroraview/graphs/contributors"><img src="https://img.shields.io/github/contributors/loonghao/auroraview" alt="Contributors"></a>
+  <a href="https://github.com/try-auroraview/auroraview/issues"><img src="https://img.shields.io/github/issues/try-auroraview/auroraview" alt="Open Issues"></a>
+  <a href="https://github.com/try-auroraview/auroraview/pulls"><img src="https://img.shields.io/github/issues-pr/try-auroraview/auroraview" alt="Open PRs"></a>
+  <a href="https://github.com/try-auroraview/auroraview/graphs/contributors"><img src="https://img.shields.io/github/contributors/try-auroraview/auroraview" alt="Contributors"></a>
   <a href="https://conventionalcommits.org"><img src="https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg" alt="Conventional Commits"></a>
 </p>
 
@@ -54,7 +61,7 @@
 <p align="center">
   <a href="./CODE_OF_CONDUCT.md">Code of Conduct</a> •
   <a href="./SECURITY.md">Security Policy</a> •
-  <a href="https://github.com/loonghao/auroraview/issues">Issue Tracker</a>
+  <a href="https://github.com/try-auroraview/auroraview/issues">Issue Tracker</a>
 </p>
 
 
@@ -120,7 +127,7 @@ server.stop()
 - Packaging: maturin wheels; CPython 3.8+ uses abi3 per platform, CPython 3.7 uses dedicated cp37 wheels on Linux/Windows and source builds on macOS
 - Event loop: blocking show() by default; nonblocking mode planned for host loops
 - Deferred loading: URL/HTML set before show() are stored then applied at creation
-- IPC: bidirectional event bus (Python ↔ JavaScript via CustomEvent)
+- IPC: request/response calls and events through `window.auroraview`
 - Protocols: custom scheme/resource loaders for local assets (e.g., dcc://)
 - Embedding: parent window handle (HWND/NSView/WId) roadmap for DCC hosts
 - Security: optin devtools, CSP hooks, remote URL allowlist (planned)
@@ -130,7 +137,7 @@ server.stop()
 - Python API: `auroraview.WebView` wraps Rust core with ergonomic helpers
 - Rust core: interiormutable config (Arc<Mutex<...>>) enables safe preshow updates
 - Lifecycle: create WebView on `show()`, then apply lastwritewins URL/HTML
-- JS bridge: `emit(event, data)` from Python; `window.dispatchEvent(new CustomEvent('py', {detail:{event:'xyz', data:{...}}}))` from JS back to Python via IpcHandler
+- JS bridge: Python `emit()` reaches JavaScript `on()`; JavaScript `call()` and `send_event()` reach registered Python handlers
 - Logging: `tracing` on Rust side; `logging` on Python side
 - Testing: pytest unit smoke + cargo tests; wheels built in CI for 3 OSes
 
@@ -233,7 +240,7 @@ sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev  # Debian/Ubuntu
 
 # Download and install wheel from GitHub Releases
 # Python 3.8+: cp38-abi3, Python 3.7: cp37-cp37m
-pip install https://github.com/loonghao/auroraview/releases/latest/download/auroraview-{version}-cp38-abi3-linux_x86_64.whl
+pip install https://github.com/try-auroraview/auroraview/releases/latest/download/auroraview-{version}-cp38-abi3-linux_x86_64.whl
 ```
 
 Or build from source:
@@ -454,7 +461,7 @@ uvx auroraview --url https://example.com
 > uvx --python 3.7 --from auroraview python -m auroraview --url https://example.com
 > ```
 
-**[See CLI Documentation](./docs/CLI.md)** for more details.
+**[See CLI Documentation](./docs/guide/cli.md)** for more details.
 
 ### Custom Window Icon
 
@@ -1144,7 +1151,7 @@ run_standalone(
 > **Note**: The `path_to_file_url()` helper converts local paths to proper `file:///` URLs.
 > Example: `C:\images\logo.gif` → `file:///C:/images/logo.gif`
 
-See [examples/custom_protocol_example.py](./examples/custom_protocol_example.py) and [examples/local_assets_example.py](./examples/local_assets_example.py) for complete examples.
+See the [custom protocol guide](./docs/guide/custom-protocol.md) and [examples/local_assets_example.py](./examples/local_assets_example.py) for complete examples.
 
 
 #### 2. Qt Backend
@@ -1409,7 +1416,7 @@ webview.eval_js(injection_script)
 webview.show()
 ```
 
-For detailed guide, see [Third-Party Integration Guide](./docs/THIRD_PARTY_INTEGRATION.md).
+For agent and browser automation, see the [AI Agent and CDP guide](./docs/guide/ai-agent-cdp.md).
 
 ### System Tray Support
 
@@ -1477,17 +1484,17 @@ Install `auroraview-cli` using the install script:
 
 **Linux/macOS (bash):**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/loonghao/auroraview/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/try-auroraview/auroraview/main/scripts/install.sh | bash
 ```
 
 **Windows (PowerShell):**
 ```powershell
-irm https://raw.githubusercontent.com/loonghao/auroraview/main/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/try-auroraview/auroraview/main/scripts/install.ps1 | iex
 ```
 
 **Manual Download:**
 
-Download pre-built binaries from [GitHub Releases](https://github.com/loonghao/auroraview/releases).
+Download pre-built binaries from [GitHub Releases](https://github.com/try-auroraview/auroraview/releases).
 
 | Platform | Download |
 |----------|----------|
@@ -1590,24 +1597,28 @@ auroraview pack --config app.toml --no-console --build
 
 ## Documentation
 
--  [Architecture](./docs/ARCHITECTURE.md) - Modular backend architecture
--  [Technical Design](./docs/TECHNICAL_DESIGN.md) - Technical implementation details
--  [DCC Integration Guide](./docs/DCC_INTEGRATION_GUIDE.md) - Integration with DCC applications
--  [Third-Party Integration Guide](./docs/THIRD_PARTY_INTEGRATION.md) - JavaScript injection and AI chat integration
--  [Project Roadmap](./docs/ROADMAP.md) - Future plans and development
+- [Architecture](./docs/guide/architecture.md) - Core, bindings and native host responsibilities
+- [Design Philosophy](./docs/guide/design-philosophy.md) - Integration principles and implementation choices
+- [DCC Integration Guide](./docs/dcc/index.md) - Host-specific setup and limitations
+- [Shared UI and agent tools](./docs/guide/dcc-mcp.md) - Independent Python contracts, borrowed services and cleanup
+- [Development Proposals](./docs/rfcs/) - Design proposals and implementation status
 
 ## DCC Software Support
 
-| DCC Software | Status | Python Version | Example |
-|--------------|--------|----------------|---------|
-| Maya | [OK] Supported | 3.7+ | [Maya Outliner Example](https://github.com/loonghao/auroraview-maya-outliner) |
-| 3ds Max | [OK] Supported | 3.7+ | - |
-| Houdini | [OK] Supported | 3.7+ | - |
-| Blender | [OK] Supported | 3.7+ | - |
-| Photoshop | [CONSTRUCTION] Planned | 3.7+ | - |
-| Unreal Engine | [CONSTRUCTION] Planned | 3.7+ | - |
+| Host | Integration source | Tutorial or verification |
+|------|--------------------|--------------------------|
+| Maya | [Qt integration](./docs/dcc/maya.md) | [Outliner tutorial](https://github.com/try-auroraview/auroraview-maya-outliner) |
+| 3ds Max | [Host guide](./docs/dcc/3dsmax.md) | See the host guide for setup and limitations |
+| Houdini | [Adapter](https://github.com/try-auroraview/auroraview-houdini) | See the adapter's validation notes |
+| Blender | [Adapter](https://github.com/try-auroraview/auroraview-blender) | Native WebView docking verification is tracked in the adapter |
+| Unreal Engine | [Adapter](https://github.com/try-auroraview/auroraview-unreal) | Native Editor docking verification is tracked in the adapter |
+| Unity Editor | [Adapter and tutorial](https://github.com/try-auroraview/auroraview-unity) | Windows WebView2 integration; see its validation notes |
+| Nuke | [Adapter](https://github.com/try-auroraview/auroraview-nuke) | See the adapter's validation notes |
 
-> **📚 Examples**: For a complete working example, check out the [Maya Outliner Example](https://github.com/loonghao/auroraview-maya-outliner) - a modern, web-based Maya Outliner built with AuroraView, Vue 3, and TypeScript.
+Host versions, platform limits and completed acceptance checks are recorded in
+each adapter and the [verification directory](https://try-auroraview.github.io/#ecosystem).
+
+> **📚 Examples**: For a complete working example, check out the [Maya Outliner Example](https://github.com/try-auroraview/auroraview-maya-outliner) - a modern, web-based Maya Outliner built with AuroraView, Vue 3, and TypeScript. The [host tutorial directory](https://try-auroraview.github.io/#examples) links runnable demos separately from host adapters and records their verification status.
 
 ## Development
 
@@ -1623,7 +1634,7 @@ auroraview pack --config app.toml --no-console --build
 
 ```bash
 # Clone the repository
-git clone https://github.com/loonghao/auroraview.git
+git clone https://github.com/try-auroraview/auroraview.git
 cd auroraview
 
 # Install tools declared in vx.toml

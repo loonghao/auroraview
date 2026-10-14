@@ -22,6 +22,24 @@ use super::webview_inner::WebViewInner;
 use crate::bindings::webview::py_dict_to_json;
 use crate::ipc::{IpcHandler, JsCallbackManager, MessageQueue, WebViewMessage};
 
+// Module-level close channel.
+//
+// `AuroraView` is `#[pyclass(unsendable)]`, so PyO3 aborts any `#[pymethods]`
+// body that runs on a thread other than the one that created the object, and
+// `wry`/`tao` windows must be destroyed on their creator thread as well
+// (violating that is a hard main-thread crash on macOS).
+//
+// Closing is the one operation that has to stay reachable from anywhere - a
+// DCC host closes a window from its main thread while the WebView lives on a
+// background thread - so the request is never executed inline. It is always
+// handed back to the owner thread through this module-level channel, which is
+// built from state that is already shared cross-thread: the
+// `Arc<MessageQueue>` drained by the owner thread's event loop, plus the
+// `EventLoopProxy` that wakes that loop up.
+//
+// Both halves are `Send`, so no part of this module ever needs to borrow the
+// `unsendable` object to ask for a close.
+
 // Sub-modules containing #[pymethods] implementations
 #[cfg(feature = "templates")]
 mod api; // API registration methods (uses Askama templates)
@@ -38,6 +56,31 @@ mod storage;
 
 pub use effects::PyRegion;
 pub use plugins::PluginManager;
+
+/// Ask the owner thread's event loop to close the window.
+///
+/// Both halves are `Send`, so this is safe to call from any thread, and no
+/// `unsendable` state is borrowed. The queued `Close` message covers
+/// host-driven pumps (the embedded/DCC path has no event loop proxy), while
+/// `UserEvent::CloseWindow` wakes a blocking event loop immediately.
+///
+/// Returns `true` when a running event loop was woken through its proxy.
+pub(crate) fn request_close_via_channel(
+    message_queue: &Arc<MessageQueue>,
+    event_loop_proxy: &Rc<RefCell<Option<tao::event_loop::EventLoopProxy<UserEvent>>>>,
+) -> bool {
+    message_queue.push(WebViewMessage::Close);
+
+    // A drop must never panic and must never block, so a proxy held by the
+    // event loop is skipped rather than waited for.
+    match event_loop_proxy.try_borrow() {
+        Ok(guard) => match guard.as_ref() {
+            Some(proxy) => proxy.send_event(UserEvent::CloseWindow).is_ok(),
+            None => false,
+        },
+        Err(_) => false,
+    }
+}
 
 /// Thread-safe event emitter for cross-thread event emission
 ///
@@ -132,13 +175,84 @@ impl AuroraView {
     }
 }
 
-/// Implement Drop to track when AuroraView is destroyed
+/// Implement Drop to release the native window when the Python object dies.
+///
+/// Python users (and test fixtures) frequently let a `WebView` go out of scope
+/// instead of calling `close()`. Previously `drop` only logged, so the native
+/// window stayed alive until the process exited - which is exactly the
+/// "unit tests never close the window" symptom. Dropping now asks the event
+/// loop to exit and then releases the inner WebView, whose own `Drop` destroys
+/// the window.
+///
+/// Cross-thread destruction cannot be fixed here. `AuroraView` is
+/// `#[pyclass(unsendable)]`, so PyO3 gates deallocation on its thread checker:
+/// when the object is released on a thread other than the creating one, PyO3
+/// writes an unraisable `RuntimeError`, skips the value destructor entirely and
+/// leaks the object - `AuroraView::drop` is never entered. That is PyO3's
+/// unsendable contract, not something this `Drop` impl can route around, so
+/// callers that need a cross-thread teardown must go through `close()`, which is
+/// reachable from any thread via the module-level close channel.
 impl Drop for AuroraView {
     fn drop(&mut self) {
-        let title = self.config.borrow().title.clone();
+        // The blocking event loop now runs with the GIL released (see
+        // `show_window`), so Python may garbage-collect this object *while* the
+        // loop still holds a mutable borrow of `inner`. Every borrow below is
+        // therefore non-blocking: a drop must never panic, and it must never
+        // deadlock waiting on a borrow held by the loop it is trying to stop.
+        let title = self
+            .config
+            .try_borrow()
+            .map(|c| c.title.clone())
+            .unwrap_or_else(|_| "<borrowed>".to_string());
         tracing::warn!(
             "[CLOSE] [AuroraView::drop] WebView '{}' is being destroyed!",
             title
         );
+
+        // Ask a running event loop to exit, and make the intent visible to any
+        // host-driven message pump (the embedded/DCC path has no event loop
+        // proxy, so it relies on the queued message).
+        let asked_event_loop =
+            request_close_via_channel(&self.message_queue, &self.event_loop_proxy);
+        if asked_event_loop {
+            tracing::info!(
+                "[CLOSE] [AuroraView::drop] Sent CloseWindow to the event loop for '{}'",
+                title
+            );
+        } else {
+            tracing::info!(
+                "[CLOSE] [AuroraView::drop] Queued Close message for '{}' (no event loop proxy)",
+                title
+            );
+        }
+
+        // Drop the event-loop proxy first so the loop is free to exit.
+        if let Ok(mut proxy_guard) = self.event_loop_proxy.try_borrow_mut() {
+            if let Some(proxy) = proxy_guard.take() {
+                drop(proxy);
+            }
+        }
+
+        // Release the inner WebView; `WebViewInner::drop` destroys the window.
+        // If the event loop still owns the borrow, it will drop the inner WebView
+        // itself when it unwinds - panicking here would abort the process.
+        match self.inner.try_borrow_mut() {
+            Ok(mut inner_guard) => {
+                if let Some(inner) = inner_guard.take() {
+                    drop(inner);
+                    tracing::info!(
+                        "[CLOSE] [AuroraView::drop] Released inner WebView for '{}'",
+                        title
+                    );
+                }
+            }
+            Err(_) => {
+                tracing::warn!(
+                    "[CLOSE] [AuroraView::drop] inner is borrowed by a running event loop; \
+                     the loop will release the WebView for '{}' when it exits",
+                    title
+                );
+            }
+        }
     }
 }
