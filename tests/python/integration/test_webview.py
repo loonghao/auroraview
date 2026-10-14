@@ -1,12 +1,8 @@
 """Unit tests for WebView class."""
 
-import sys
 import time
 
 import pytest
-
-# Skip tests that require native window handle on non-Windows platforms
-_SKIP_NATIVE_WINDOW_TESTS = sys.platform != "win32"
 
 
 @pytest.mark.unit
@@ -134,13 +130,22 @@ class TestWebViewEventHandling:
             from auroraview import WebView
 
             webview = WebView()
+            received = []
 
             def handler(data):
-                pass
+                received.append(data)
 
-            webview.register_callback("test_event", handler)
-            assert "test_event" in webview._event_handlers
-            assert handler in webview._event_handlers["test_event"]
+            try:
+                connection = webview.register_callback("test_event", handler)
+                payload = {"value": 123}
+                webview.signals.custom.emit("test_event", payload)
+                assert received == [payload]
+
+                assert webview.disconnect("test_event", connection)
+                webview.signals.custom.emit("test_event", {"value": 456})
+                assert received == [payload]
+            finally:
+                webview.close()
         except ImportError:
             pytest.skip("Package not built yet")
 
@@ -150,12 +155,18 @@ class TestWebViewEventHandling:
             from auroraview import WebView
 
             webview = WebView()
+            received = []
 
             @webview.on("test_event")
             def handler(data):
-                pass
+                received.append(data)
 
-            assert "test_event" in webview._event_handlers
+            try:
+                payload = {"value": 123}
+                webview.signals.custom.emit("test_event", payload)
+                assert received == [payload]
+            finally:
+                webview.close()
         except ImportError:
             pytest.skip("Package not built yet")
 
@@ -165,17 +176,31 @@ class TestWebViewEventHandling:
             from auroraview import WebView
 
             webview = WebView()
+            received = []
 
             def handler1(data):
-                pass
+                received.append(("first", data))
 
             def handler2(data):
-                pass
+                received.append(("second", data))
 
-            webview.register_callback("test_event", handler1)
-            webview.register_callback("test_event", handler2)
+            try:
+                first = webview.register_callback("test_event", handler1)
+                webview.register_callback("test_event", handler2)
+                payload = {"value": 123}
+                webview.signals.custom.emit("test_event", payload)
+                assert received == [("first", payload), ("second", payload)]
 
-            assert len(webview._event_handlers["test_event"]) == 2
+                assert webview.disconnect("test_event", first)
+                next_payload = {"value": 456}
+                webview.signals.custom.emit("test_event", next_payload)
+                assert received == [
+                    ("first", payload),
+                    ("second", payload),
+                    ("second", next_payload),
+                ]
+            finally:
+                webview.close()
         except ImportError:
             pytest.skip("Package not built yet")
 
@@ -336,15 +361,19 @@ class TestWebViewAutoShow:
         except ImportError:
             pytest.skip("Package not built yet")
 
-    @pytest.mark.skipif(_SKIP_NATIVE_WINDOW_TESTS, reason="Requires Windows native window")
-    def test_create_with_auto_show_true(self):
-        """Test WebView.create() with auto_show=True."""
+    def test_create_with_auto_show_true(self, monkeypatch):
+        """Test that auto_show=True dispatches show once without entering its loop."""
         try:
             from auroraview import WebView
 
+            show_calls = []
+            monkeypatch.setattr(WebView, "show", lambda view: show_calls.append(view))
             webview = WebView.create(title="Test", auto_show=True)
-            assert webview._auto_show is True
-            webview.close()
+            try:
+                assert show_calls == [webview]
+                assert webview._auto_show is True
+            finally:
+                webview.close()
         except ImportError:
             pytest.skip("Package not built yet")
 

@@ -148,7 +148,10 @@ def test_maya(session):
     This is a special session for testing in Maya environment.
     """
     session.install(".")
-    session.install("pytest")
+    # pytest-timeout is required by `timeout`/`timeout_method` and by the
+    # `--timeout=60` in `addopts`; without it the session dies at argument
+    # parsing with "unrecognized arguments: --timeout=60".
+    session.install("pytest", "pytest-timeout")
     # Note: This would need to be run with mayapy instead of regular python
     session.run(
         "pytest",

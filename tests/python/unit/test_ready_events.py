@@ -297,3 +297,72 @@ class TestDecorators:
         # Should succeed without _ready_events
         result = webview.test_method()
         assert result == "no events"
+
+
+class TestReadyEventsTimeoutOverride:
+    """`AURORAVIEW_READY_TIMEOUT` keeps automated runs from stalling.
+
+    Without a display (or in a test that never shows a window) the `require_*`
+    decorators can never be satisfied, so each call burns the full timeout. The
+    variable lets a test suite shorten that wait instead of hanging on it.
+    """
+
+    def test_default_timeouts_are_unchanged(self, monkeypatch):
+        """Removing the variable restores the historical 20s / 30s defaults."""
+        monkeypatch.delenv("AURORAVIEW_READY_TIMEOUT", raising=False)
+        from auroraview.core.ready_events import ready_all_timeout, ready_event_timeout
+
+        assert ready_event_timeout() == 20.0
+        assert ready_all_timeout() == 30.0
+
+    def test_env_var_shortens_the_wait(self, monkeypatch):
+        """The decorators honour a shortened timeout."""
+        import time
+
+        from auroraview.core.ready_events import ReadyEvents, require_created
+
+        monkeypatch.setenv("AURORAVIEW_READY_TIMEOUT", "0.05")
+
+        class MockWebView:
+            def __init__(self):
+                self._ready_events = ReadyEvents(self)
+
+            @require_created
+            def test_method(self):
+                return "success"
+
+        webview = MockWebView()
+        webview._ready_events.created.clear()
+
+        start = time.monotonic()
+        with pytest.raises(RuntimeError, match="failed to create"):
+            webview.test_method()
+        elapsed = time.monotonic() - start
+
+        # Must fail fast rather than blocking for the 20s default.
+        assert elapsed < 5.0
+
+    def test_invalid_env_var_falls_back_to_default(self, monkeypatch):
+        """A malformed value must never disable the timeout."""
+        monkeypatch.setenv("AURORAVIEW_READY_TIMEOUT", "not-a-number")
+        from auroraview.core.ready_events import ready_event_timeout
+
+        assert ready_event_timeout() == 20.0
+
+    def test_negative_env_var_falls_back_to_default(self, monkeypatch):
+        """A negative value must never disable the timeout."""
+        monkeypatch.setenv("AURORAVIEW_READY_TIMEOUT", "-1")
+        from auroraview.core.ready_events import ready_event_timeout
+
+        assert ready_event_timeout() == 20.0
+
+    def test_explicit_timeout_argument_still_wins(self, monkeypatch):
+        """Callers passing an explicit timeout keep full control."""
+        monkeypatch.setenv("AURORAVIEW_READY_TIMEOUT", "0.05")
+        from auroraview.core.ready_events import ReadyEvents
+
+        events = ReadyEvents(MagicMock())
+        assert events.wait_created(timeout=0.01) is False
+
+        events.set_created()
+        assert events.wait_created(timeout=0.01) is True

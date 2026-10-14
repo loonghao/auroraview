@@ -85,7 +85,7 @@ jobs:
       needs_rust_cli: ${{ steps.rust-deps.outputs.needs_cli }}
       needs_rust_pack: ${{ steps.rust-deps.outputs.needs_pack }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Detect file changes
         uses: dorny/paths-filter@v4
@@ -138,6 +138,10 @@ jobs:
             ci:
               - '.github/**'
               - 'justfile'
+              - 'scripts/ci/test_gallery_ci.py'
+              - 'scripts/ci/stage_gallery_wheel.py'
+              - 'scripts/ci/test_gallery_lifecycle.ps1'
+              - 'tests/test_gallery_cdp.py'
               - 'scripts/audit_unsafe.py'
               - 'scripts/unsafe_allowlist.txt'
               - '.pre-commit-config.yaml'
@@ -286,13 +290,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Setup vx
-        uses: loonghao/vx@vx-v0.9.26
+        uses: loonghao/vx@vx-v0.9.33
         with:
+          version: '0.9.33'
           github-token: ${{ secrets.GITHUB_TOKEN }}
           tools: 'bun'
           cache: 'false'
@@ -312,7 +317,7 @@ jobs:
     needs: [path-filter]
     if: needs.path-filter.outputs.needs_rust_checks == 'true' || needs.path-filter.outputs.python == 'true'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Free disk space
         run: |
@@ -326,9 +331,16 @@ jobs:
           components: rustfmt,clippy
 
       - name: Setup vx
-        uses: loonghao/vx@vx-v0.9.26
+        uses: loonghao/vx@vx-v0.9.33
         with:
+          version: '0.9.33'
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check canonical repository links
+        run: vx just check-repository-links
+
+      - name: Check Gallery release and diagnostic contracts
+        run: vx just gallery-ci-check
 
       - name: Cache Rust
         uses: actions/cache@v5
@@ -348,6 +360,15 @@ jobs:
       - name: Audit unsafe usage
         if: needs.path-filter.outputs.needs_rust_checks == 'true'
         run: vx just unsafe-audit
+
+      - name: Check host-adapter contract Rust/Python capability parity
+        # Must also run for Python-only changes: the guard's whole job is
+        # catching drift between the Rust and Python declarations, and a
+        # Python-only edit to `adapter/backends.py` is one of the two ways
+        # that drift happens. Gating it on `needs_rust_checks` alone would
+        # skip exactly that case.
+        if: needs.path-filter.outputs.needs_rust_checks == 'true' || needs.path-filter.outputs.needs_python_tests == 'true'
+        run: vx python scripts/ci/check_contract_capability_parity.py
 
       - name: Install system dependencies
         if: needs.path-filter.outputs.needs_rust_checks == 'true'
@@ -376,7 +397,7 @@ jobs:
     needs: [path-filter]
     if: needs.path-filter.outputs.needs_rust_checks == 'true'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Free disk space
         run: |
@@ -385,7 +406,9 @@ jobs:
           df -h
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        # async-trait 0.1.89 triggers double_must_use on Clippy 1.99.
+        # Pin this lint job to 1.98.0 while retaining strict -D warnings.
+        uses: dtolnay/rust-toolchain@1.98.0
         with:
           components: clippy
 
@@ -395,8 +418,9 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
 
       - name: Setup vx helpers
-        uses: loonghao/vx@vx-v0.9.26
+        uses: loonghao/vx@vx-v0.9.33
         with:
+          version: '0.9.33'
           github-token: ${{ secrets.GITHUB_TOKEN }}
           tools: 'just bun'
           cache: 'false'
@@ -461,7 +485,7 @@ jobs:
             # Note: --sdist removed to avoid 100MB PyPI limit in releases
             maturin-args: '--release --out dist --find-interpreter --features python-bindings,ext-module,abi3-py38'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Download SDK assets
         if: needs.sdk-build.result == 'success'
@@ -501,7 +525,7 @@ jobs:
             artifact-name: wheels-windows-x64-py37
             maturin-args: '--release --out dist -i python3.7 --features python-bindings,ext-module,win-webview2'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Build Python 3.7 Wheel
         uses: ./.github/actions/build-wheel
@@ -519,6 +543,7 @@ jobs:
         shell: bash
         env:
           CI: 'true'
+          AURORAVIEW_READY_TIMEOUT: '5'
         run: |
           # Install test dependencies (pytest only, no Qt for 3.7)
           pip install pytest pytest-cov pytest-timeout
@@ -528,10 +553,46 @@ jobs:
           echo "Installing wheel: $wheel_file"
           pip install "$wheel_file"
 
+          # Install the optional dcc-mcp extra so the DCC-MCP integration tests
+          # actually execute on 3.7 instead of silently skipping. Without this
+          # the py37 gate is vacuous for that code path.
+          echo "Installing dcc-mcp-core for the auroraview[dcc-mcp] extra"
+          pip install "dcc-mcp-core>=0.20.25,<0.21"
+          python -c "import dcc_mcp_core, sys; print('dcc_mcp_core', dcc_mcp_core.__version__ if hasattr(dcc_mcp_core,'__version__') else 'ok', 'on', sys.version)"
+
           # Run unit tests (skip Qt tests as PySide6 doesn't support Python 3.7)
-          pytest tests/python/unit/ -v --tb=short --timeout=60 \
+          pytest tests/python/unit/ \
+            tests/test_thread_dispatcher.py \
+            tests/test_thread_safety_diagnosis.py \
+            -v --tb=short --timeout=60 \
             --ignore=tests/python/unit/test_qt_signals.py \
             -k "not qt"
+
+      # The DCC-MCP discovery proof lives in integration tests (FileRegistry
+      # registration, heartbeat, sentinel, skill load). Run them on 3.7 too,
+      # otherwise the py37 gate only covers the adapter's pure-Python surface.
+      - name: Run Python 3.7 DCC-MCP Integration Tests
+        shell: bash
+        env:
+          CI: 'true'
+        run: |
+          pytest tests/python/integration/test_dcc_mcp_registration.py \
+            tests/python/integration/test_dcc_mcp_coexistence.py \
+            tests/python/integration/test_dcc_mcp_skill_isolation.py \
+            tests/python/integration/test_dcc_mcp_tool_invocation.py \
+            -v --tb=short --timeout=300
+
+          # Fail loudly if the extra is missing: a skipped DCC-MCP suite must
+          # never be mistaken for a passing one.
+          python - <<'PY'
+          import importlib.util
+          if importlib.util.find_spec("dcc_mcp_core") is None:
+              raise SystemExit(
+                  "dcc-mcp-core is not installed; the DCC-MCP tests would "
+                  "silently skip and the py37 gate would be vacuous."
+              )
+          print("dcc-mcp-core present: DCC-MCP tests were really executed")
+          PY
 
   # =============================================================================
   # Rust Tests - With coverage reporting
@@ -546,7 +607,7 @@ jobs:
       needs.path-filter.outputs.needs_rust_checks == 'true' &&
       (needs.quick-checks.result == 'success' || needs.quick-checks.result == 'skipped')
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Free disk space
         run: |
@@ -570,8 +631,9 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libgtk-3-dev libglib2.0-dev libxdo-dev pkg-config
 
       - name: Setup vx helpers
-        uses: loonghao/vx@vx-v0.9.26
+        uses: loonghao/vx@vx-v0.9.33
         with:
+          version: '0.9.33'
           github-token: ${{ secrets.GITHUB_TOKEN }}
           tools: 'just bun'
           cache: 'false'
@@ -579,28 +641,61 @@ jobs:
       - name: Install llvm-tools-preview (vx managed Rust)
         run: vx rustup component add llvm-tools-preview
 
-      - name: Fix llvm-profdata in vx toolchain
+      - name: Fix llvm-tools in vx toolchain
         if: runner.os == 'Linux'
         run: |
-          VX_PROFDATA="$(vx rustc --print sysroot)/lib/rustlib/$(vx rustc -vV | awk '/host:/ {print $2}')/bin/llvm-profdata"
-          if [ ! -f "$VX_PROFDATA" ]; then
-            echo "llvm-profdata not found at $VX_PROFDATA, linking from system toolchain..."
-            SYS_RUSTC="$HOME/.cargo/bin/rustc"
-            if [ -x "$SYS_RUSTC" ]; then
-              SYS_PROFDATA="$("$SYS_RUSTC" --print sysroot)/lib/rustlib/$("$SYS_RUSTC" -vV | awk '/host:/ {print $2}')/bin/llvm-profdata"
-              if [ -f "$SYS_PROFDATA" ]; then
-                mkdir -p "$(dirname "$VX_PROFDATA")"
-                ln -sf "$SYS_PROFDATA" "$VX_PROFDATA"
-                echo "Linked system llvm-profdata to vx toolchain"
-              else
-                echo "WARNING: system llvm-profdata not found at $SYS_PROFDATA"
-              fi
-            else
-              echo "WARNING: system rustc not found at $SYS_RUSTC"
-            fi
-          else
-            echo "llvm-profdata already present in vx toolchain"
+          # vx installs its own Rust sysroot (~/.vx/store/rust/...) that does not ship the
+          # llvm-tools-preview binaries: `vx rustup component add llvm-tools-preview` reports
+          # "component llvm-tools is up to date" while <sysroot>/lib/rustlib/<host>/bin stays
+          # empty. cargo-llvm-cov needs llvm-profdata (merge) and llvm-cov (export/report) from
+          # that directory, so link every llvm tool the vx sysroot is missing from the
+          # runner-provided toolchain (dtolnay/rust-toolchain with llvm-tools-preview).
+          set -euo pipefail
+
+          VX_SYSROOT="$(vx rustc --print sysroot)"
+          HOST_TRIPLE="$(vx rustc -vV | awk '/^host:/ {print $2}')"
+          VX_BIN="$VX_SYSROOT/lib/rustlib/$HOST_TRIPLE/bin"
+          SYS_RUSTC="$HOME/.cargo/bin/rustc"
+
+          if [ ! -x "$SYS_RUSTC" ]; then
+            echo "::error::system rustc not found at $SYS_RUSTC; cannot repair vx llvm-tools"
+            exit 1
           fi
+
+          SYS_BIN="$("$SYS_RUSTC" --print sysroot)/lib/rustlib/$("$SYS_RUSTC" -vV | awk '/^host:/ {print $2}')/bin"
+          if [ ! -d "$SYS_BIN" ]; then
+            echo "::error::system llvm-tools directory not found at $SYS_BIN"
+            exit 1
+          fi
+
+          mkdir -p "$VX_BIN"
+          linked=0
+          while IFS= read -r -d '' tool; do
+            name="$(basename "$tool")"
+            if [ ! -e "$VX_BIN/$name" ]; then
+              ln -sf "$tool" "$VX_BIN/$name"
+              echo "Linked $name -> $tool"
+              linked=$((linked + 1))
+            fi
+          done < <(find "$SYS_BIN" -mindepth 1 -maxdepth 1 ! -type d -print0)
+          echo "Linked $linked llvm tool(s) into $VX_BIN"
+
+          # Fail here instead of later with an opaque "No such file or directory" from
+          # cargo-llvm-cov: a missing tool would otherwise surface only in the report step.
+          missing=0
+          for tool in llvm-profdata llvm-cov; do
+            if [ -x "$VX_BIN/$tool" ]; then
+              echo "[OK] $tool available at $VX_BIN/$tool"
+            else
+              echo "::error::$tool still missing in vx sysroot ($VX_BIN/$tool)"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+          "$VX_BIN/llvm-cov" --version
+          "$VX_BIN/llvm-profdata" --version
 
       - name: Build frontend assets (required by auroraview-assets)
         run: vx just ci-assets-build
@@ -628,6 +723,18 @@ jobs:
 
       - name: Run tests with coverage
         run: vx just ci-rust-coverage-lcov
+
+      - name: Verify Rust coverage report
+        if: runner.os == 'Linux'
+        run: |
+          # Guard against a silently degraded signal: the lane must prove the report step
+          # really produced an lcov file, not just that the recipe exited zero.
+          if [ ! -s rust-coverage.lcov ]; then
+            echo "::error::rust-coverage.lcov was not produced (missing or empty)"
+            exit 1
+          fi
+          echo "[OK] rust-coverage.lcov produced: $(wc -l < rust-coverage.lcov) lines, $(wc -c < rust-coverage.lcov) bytes"
+          head -5 rust-coverage.lcov
 
       - name: Run doc tests
         run: vx just ci-docs-rust
@@ -686,7 +793,7 @@ jobs:
           - os: macos-latest
             artifact-name: wheels-macos-universal2-apple-darwin
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -731,8 +838,12 @@ jobs:
           CI: 'true'
           QT_QPA_PLATFORM: offscreen
           QT_OPENGL: software
+          AURORAVIEW_READY_TIMEOUT: '5'
         run: |
-          pytest tests/python/unit/ -v --tb=short --cov=auroraview --cov-report=xml --timeout=60
+          pytest tests/python/unit/ \
+            tests/test_thread_dispatcher.py \
+            tests/test_thread_safety_diagnosis.py \
+            -v --tb=short --cov=auroraview --cov-report=xml --timeout=60
 
       - name: Upload coverage (3.11 on ubuntu only)
         if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
@@ -767,7 +878,7 @@ jobs:
           - os: macos-latest
             artifact-name: wheels-macos-universal2-apple-darwin
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -805,7 +916,7 @@ jobs:
       (needs.quick-checks.result == 'success' || needs.quick-checks.result == 'skipped') &&
       needs.pre-build.result == 'success'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -835,6 +946,7 @@ jobs:
           QT_QPA_PLATFORM: offscreen
           QT_OPENGL: software
           QTWEBENGINE_DISABLE_SANDBOX: '1'
+          AURORAVIEW_READY_TIMEOUT: '5'
         run: |
           pytest tests/python/integration/test_qt_backend.py tests/python/integration/test_qt_lifecycle.py -v --tb=short --timeout=60
 
@@ -856,7 +968,7 @@ jobs:
     needs: [path-filter]
     if: needs.path-filter.outputs.needs_rust_checks == 'true'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -911,7 +1023,7 @@ jobs:
             artifact-name: cli-macos-arm64
             exe-name: auroraview-cli
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup AuroraView Environment
         uses: ./.github/actions/setup-auroraview
@@ -961,7 +1073,7 @@ jobs:
       needs.path-filter.outputs.needs_gallery_tests == 'true' &&
       (needs.sdk-build.result == 'success' || needs.sdk-build.result == 'skipped')
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup AuroraView Environment
         uses: ./.github/actions/setup-auroraview
@@ -1008,7 +1120,7 @@ jobs:
       (needs.sdk-build.result == 'success' || needs.sdk-build.result == 'skipped') &&
       needs.gallery-frontend.result == 'success'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup AuroraView Environment
         uses: ./.github/actions/setup-auroraview
@@ -1172,7 +1284,7 @@ jobs:
             wheel-artifact: wheels-macos-universal2-apple-darwin
             cli-artifact: cli-macos-arm64
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup AuroraView Environment
         uses: ./.github/actions/setup-auroraview
@@ -1195,12 +1307,11 @@ jobs:
       - name: Install auroraview wheel
         if: needs.pre-build.result == 'success'
         shell: bash
+        env:
+          GALLERY_SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          GALLERY_WHEEL_ARTIFACT: ${{ matrix.wheel-artifact }}
         run: |
-          python -m pip install --upgrade pip
-          wheel_file=$(ls -t dist/*.whl | head -1)
-          echo "Installing wheel: $wheel_file"
-          pip install "$wheel_file"
-          python -c "import auroraview; print(f'auroraview {auroraview.__version__} installed')"
+          vx just gallery-ci-stage-wheel dist
 
       # Download pre-built CLI from cli-build job
       - name: Download pre-built CLI
@@ -1379,6 +1490,14 @@ jobs:
           path: target/pack/auroraview-gallery${{ matrix.exe-ext }}
           retention-days: 3
 
+      - name: Upload native wheel staging receipt
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gallery-native-wheel-${{ matrix.target }}
+          path: test-results/gallery-wheel/receipt.json
+          if-no-files-found: ignore
+
   # =============================================================================
   # Docs Build - Only for documentation changes
   # =============================================================================
@@ -1389,7 +1508,7 @@ jobs:
     needs: [path-filter]
     if: needs.path-filter.outputs.needs_docs_build == 'true'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup AuroraView Environment
         uses: ./.github/actions/setup-auroraview

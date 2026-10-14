@@ -1,0 +1,113 @@
+# Tool declarations for the auroraview-webview skill.
+#
+# These mirror the tools exposed by AuroraView's own MCP surface so agents see
+# one consistent tool set. Each entry dispatches to a script in scripts/.
+
+tools:
+  - name: eval_js
+    summary: Evaluate JavaScript in the AuroraView WebView and return the result.
+    description: >-
+      Runs JavaScript inside the live AuroraView panel and returns the
+      evaluated value. Waits for the result and honours a timeout, so it is
+      safe for read-back patterns such as reading document.title or querying
+      DOM state.
+    tags: [javascript, eval, dom, auroraview]
+    source_file: scripts/eval_js.py
+    input_schema:
+      type: object
+      properties:
+        script:
+          type: string
+          description: JavaScript code to evaluate.
+        timeout_ms:
+          type: integer
+          description: Evaluation budget in milliseconds (default 5000).
+      required: [script]
+      additionalProperties: false
+    output_schema:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        result:
+          description: JSON string returned by the evaluated expression.
+      required: [ok]
+
+  - name: screenshot
+    summary: Capture the AuroraView page as a PNG.
+    description: >-
+      Captures the current page using the window.auroraview.screenshot helper
+      that AuroraView injects into every page (html2canvas based). Returns
+      base64-encoded image data.
+    tags: [screenshot, capture, png, image, auroraview]
+    source_file: scripts/screenshot.py
+    input_schema:
+      type: object
+      properties:
+        format:
+          type: string
+          description: Image format (default png).
+          default: png
+        full_page:
+          type: boolean
+          description: Capture the full page instead of the viewport.
+          default: false
+      additionalProperties: false
+    output_schema:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        format:
+          type: string
+        data:
+          description: Base64-encoded image payload.
+      required: [ok]
+
+  - name: load_url
+    summary: Load a URL into the AuroraView WebView.
+    description: >-
+      Navigates the AuroraView panel to the given URL. Accepts http://,
+      https:// and file:// locations.
+    tags: [navigation, url, auroraview]
+    source_file: scripts/load_url.py
+    input_schema:
+      type: object
+      properties:
+        url:
+          type: string
+          description: URL to load.
+      required: [url]
+      additionalProperties: false
+    output_schema:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        url:
+          type: string
+      required: [ok]
+
+  - name: load_html
+    summary: Load raw HTML content into the AuroraView WebView.
+    description: >-
+      Replaces the current page content with the supplied HTML string. Useful
+      for quick previews without writing a file.
+    tags: [html, content, auroraview]
+    source_file: scripts/load_html.py
+    input_schema:
+      type: object
+      properties:
+        html:
+          type: string
+          description: HTML content to load.
+      required: [html]
+      additionalProperties: false
+    output_schema:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        length:
+          type: integer
+      required: [ok]
