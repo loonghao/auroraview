@@ -5,14 +5,17 @@
 # Use nextest for faster mutation testing
 test_tool = "nextest"
 
-# Timeout per mutant (seconds) - generous for WebView-related tests
-timeout = 120
-
-# Minimum test timeout (covers fast-completing mutants)
+# Minimum test timeout (seconds) - floor on the autoset value for WebView tests.
+# The per-mutant timeout is a CLI flag (--timeout 120 in mutation-testing.yml);
+# cargo-mutants rejects it here because Config is deny_unknown_fields.
 minimum_test_timeout = 30
 
-# Additional args passed to cargo test / nextest
-additional_cargo_test_args = ["--config-file", ".config/nextest.toml", "--profile", "mutation"]
+# Additional args passed to cargo test / nextest.
+# Only the nextest profile belongs here: mutation-testing.yml already passes
+# --config-file after the `--` separator, and cargo-mutants concatenates both,
+# which makes nextest reject the duplicate with "the argument '--config-file
+# <PATH>' cannot be used multiple times" and fails the unmutated baseline.
+additional_cargo_test_args = ["--profile", "mutation"]
 
 # Cap number of mutants per run for agent-friendly iteration loops
 # Override with: cargo mutants --mutant-limit <N>
