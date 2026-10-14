@@ -123,7 +123,14 @@ jobs:
       - name: Run incremental mutation testing
         if: steps.changed.outputs.skip != 'true'
         run: |
-          cargo mutants --no-shuffle --timeout 120 ${{ steps.changed.outputs.file_args }} -- --config-file .config/nextest.toml --features "test-helpers" 2>&1 | tee mutants-output.txt
+          # Without -p, cargo-mutants applies the args to every examined package;
+          # only request `test-helpers` when all of them define it.
+          feature_args=()
+          if cargo metadata --no-deps --format-version 1 \
+              | jq -e '[.packages[] | .features | has("test-helpers")] | all' >/dev/null; then
+            feature_args=(--features "test-helpers")
+          fi
+          cargo mutants --no-shuffle --timeout 120 ${{ steps.changed.outputs.file_args }} -- --config-file .config/nextest.toml "${feature_args[@]}" 2>&1 | tee mutants-output.txt
           exit_code=${PIPESTATUS[0]}
           echo "exit_code=$exit_code" >> $GITHUB_ENV
 
@@ -291,7 +298,16 @@ jobs:
 
       - name: Run full mutation testing
         run: |
-          cargo mutants -p ${{ matrix.crate }} --no-shuffle --timeout 120 -- --config-file .config/nextest.toml --features "test-helpers"
+          # Only the root `auroraview` and `auroraview-desktop` packages define
+          # `test-helpers`; passing it for any other package fails the unmutated
+          # baseline with "does not contain this feature".
+          feature_args=()
+          if cargo metadata --no-deps --format-version 1 \
+              | jq -e --arg c "${{ matrix.crate }}" \
+                  '.packages[] | select(.name == $c) | .features | has("test-helpers")' >/dev/null; then
+            feature_args=(--features "test-helpers")
+          fi
+          cargo mutants -p ${{ matrix.crate }} --no-shuffle --timeout 120 -- --config-file .config/nextest.toml "${feature_args[@]}"
 
       - name: Upload mutation results
         if: always()
@@ -354,7 +370,13 @@ jobs:
           if [ -n "${{ github.event.inputs.shard }}" ]; then
             shard_arg="--shard ${{ github.event.inputs.shard }}"
           fi
-          cargo mutants -p ${{ github.event.inputs.crate }} $shard_arg --no-shuffle --timeout 120 -- --config-file .config/nextest.toml --features "test-helpers"
+          feature_args=()
+          if cargo metadata --no-deps --format-version 1 \
+              | jq -e --arg c "${{ github.event.inputs.crate }}" \
+                  '.packages[] | select(.name == $c) | .features | has("test-helpers")' >/dev/null; then
+            feature_args=(--features "test-helpers")
+          fi
+          cargo mutants -p ${{ github.event.inputs.crate }} $shard_arg --no-shuffle --timeout 120 -- --config-file .config/nextest.toml "${feature_args[@]}"
 
       - name: Upload mutation results
         if: always()
