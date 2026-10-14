@@ -28,7 +28,7 @@ auroraview --url https://example.com --title "My App" --width 1024 --height 768
 
 ### Rust CLI (for packaging)
 
-Download from [GitHub Releases](https://github.com/loonghao/auroraview/releases) or build from source:
+Download from [GitHub Releases](https://github.com/try-auroraview/auroraview/releases) or build from source:
 
 ```bash
 # Build from source
@@ -74,6 +74,21 @@ auroraview-cli pack --config auroraview.pack.toml
 | `--always-on-top` | Keep window always on top | false |
 | `-h, --help` | Print help information | - |
 
+The Python package exposes embedding as a **function argument**, not as a
+command-line flag:
+
+```python
+from auroraview import create_webview
+
+# Embed inside the host window
+webview = create_webview(parent=hwnd, url="https://example.com")
+
+# Float a tool window owned by the host
+webview = create_webview(parent=hwnd, mode="owner", url="https://example.com")
+```
+
+See [Child windows](/guide/child-windows) for the full embedding protocol.
+
 ## Rust CLI Commands
 
 ### Preview
@@ -82,6 +97,32 @@ auroraview-cli pack --config auroraview.pack.toml
 auroraview-cli --url https://example.com
 auroraview-cli --html index.html
 ```
+
+### Run (host embedding)
+
+The `run` subcommand supersedes the top-level preview form and adds the host
+embedding flags. The legacy top-level invocation (`auroraview --url ...`) does
+**not** accept these three flags. See
+[Child windows](/guide/child-windows) for the handshake protocol.
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--parent-hwnd <HWND>` | Attach as a child window (`WS_CHILD`) of this native handle | – |
+| `--owner-hwnd <HWND>` | Attach as an owned top-level window of this native handle | – |
+| `--exit-on-parent-disconnect` | Exit when the parent IPC channel drops (child mode only) | false |
+
+```bash
+# Embed inside a host window (Unity / Unreal / Qt / PowerPoint)
+auroraview run --url https://example.com --parent-hwnd 0x001A0B3C
+
+# Float a tool window above the host, closed when the host closes
+auroraview run --url https://example.com --owner-hwnd 0x001A0B3C
+
+# Let the host supply the handle through the environment instead
+AURORAVIEW_PARENT_HWND=0x001A0B3C auroraview run --url https://example.com
+```
+
+`--parent-hwnd` and `--owner-hwnd` are mutually exclusive.
 
 ### Pack
 
@@ -95,6 +136,40 @@ auroraview-cli pack --frontend ./dist --output myapp
 # FullStack mode - bundles frontend + Python backend
 auroraview-cli pack --config auroraview.pack.toml
 ```
+
+## Packed App CLI (Headless Mode)
+
+Beyond the two CLIs above, a **packed application** is itself a third command-line
+interface. A packed exe is a GUI app by default — double-clicking it opens the
+window — but it can *also* run your registered Python commands from a terminal
+without opening a window:
+
+```bash
+my-app.exe                          # GUI window (unchanged)
+my-app.exe -h                       # list CLI-enabled commands
+my-app.exe list                     # list commands (--json for machine output)
+my-app.exe run export --path ./out  # run one command, print result, exit
+my-app.exe -V                       # print version
+```
+
+Only an explicit reserved verb (`run`, `list`) or flag (`-h`/`--help`,
+`-V`/`--version`) as the **first** argument triggers the CLI path — a bare file
+path (file association, drag-and-drop) always opens the GUI.
+
+Exposure is opt-in per command via `@webview.command(cli=...)`:
+
+```python
+@webview.command(name="export", help="Export the project", cli=True)
+def export(path: str, dpi: int = 300) -> dict:
+    return {"written": path, "dpi": dpi}
+```
+
+Exit codes follow `0` success, `1` the command raised, `2` not found / bad args.
+On Windows, invoke the generated `my-app.cmd` shim in a terminal so output and
+exit codes propagate correctly. See the
+[Packing guide](/guide/packing#headless-cli-mode) for the full reference
+(aliases, argument passing, the `.cmd` shim, and how the command list is
+collected at pack time).
 
 ## Examples
 

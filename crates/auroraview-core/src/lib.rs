@@ -22,6 +22,15 @@
 //! - `auroraview-cli` (Command-line interface)
 //! - `auroraview` (Python bindings, re-exports)
 
+/// Host-adapter and render-backend contracts.
+///
+/// Re-exported rather than re-declared so that host adapter crates depend on
+/// `auroraview_core::contract` and therefore share one copy of
+/// `auroraview-contract` per process. Two copies would produce two distinct
+/// `dyn HostAdapter` types, and an adapter would register itself into a
+/// registry that core never reads -- a silent "host not detected".
+pub use auroraview_contract as contract;
+
 /// Static assets (HTML, JavaScript) embedded at compile time.
 pub mod assets;
 /// WebView backend abstraction (traits, factory, settings).
@@ -54,6 +63,8 @@ pub mod json;
 pub mod menu;
 /// Timing metrics for WebView lifecycle.
 pub mod metrics;
+/// Parent/child IPC (host-agnostic child window bridge).
+pub mod parent_ipc;
 /// Dynamic port allocation utilities.
 pub mod port;
 /// Protocol handling utilities.

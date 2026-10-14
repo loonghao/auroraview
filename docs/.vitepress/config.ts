@@ -8,7 +8,7 @@ export default defineConfig({
   base: '/auroraview/',
   
   head: [
-    ['link', { rel: 'icon', href: '/auroraview/favicon.ico' }]
+    ['link', { rel: 'icon', type: 'image/png', href: '/auroraview/logo.png' }]
   ],
 
   locales: {
@@ -22,6 +22,7 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: '首页', link: '/zh/' },
+          { text: '官网与示例', link: 'https://try-auroraview.github.io/zh/' },
           { text: '指南', link: '/zh/guide/getting-started' },
           { text: 'API', link: '/zh/api/' },
           { text: 'DCC 集成', link: '/zh/dcc/' },
@@ -43,6 +44,7 @@ export default defineConfig({
               items: [
                 { text: 'WebView 基础', link: '/zh/guide/webview-basics' },
                 { text: '双向通信', link: '/zh/guide/communication' },
+                { text: 'UI 与 Agent 工具契约', link: '/zh/guide/dcc-mcp' },
                 { text: '自定义协议', link: '/zh/guide/custom-protocol' },
                 { text: 'TypeScript SDK', link: '/zh/guide/typescript-sdk' },
               ]
@@ -121,15 +123,16 @@ export default defineConfig({
     
     nav: [
       { text: 'Home', link: '/' },
+      { text: 'Website & Examples', link: 'https://try-auroraview.github.io/' },
       { text: 'Guide', link: '/guide/getting-started' },
       { text: 'API', link: '/api/' },
       { text: 'DCC Integration', link: '/dcc/' },
       {
         text: 'Links',
         items: [
-          { text: 'GitHub', link: 'https://github.com/loonghao/auroraview' },
+          { text: 'GitHub', link: 'https://github.com/try-auroraview/auroraview' },
           { text: 'PyPI', link: 'https://pypi.org/project/auroraview/' },
-          { text: 'Changelog', link: 'https://github.com/loonghao/auroraview/blob/main/CHANGELOG.md' },
+          { text: 'Changelog', link: 'https://github.com/try-auroraview/auroraview/blob/main/CHANGELOG.md' },
         ]
       }
     ],
@@ -151,6 +154,7 @@ export default defineConfig({
           items: [
             { text: 'WebView Basics', link: '/guide/webview-basics' },
             { text: 'Communication', link: '/guide/communication' },
+            { text: 'Shared UI and agent tools', link: '/guide/dcc-mcp' },
             { text: 'Custom Protocol', link: '/guide/custom-protocol' },
             { text: 'TypeScript SDK', link: '/guide/typescript-sdk' },
           ]
@@ -221,7 +225,7 @@ export default defineConfig({
     },
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/loonghao/auroraview' }
+      { icon: 'github', link: 'https://github.com/try-auroraview/auroraview' }
     ],
 
     footer: {
@@ -234,7 +238,7 @@ export default defineConfig({
     },
 
     editLink: {
-      pattern: 'https://github.com/loonghao/auroraview/edit/main/website/:path',
+      pattern: 'https://github.com/try-auroraview/auroraview/edit/main/docs/:path',
       text: 'Edit this page on GitHub'
     }
   }

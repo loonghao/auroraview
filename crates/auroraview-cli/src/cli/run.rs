@@ -11,7 +11,9 @@ use tao::event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopProxy};
 use wry::{WebContext, WebViewBuilder as WryWebViewBuilder};
 
 use auroraview_core::cli::rewrite_html_for_custom_protocol;
+use auroraview_core::parent_ipc::{ChildInfo, ParentBridge};
 
+use crate::cli::parent_window::{self, ParentTargets};
 use crate::{get_webview_data_dir, load_window_icon, normalize_url, protocol_handlers};
 
 /// Arguments for the 'run' subcommand
@@ -94,6 +96,38 @@ pub struct RunArgs {
     /// Poll interval in milliseconds for URL-mode hot reload (default: 1500)
     #[arg(long, default_value = "1500", requires = "watch")]
     pub poll_interval_ms: u64,
+
+    /// Attach the window as a child of this native window handle.
+    ///
+    /// On Windows this is an `HWND`, accepted as decimal or `0x`-prefixed
+    /// hexadecimal. The window gets `WS_CHILD` and is clipped to the parent's
+    /// client area, which is what an embedding host (Unity, Unreal, Qt, ...)
+    /// wants for an in-viewport panel.
+    ///
+    /// Defaults to `AURORAVIEW_PARENT_HWND` when the flag is omitted.
+    #[arg(
+        long = "parent-hwnd",
+        value_name = "HWND",
+        conflicts_with = "owner_hwnd"
+    )]
+    pub parent_hwnd: Option<String>,
+
+    /// Attach the window as an owned top-level window of this native handle.
+    ///
+    /// Unlike `--parent-hwnd`, an owned window is a separate top-level window:
+    /// it floats above its owner, is hidden when the owner is minimized, and
+    /// is destroyed with it. Use this for tool panels rather than embedded
+    /// widgets.
+    #[arg(long = "owner-hwnd", value_name = "HWND")]
+    pub owner_hwnd: Option<String>,
+
+    /// Exit when the parent IPC channel drops.
+    ///
+    /// Only meaningful in child mode (`AURORAVIEW_PARENT_ID` is set). Lets a
+    /// host reap child processes by closing the socket instead of hunting for
+    /// PIDs. Off by default so Gallery's existing lifecycle is unchanged.
+    #[arg(long = "exit-on-parent-disconnect")]
+    pub exit_on_parent_disconnect: bool,
 }
 
 /// Resolve the user's `--capture-file-drop` / `--no-capture-file-drop`
@@ -137,6 +171,74 @@ impl auroraview_core::builder::DragDropIpcSink for RunDragDropSink {
 pub enum RunEvent {
     /// Reload the current page
     Reload,
+    /// Evaluate a JavaScript string received from the parent over IPC
+    Eval(String),
+    /// Emit an event into the page, received from the parent over IPC
+    Emit(String, String),
+    /// Close the window, received from the parent over IPC
+    Close,
+}
+
+/// Commands a parent may send on the `parent:command` event.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParentCommand {
+    /// `{"command": "close"}`
+    Close,
+    /// `{"command": "eval", "args": {"js": "..."}}`
+    Eval,
+    /// `{"command": "emit", "args": {"event": "...", "data": ...}}`
+    Emit,
+}
+
+impl ParentCommand {
+    /// Parse the `command` discriminator of a `parent:command` payload.
+    pub fn parse(name: Option<&str>) -> Option<Self> {
+        match name {
+            Some("close") => Some(Self::Close),
+            Some("eval") => Some(Self::Eval),
+            Some("emit") => Some(Self::Emit),
+            _ => None,
+        }
+    }
+}
+
+/// Build the JavaScript that delivers a parent `emit` into the page.
+///
+/// Uses `window.auroraview.trigger()`, the single event entry point the
+/// frontend SDK installs, so parent-originated events land in the same place
+/// as host-originated ones.
+fn emit_script(event: &str, data: &str) -> String {
+    let payload = if data.trim().is_empty() {
+        "null".to_string()
+    } else {
+        data.to_string()
+    };
+    format!(
+        "window.auroraview.trigger({}, {});",
+        serde_json::to_string(event).unwrap_or_else(|_| format!("{:?}", event)),
+        payload
+    )
+}
+
+/// Resolve the targets of a `parent:command` payload into a [`RunEvent`].
+fn resolve_parent_command(data: &serde_json::Value) -> Option<RunEvent> {
+    let command = ParentCommand::parse(data.get("command").and_then(|v| v.as_str()))?;
+    let args = data.get("args").cloned().unwrap_or(serde_json::Value::Null);
+
+    match command {
+        ParentCommand::Close => Some(RunEvent::Close),
+        ParentCommand::Eval => args
+            .get("js")
+            .and_then(|v| v.as_str())
+            .map(|js| RunEvent::Eval(js.to_string())),
+        ParentCommand::Emit => args.get("event").and_then(|v| v.as_str()).map(|event| {
+            let data = args
+                .get("data")
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "null".to_string());
+            RunEvent::Emit(event.to_string(), data)
+        }),
+    }
 }
 
 /// Spawn a background thread that polls `url` (HTTP HEAD) every `interval`.
@@ -298,6 +400,18 @@ fn detect_assets_root(html_path: &Path) -> Result<PathBuf> {
     Ok(parent.to_path_buf())
 }
 
+/// Release the resources that outlive the event loop.
+///
+/// Stops the hot-reload watcher and closes the parent IPC channel, announcing
+/// `child:closing` so the host does not have to wait for a socket timeout to
+/// notice the child is gone.
+fn shutdown(stop: &std::sync::atomic::AtomicBool, bridge: Option<&ParentBridge>) {
+    stop.store(true, Ordering::Relaxed);
+    if let Some(bridge) = bridge {
+        bridge.disconnect();
+    }
+}
+
 /// Spawn a background thread that watches `path` for modifications.
 ///
 /// When a change is detected, a [`RunEvent::Reload`] is sent through `proxy`.
@@ -394,6 +508,10 @@ pub fn run_webview(args: RunArgs) -> Result<()> {
     let event_loop: EventLoop<RunEvent> = EventLoopBuilder::<RunEvent>::with_user_event().build();
     let proxy = event_loop.create_proxy();
 
+    // Resolve the embedding target before the window is created: tao applies
+    // parent/owner at build time, not afterwards.
+    let targets = ParentTargets::resolve(args.parent_hwnd.as_deref(), args.owner_hwnd.as_deref());
+
     let mut window_builder = tao::window::WindowBuilder::new()
         .with_title(&args.title)
         .with_visible(false); // Start hidden to avoid white flash
@@ -418,6 +536,9 @@ pub fn run_webview(args: RunArgs) -> Result<()> {
         tracing::info!("[CLI] Setting window to always on top");
         window_builder = window_builder.with_always_on_top(true);
     }
+
+    // Embed in (or attach to) a foreign window when the host asked for it.
+    let window_builder = parent_window::apply(window_builder, &targets);
 
     let window = window_builder
         .build(&event_loop)
@@ -551,9 +672,70 @@ pub fn run_webview(args: RunArgs) -> Result<()> {
     // The html_path is captured for reload; clone it outside the closure
     let html_path_for_reload = args.html.clone();
 
+    // Child mode: connect back to the parent host over the loopback IPC
+    // channel. This is the Rust half of `AURORAVIEW_PARENT_*` and needs no
+    // Python on either side of the socket.
+    let child_info = ChildInfo::from_env();
+    let bridge = if child_info.can_connect() {
+        match ParentBridge::connect(&child_info) {
+            Ok(bridge) => {
+                tracing::info!(
+                    "[CLI] Child mode: parent={:?} child={:?} port={:?}",
+                    child_info.parent_id,
+                    child_info.child_id,
+                    child_info.parent_port
+                );
+                let proxy = event_loop.create_proxy();
+
+                // wry's WebView is !Sync, so parent commands are forwarded to
+                // the event loop instead of being applied on the reader thread.
+                // The handle is kept alive for the lifetime of the run.
+                let _command_handle =
+                    bridge.on_command(move |data| match resolve_parent_command(&data) {
+                        Some(event) => {
+                            if proxy.send_event(event).is_err() {
+                                tracing::debug!("[CLI] Event loop gone, dropping parent command");
+                            }
+                        }
+                        None => tracing::warn!("[CLI] Unsupported parent command: {}", data),
+                    });
+
+                if args.exit_on_parent_disconnect {
+                    let proxy = event_loop.create_proxy();
+                    bridge.on_disconnect(move || {
+                        tracing::info!("[CLI] Parent disconnected, exiting");
+                        let _ = proxy.send_event(RunEvent::Close);
+                    });
+                }
+
+                Some(bridge)
+            }
+            Err(e) => {
+                tracing::warn!("[CLI] Standalone: parent IPC unavailable ({})", e);
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     // Show window immediately
     window.set_visible(true);
     tracing::info!("Window shown");
+
+    // Report the handshake outcome without blocking window startup: a
+    // pre-protocol parent never sends `hello_ack`, and waiting for one would
+    // add its timeout to every child's start-up time.
+    if let Some(ref bridge) = bridge {
+        let bridge = bridge.clone();
+        std::thread::Builder::new()
+            .name("parent-ipc-handshake".into())
+            .spawn(move || {
+                let state = bridge.wait_for_handshake(Duration::from_secs(2));
+                tracing::info!("[CLI] Parent IPC handshake: {:?}", state);
+            })
+            .ok();
+    }
 
     // Run event loop — never returns; process exits when window closes.
     event_loop.run(move |event, _, control_flow| {
@@ -568,7 +750,24 @@ pub fn run_webview(args: RunArgs) -> Result<()> {
                 ..
             } => {
                 tracing::info!("Window close requested");
-                url_watcher_stop.store(true, Ordering::Relaxed);
+                shutdown(&url_watcher_stop, bridge.as_ref());
+                *control_flow = ControlFlow::Exit;
+            }
+            tao::event::Event::UserEvent(RunEvent::Eval(js)) => {
+                tracing::debug!("[IPC] Evaluating script from parent");
+                if let Err(e) = webview.evaluate_script(&js) {
+                    tracing::warn!("[IPC] evaluate_script failed: {}", e);
+                }
+            }
+            tao::event::Event::UserEvent(RunEvent::Emit(event, data)) => {
+                tracing::debug!("[IPC] Emitting '{}' from parent", event);
+                if let Err(e) = webview.evaluate_script(&emit_script(&event, &data)) {
+                    tracing::warn!("[IPC] emit failed: {}", e);
+                }
+            }
+            tao::event::Event::UserEvent(RunEvent::Close) => {
+                tracing::info!("[IPC] Close requested by parent");
+                shutdown(&url_watcher_stop, bridge.as_ref());
                 *control_flow = ControlFlow::Exit;
             }
             tao::event::Event::UserEvent(RunEvent::Reload) => {

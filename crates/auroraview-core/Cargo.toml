@@ -15,6 +15,14 @@ name = "auroraview_core"
 path = "src/lib.rs"
 
 [dependencies]
+# Host-adapter / render-backend contracts.
+# Core re-exports this as `auroraview_core::contract` so that host adapters
+# depend on that path rather than on `auroraview-contract` directly. That keeps
+# exactly one copy of the contract crate per process: two copies would mean two
+# distinct `dyn HostAdapter` types, and an adapter would register into a
+# HostRegistry that core never reads.
+auroraview-contract = { path = "../auroraview-contract", version = "1.0" }
+
 # Plugin system
 auroraview-plugins = { path = "../auroraview-plugins" }
 

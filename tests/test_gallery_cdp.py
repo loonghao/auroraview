@@ -55,7 +55,9 @@ GALLERY_EXE = PROJECT_ROOT / "gallery" / "pack-output" / "auroraview-gallery.exe
 STARTUP_TIMEOUT = 120  # Gallery startup timeout (WebView2 cold-start on CI can be slow)
 API_TIMEOUT = 60  # API call timeout (some DCC samples need more time)
 EXAMPLE_RUN_TIMEOUT = 2  # Example run duration (reduced for faster tests)
-LOADING_TIMEOUT = 90  # Loading screen timeout (WebView2 cold-start on CI runners)
+LOADING_TIMEOUT = (
+    50  # Loading screen timeout before force-navigate (must be < _wait_for_ready timeout)
+)
 
 
 @dataclass
@@ -166,41 +168,46 @@ class GalleryTestClient:
         self._playwright = None
         self._browser = None
         self._page = None
-        self._playwright_loop = None
         self._original_event_loop = None
 
     def _prepare_playwright_loop(self):
         """Prepare a compatible event loop for Playwright sync API.
 
-        Some environments (including CI runners with preload hooks) may have
-        an asyncio loop already running in the main thread. Playwright's sync API
-        cannot start in that situation, so we temporarily isolate it to a
-        dedicated loop.
+        Playwright's sync API calls asyncio.get_running_loop() internally and
+        raises an error if it detects a running loop. Some environments
+        (including CI runners with pytest-asyncio's asyncio_mode=strict) have
+        an asyncio loop already running in the main thread.
+
+        The fix: save the current event loop, then set it to None so
+        asyncio.get_running_loop() raises RuntimeError (the expected "no
+        running loop" state for sync code). This is safe because the E2E tests
+        use Playwright's sync API and do not need an active asyncio loop.
+
+        We always save the loop (not just when there's a running one) so that
+        _restore_playwright_loop() always has something to restore, even across
+        multiple client connect/disconnect cycles.
         """
         try:
-            running_loop = asyncio.get_running_loop()
+            self._original_event_loop = asyncio.get_event_loop()
         except RuntimeError:
-            return
+            self._original_event_loop = None
 
-        # Keep a reference so tests can run without mutating the caller's loop.
-        self._original_event_loop = running_loop
-        self._playwright_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self._playwright_loop)
+        # Unset the event loop so asyncio.get_running_loop() raises RuntimeError
+        asyncio.set_event_loop(None)
 
     def _restore_playwright_loop(self):
-        """Restore the original event loop after Playwright operations."""
-        if self._playwright_loop is not None and self._original_event_loop is not None:
-            try:
-                self._playwright_loop.close()
-            except Exception:
-                pass
-        self._playwright_loop = None
+        """Restore the original event loop after Playwright operations.
+
+        This is idempotent — safe to call multiple times (connect, disconnect,
+        and teardown paths may all call it). We do NOT consume
+        self._original_event_loop here so that disconnect() can still restore
+        the loop even after connect() already called this method.
+        """
         if self._original_event_loop is not None:
             try:
                 asyncio.set_event_loop(self._original_event_loop)
             except Exception:
                 pass
-            self._original_event_loop = None
 
     def connect(self):
         """Connect to gallery via CDP."""
@@ -217,13 +224,24 @@ class GalleryTestClient:
             self._restore_playwright_loop()
             raise
 
-        # Find the correct page (not about:blank)
-        self._page = self._find_gallery_page()
-        if not self._page:
-            raise RuntimeError("No valid Gallery page found")
+        # Restore the original event loop now that Playwright is initialized.
+        # Playwright's sync API only needs the "no running loop" state during
+        # sync_playwright().start() — after that it uses its own greenlets.
+        self._restore_playwright_loop()
 
-        # Wait for gallery to be ready
-        self._wait_for_ready()
+        try:
+            # Find the correct page (not about:blank)
+            self._page = self._find_gallery_page()
+            if not self._page:
+                raise RuntimeError("No valid Gallery page found")
+
+            # Wait for gallery to be ready
+            self._wait_for_ready()
+        except Exception as error:
+            # Ensure cleanup on partial connect failure
+            self._save_diagnostics(error)
+            self.disconnect()
+            raise
 
     def _find_gallery_page(self):
         """Find the correct Gallery page from all available pages.
@@ -301,61 +319,86 @@ class GalleryTestClient:
         print(f"[CDP] Fallback to first page: {all_pages[0]['url']}")
         return all_pages[0]["page"]
 
-    def _wait_for_ready(self, timeout: int = 30):
+    def _read_status(self):
+        return self._page.evaluate("""
+            () => ({
+                title: document.title,
+                url: location.href,
+                error_info: window._errorInfo || null,
+                is_loading: !!(window.auroraLoading || document.querySelector('.loading-container')),
+                backend_ready: window.__backendReady || false,
+                auroraview_ready: typeof window.auroraview !== 'undefined' &&
+                                 typeof window.auroraview.api !== 'undefined' &&
+                                 typeof window.auroraview.api.get_samples === 'function',
+                diagnostics: window.auroraLoading && window.auroraLoading.getDiagnostics
+                    ? window.auroraLoading.getDiagnostics() : null
+            })
+        """)
+
+    def _save_diagnostics(self, error):
+        """Capture the failure before disconnect closes the error page."""
+        try:
+            diagnostics = {"error": str(error)[:4096]}
+            if self._page:
+                diagnostics["url"] = self._page.url[:4096]
+                try:
+                    snapshot = json.dumps(self._read_status(), ensure_ascii=False)
+                    diagnostics["page"] = (
+                        json.loads(snapshot)
+                        if len(snapshot) <= 65536
+                        else {"truncated": snapshot[:65536]}
+                    )
+                except Exception as capture_error:
+                    diagnostics["capture_error"] = str(capture_error)[:4096]
+            directory = PROJECT_ROOT / "test-results" / "gallery"
+            directory.mkdir(parents=True, exist_ok=True)
+            (directory / "startup.json").write_text(
+                json.dumps(diagnostics, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+        except Exception as capture_error:
+            print(f"Could not save Gallery diagnostics: {capture_error}")
+
+    def _wait_for_ready(self, timeout: int = 60):
         """Wait for gallery to be fully loaded.
 
         This method handles both the loading screen and the main app.
-        It uses the AI automation helper for smart waiting.
+        On Windows CI, WebView2 cold-start can take 30-60s, so we use a
+        generous timeout.
         """
         start = time.time()
 
         # First, check if we're on loading screen
         while time.time() - start < timeout:
             try:
-                # Check loading screen status
-                loading_status = self._page.evaluate("""
-                    () => {
-                        const result = {
-                            is_loading: !!(window.auroraLoading || document.querySelector('.loading-container')),
-                            backend_ready: window.__backendReady || false,
-                            auroraview_ready: typeof window.auroraview !== 'undefined' &&
-                                             typeof window.auroraview.api !== 'undefined' &&
-                                             typeof window.auroraview.api.get_samples === 'function'
-                        };
-
-                        // Get diagnostics if available
-                        if (window.auroraLoading && window.auroraLoading.getDiagnostics) {
-                            result.diagnostics = window.auroraLoading.getDiagnostics();
-                        }
-
-                        return result;
-                    }
-                """)
-
-                # If auroraview is ready, we're good
-                if loading_status.get("auroraview_ready"):
-                    print("Gallery is ready!")
-                    return
-
-                # If on loading screen and timed out, try force navigation
-                if loading_status.get("is_loading"):
-                    elapsed = time.time() - start
-                    if elapsed > LOADING_TIMEOUT:
-                        print(f"Loading timeout after {elapsed:.1f}s, forcing navigation...")
-                        self._force_navigate()
-                        time.sleep(2)
-                        continue
-
-                    # Log diagnostics periodically
-                    if int(elapsed) % 5 == 0 and elapsed > 0:
-                        diag = loading_status.get("diagnostics", {})
-                        print(
-                            f"Loading... elapsed={diag.get('elapsed_ms', 0)}ms, "
-                            f"backend_ready={loading_status.get('backend_ready')}"
-                        )
-
+                loading_status = self._read_status()
             except Exception as e:
                 print(f"Error checking status: {e}")
+                time.sleep(0.5)
+                continue
+
+            if loading_status.get("error_info") or loading_status.get("title", "").startswith(
+                "Error - AuroraView"
+            ):
+                raise RuntimeError(f"Gallery startup failed: {loading_status.get('error_info')}")
+
+            if loading_status.get("auroraview_ready"):
+                print("Gallery is ready!")
+                return
+
+            if loading_status.get("is_loading"):
+                elapsed = time.time() - start
+                if elapsed > LOADING_TIMEOUT:
+                    print(f"Loading timeout after {elapsed:.1f}s, forcing navigation...")
+                    self._force_navigate()
+                    time.sleep(2)
+                    continue
+
+                if int(elapsed) % 5 == 0 and elapsed > 0:
+                    diag = loading_status.get("diagnostics") or {}
+                    print(
+                        f"Loading... elapsed={diag.get('elapsed_ms', 0)}ms, "
+                        f"backend_ready={loading_status.get('backend_ready')}"
+                    )
 
             time.sleep(0.5)
 

@@ -33,6 +33,7 @@ Available Examples:
     - multi_window_demo.py: Multiple windows with communication
     - signals_advanced_demo.py: Qt-style signal-slot system
     - cookie_management_demo.py: Session and persistent cookies
+    - packed_cli_demo.py: Packed exe headless CLI mode (@command(cli=...), RFC 0018)
 
     DCC Integration:
     - maya_qt_echo_demo.py: Maya integration with QtWebView

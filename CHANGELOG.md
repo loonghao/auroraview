@@ -5,6 +5,136 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.13](https://github.com/try-auroraview/auroraview/compare/auroraview-v0.5.12...auroraview-v0.5.13) (2026-10-09)
+
+
+### Features
+
+* isolate offscreen rendering and backend ownership ([#506](https://github.com/try-auroraview/auroraview/issues/506)) ([82bb8ed](https://github.com/try-auroraview/auroraview/commit/82bb8ed886ef77de5e281a66139e0c06f0738792))
+* share host tool contracts across UI and DCC-MCP ([f387f7a](https://github.com/try-auroraview/auroraview/commit/f387f7a9f9511642baae24c1cafb8b442dcbd290))
+
+
+### Bug Fixes
+
+* **ci:** preserve Ubuntu mirror replacement groups ([48523ef](https://github.com/try-auroraview/auroraview/commit/48523ef4b58c4d24fc9f584d243e2db0d512e2b2))
+* dispatch host events through explicit owner queues ([6856721](https://github.com/try-auroraview/auroraview/commit/68567212e8672ad4dc581eb4e3e30daac30b4993))
+* **plugins:** accept extension request field aliases ([2212459](https://github.com/try-auroraview/auroraview/commit/2212459651b7eee39645755fc09fa600667148b2))
+* preserve deferred host RPC and owner-thread lifecycle ([b1cc94e](https://github.com/try-auroraview/auroraview/commit/b1cc94e1c42930e92f4c517fe49d21f41a7b10ee))
+* preserve SDK lifecycle and package contracts ([#511](https://github.com/try-auroraview/auroraview/issues/511)) ([320bf3f](https://github.com/try-auroraview/auroraview/commit/320bf3f02e805a7092a152e71b0b6849dcb6ea0c))
+* release Bridge resources on stop ([#504](https://github.com/try-auroraview/auroraview/issues/504)) ([094d97c](https://github.com/try-auroraview/auroraview/commit/094d97c31363d7455c19dc6d9679dd21fb84b1fb))
+
+
+### Documentation
+
+* clarify host tool ownership and acceptance ([8dfa583](https://github.com/try-auroraview/auroraview/commit/8dfa58376bff1e0de064a6f964f8e27a01a27582))
+* connect organization website and host tutorials ([#503](https://github.com/try-auroraview/auroraview/issues/503)) ([083e980](https://github.com/try-auroraview/auroraview/commit/083e980ebe60abe72f07b69725132a510b3ea6a8))
+* define Blender host event delivery semantics ([c2b20c5](https://github.com/try-auroraview/auroraview/commit/c2b20c568093098401064e940218ada5cf560f91))
+* explain Blender shared tool consumption ([46bd86a](https://github.com/try-auroraview/auroraview/commit/46bd86aa7fd93b3e335edeff0a89dc5b540b8af5))
+* point remaining repository links at try-auroraview ([0456287](https://github.com/try-auroraview/auroraview/commit/0456287f4516ffa438d6abb87899429af005a84b))
+* point repository links at try-auroraview and drop vendor agent directories ([5766d0c](https://github.com/try-auroraview/auroraview/commit/5766d0cc3317147bc5c3ce391fbd87a16e6a1d2e))
+* replace agent rules directory with docs pages ([abad156](https://github.com/try-auroraview/auroraview/commit/abad156a3f88eb77267f1c982b685fd3378881be))
+* route Blender integrations to the independent add-on ([eab9508](https://github.com/try-auroraview/auroraview/commit/eab9508013e6d68e0e1521648ff98e378e26658a))
+
+## [0.5.12](https://github.com/try-auroraview/auroraview/compare/auroraview-v0.5.11...auroraview-v0.5.12) (2026-10-04)
+
+
+### Bug Fixes
+
+* **ci:** pin vx python patch and align the pinned vx version across CI ([#492](https://github.com/try-auroraview/auroraview/issues/492)) ([7da726c](https://github.com/try-auroraview/auroraview/commit/7da726ca3b593808e707072a306cf314eda0346a))
+
+## [0.5.11](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.10...auroraview-v0.5.11) (2026-09-28)
+
+
+### Features
+
+* **contract:** add host-adapter and render-backend contracts ([a760fc8](https://github.com/loonghao/auroraview/commit/a760fc89aa853765fef202856ec4378a61d6d300))
+* **dcc-mcp:** expose AuroraView as a DCC-MCP WebView adapter ([d378ea9](https://github.com/loonghao/auroraview/commit/d378ea9fd5851855ba6c81cde3fdb6e0b9ca4b24))
+* host-agnostic parent/child IPC bridge and --parent-hwnd embedding ([#463](https://github.com/loonghao/auroraview/issues/463)) ([5d9e9a9](https://github.com/loonghao/auroraview/commit/5d9e9a97fd2182b31f0c83d2513c44940b8cdc66))
+* **python:** add diagnostics() runtime report for host and thread triage ([14569c7](https://github.com/loonghao/auroraview/commit/14569c71031e19df39645d4c7b27bd0c27eab46c))
+
+
+### Bug Fixes
+
+* **ci:** link full llvm-tools set into vx toolchain for rust coverage ([200a382](https://github.com/loonghao/auroraview/commit/200a38240c120edecc7ca27e1a876b530d5d8b0f))
+* **contract:** registry duplicate-name protection, no double probe, test-race fix ([#472](https://github.com/loonghao/auroraview/issues/472)) ([c511384](https://github.com/loonghao/auroraview/commit/c5113847fd50fedb99171bf0856c6ee72b4d0df6))
+* **python:** isolate Qt binding probe failures in diagnostics() ([3582c9d](https://github.com/loonghao/auroraview/commit/3582c9da02fb16de373c2ee8d303923ee5ab32b5))
+* **python:** isolate Qt binding probe failures in diagnostics() ([3582c9d](https://github.com/loonghao/auroraview/commit/3582c9da02fb16de373c2ee8d303923ee5ab32b5))
+* **python:** isolate Qt binding probe failures in diagnostics() ([7f4ee98](https://github.com/loonghao/auroraview/commit/7f4ee9847e182e9d5fae2a894fdade776a0f6eca))
+* release GIL during blocking event loop and close windows on drop ([#464](https://github.com/loonghao/auroraview/issues/464)) ([d70c7a6](https://github.com/loonghao/auroraview/commit/d70c7a6511d27e1bcf54ecf296ec029eef4d9ef3))
+* route cross-thread close through the close channel and shorten CI ready timeout ([#466](https://github.com/loonghao/auroraview/issues/466)) ([f71aa85](https://github.com/loonghao/auroraview/commit/f71aa859c5499b0cb29a6e9899fbe690246f94b3))
+
+
+### Documentation
+
+* consolidate agent instructions into a single AGENTS.md ([3c06d8e](https://github.com/loonghao/auroraview/commit/3c06d8eee81d39f81b4129b7530ba8a961f699c0))
+* **rfc:** add RFC 0019 pluggable backend and host adapter contract, aligned to auroraview-contract ([#462](https://github.com/loonghao/auroraview/issues/462)) ([9ab258d](https://github.com/loonghao/auroraview/commit/9ab258d6e1c41180e600dfbf017f3b3c48972a0f))
+
+## [0.5.10](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.9...auroraview-v0.5.10) (2026-07-02)
+
+
+### Bug Fixes
+
+* bind loop variable in Maya demo event handler ([0b0e6ad](https://github.com/loonghao/auroraview/commit/0b0e6ada96148779a2b96c69924afe2e0a1c749d))
+* export set_window_class_null_background to fix clippy error ([0b84224](https://github.com/loonghao/auroraview/commit/0b842242f5a8a78348879e85a6196eb7242b849a))
+* install llvm-tools-preview in llvm-cov-install recipe ([9a5c97b](https://github.com/loonghao/auroraview/commit/9a5c97b03484843eca1dbeb7deb7714717f940f9))
+* make event loop management idempotent and add cleanup path ([4c4fca0](https://github.com/loonghao/auroraview/commit/4c4fca0fb4cc686a2adc174dc8844d70cf601a94))
+* resolve Windows E2E test failures from asyncio loop conflict ([b7a9b9c](https://github.com/loonghao/auroraview/commit/b7a9b9c878888ede9a795df52e7a7b91823a0cf7))
+* use NULL brush for transparent WebView2 windows ([2b9c97c](https://github.com/loonghao/auroraview/commit/2b9c97c0d188b6657fa13f6672f97f72c2ab06dc))
+
+## [0.5.9](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.8...auroraview-v0.5.9) (2026-06-16)
+
+
+### Features
+
+* add packed headless CLI mode (RFC 0018) ([d0061ff](https://github.com/loonghao/auroraview/commit/d0061ffde49e30880060557802703dbdc53b890c))
+* add packed headless CLI mode (RFC 0018) ([#442](https://github.com/loonghao/auroraview/issues/442)) ([d0061ff](https://github.com/loonghao/auroraview/commit/d0061ffde49e30880060557802703dbdc53b890c))
+* **cli:** add packed headless CLI mode foundations (RFC 0018 steps 1-4) ([10ff489](https://github.com/loonghao/auroraview/commit/10ff489d9a346a77f328aa13bdd707dee17b201c))
+* **cli:** add packed headless CLI mode foundations (RFC 0018 steps 1-4) ([5b2fcbe](https://github.com/loonghao/auroraview/commit/5b2fcbe27c970b1bdca9c643f06cfcc684c4c2ad))
+* **cli:** complete packed headless CLI mode (RFC 0018 steps 5-8) ([b5cfe93](https://github.com/loonghao/auroraview/commit/b5cfe934b90b44f9ff1c0e8ccb2a1dc4c9a057d5))
+* **cli:** complete packed headless CLI mode (RFC 0018 steps 5-8) ([d11b5d9](https://github.com/loonghao/auroraview/commit/d11b5d916dc222f64d896fda87760da514235bdd))
+* **examples:** add packed headless CLI demo (RFC 0018) ([dc6cb88](https://github.com/loonghao/auroraview/commit/dc6cb88fcdee902483070d3223cd954e76967d59))
+* **examples:** add packed headless CLI demo (RFC 0018) ([90020b1](https://github.com/loonghao/auroraview/commit/90020b126e3b7a751a635d5245efd3519a490a84))
+* write CLI .cmd shim for GUI-subsystem packed exe ([3d556a6](https://github.com/loonghao/auroraview/commit/3d556a6d81fde029e732c47b1f0b0c1c35d48142))
+* write CLI .cmd shim for GUI-subsystem packed exe ([4f6ae3d](https://github.com/loonghao/auroraview/commit/4f6ae3d528eb1e05e9a0117e7afd23fe87aa897d))
+
+
+### Bug Fixes
+
+* **ci:** install llvm-tools-preview through vx for rust coverage ([17c5583](https://github.com/loonghao/auroraview/commit/17c558384a346e0b2cb09e7cf2551862ae6cd7ec))
+* **ci:** symlink system llvm-profdata into vx toolchain for rust coverage ([#440](https://github.com/loonghao/auroraview/issues/440)) ([2ab27a4](https://github.com/loonghao/auroraview/commit/2ab27a4f010b6731a959d5a2cf15185a9775f159))
+* **cli:** gate headless command lookup on CLI exposure ([eacf042](https://github.com/loonghao/auroraview/commit/eacf04206d175083cbc7cc12cc2ab44b27e735d2))
+* **cli:** gate headless command lookup on CLI exposure ([03efd04](https://github.com/loonghao/auroraview/commit/03efd04969027da559afb8d23b407aa669229ded))
+* **cli:** use real exe name in packed CLI help/error text ([50f33ee](https://github.com/loonghao/auroraview/commit/50f33ee64c79c7800ae9315f743b7196113cb725))
+* **cli:** use real exe name in packed CLI help/error text ([a97ef55](https://github.com/loonghao/auroraview/commit/a97ef5509d8459a3cc941af8b152b13b7bb12410))
+* guard fix_webview2_child_windows against NULL hwnd ([65e0b49](https://github.com/loonghao/auroraview/commit/65e0b498ed9cfee279f76e0a0e5fa3799b99221a))
+* **qt:** declare ctypes argtypes to avoid 64-bit handle overflow ([60f92f5](https://github.com/loonghao/auroraview/commit/60f92f54d3b374a987a6b0043cf6fe953c7e05be))
+* **qt:** declare ctypes argtypes to avoid 64-bit handle overflow ([55a28e7](https://github.com/loonghao/auroraview/commit/55a28e7124236ea383bc9ee27b87389460adbd2e))
+* **qt:** declare ctypes argtypes to avoid 64-bit handle overflow ([#435](https://github.com/loonghao/auroraview/issues/435)) ([60f92f5](https://github.com/loonghao/auroraview/commit/60f92f54d3b374a987a6b0043cf6fe953c7e05be))
+* remove white border on standalone frameless windows ([05f09c4](https://github.com/loonghao/auroraview/commit/05f09c4fcb853fe32db31c06893d380974f48323))
+* restore WebView2 subclass on destroy and warn on missing hwnd ([1c3609a](https://github.com/loonghao/auroraview/commit/1c3609a08b7f638c83f7e9d078c4c4362798ac4c))
+* suppress __command_registered__ emit in headless CLI mode ([0c7baab](https://github.com/loonghao/auroraview/commit/0c7baab302f5ceffbbc1af055f0fe1ca2cf63aa0))
+* suppress __command_registered__ emit in headless CLI mode ([601205f](https://github.com/loonghao/auroraview/commit/601205fecf4f42d22f1e11038e8b3a2aca8ec09a))
+* update unsafe allowlist counts for window_style.rs and native.rs ([3fb2688](https://github.com/loonghao/auroraview/commit/3fb26889f6ac34317d51f412854e3b1b491219f5))
+* update unsafe allowlist counts for window_style.rs and native.rs ([0d107d8](https://github.com/loonghao/auroraview/commit/0d107d86a8194f85dafdba9b1ad1c1b8ab15f777))
+* update unsafe allowlist counts for window_style.rs and native.rs ([#437](https://github.com/loonghao/auroraview/issues/437)) ([3fb2688](https://github.com/loonghao/auroraview/commit/3fb26889f6ac34317d51f412854e3b1b491219f5))
+
+
+### Code Refactoring
+
+* **examples:** simplify maya echo demo typing and event wiring ([bd0003c](https://github.com/loonghao/auroraview/commit/bd0003ce11007bb05f0162e90853795fcb3fa127))
+* **examples:** simplify maya echo demo typing and event wiring ([ba08949](https://github.com/loonghao/auroraview/commit/ba08949fccc8267fd6debe1263b5d5d244edff16))
+* lift fix_webview2_child_windows into auroraview-core ([0a0a0ad](https://github.com/loonghao/auroraview/commit/0a0a0ad16d60997e200d21c49318373c316c5de3))
+* **qt:** simplify ctypes signatures and drop dead child-window recursion ([8641d83](https://github.com/loonghao/auroraview/commit/8641d831b03ee742a0efac17cf98833526639bb5))
+
+
+### Documentation
+
+* add RFC 0018 packed exe headless CLI mode ([acfeed6](https://github.com/loonghao/auroraview/commit/acfeed67f284e567671e9b66279a1b97d0e11938))
+* document packed headless CLI mode and Windows .cmd shim ([60091e0](https://github.com/loonghao/auroraview/commit/60091e049464d9e623e5cca797737b02084c5308))
+* document packed headless CLI mode and Windows .cmd shim ([3bc69d9](https://github.com/loonghao/auroraview/commit/3bc69d983079708206523a642b5c0adcda70a1fa))
+* **examples:** translate packed_cli_demo strings to English ([9210ad7](https://github.com/loonghao/auroraview/commit/9210ad782f4365d941c5d57abd7adcaaf7d17b42))
+* **examples:** translate packed_cli_demo strings to English ([7888cb4](https://github.com/loonghao/auroraview/commit/7888cb4b6038bce383421f332b5016200123c6cb))
+
 ## [0.5.8](https://github.com/loonghao/auroraview/compare/auroraview-v0.5.7...auroraview-v0.5.8) (2026-05-28)
 
 

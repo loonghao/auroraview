@@ -4,6 +4,77 @@ use auroraview_pack::{OverlayData, OverlayReader, OverlayWriter, PackConfig};
 use tempfile::NamedTempFile;
 
 #[test]
+fn overlay_cli_commands_roundtrip() {
+    use auroraview_pack::{CliCommandMeta, CliParamMeta};
+
+    let temp = NamedTempFile::new().unwrap();
+    std::fs::write(temp.path(), b"bin").unwrap();
+
+    let mut config = PackConfig::url("https://example.com");
+    config.cli_commands = vec![CliCommandMeta {
+        name: "export".to_string(),
+        aliases: vec!["exp".to_string()],
+        help: "Export the project".to_string(),
+        params: vec![CliParamMeta {
+            name: "path".to_string(),
+            r#type: "str".to_string(),
+            required: true,
+            default: serde_json::Value::Null,
+            help: "Output directory".to_string(),
+        }],
+    }];
+    let data = OverlayData::new(config);
+
+    OverlayWriter::write(temp.path(), &data).unwrap();
+
+    let read = OverlayReader::read(temp.path()).unwrap().unwrap();
+    assert_eq!(read.config.cli_commands.len(), 1);
+    let cmd = &read.config.cli_commands[0];
+    assert_eq!(cmd.name, "export");
+    assert_eq!(cmd.aliases, vec!["exp".to_string()]);
+    assert_eq!(cmd.params.len(), 1);
+    assert_eq!(cmd.params[0].name, "path");
+    assert!(cmd.params[0].required);
+}
+
+#[test]
+fn overlay_cli_commands_default_empty() {
+    // An older overlay JSON without the `cli_commands` field must still
+    // deserialize (serde default) to an empty vec.
+    let temp = NamedTempFile::new().unwrap();
+    std::fs::write(temp.path(), b"bin").unwrap();
+
+    let data = OverlayData::new(PackConfig::url("https://example.com"));
+    OverlayWriter::write(temp.path(), &data).unwrap();
+
+    let read = OverlayReader::read(temp.path()).unwrap().unwrap();
+    assert!(read.config.cli_commands.is_empty());
+}
+
+#[test]
+fn cli_param_meta_type_defaults_to_any() {
+    // A param JSON that omits `type` must deserialize to "any" via the
+    // `default_param_type` serde default (RFC 0018 §13.2).
+    use auroraview_pack::CliParamMeta;
+
+    let param: CliParamMeta =
+        serde_json::from_str(r#"{"name": "path"}"#).expect("deserialize param");
+    assert_eq!(param.name, "path");
+    assert_eq!(param.r#type, "any");
+    assert!(!param.required);
+    assert!(param.help.is_empty());
+}
+
+#[test]
+fn cli_param_meta_type_preserved_when_present() {
+    use auroraview_pack::CliParamMeta;
+
+    let param: CliParamMeta =
+        serde_json::from_str(r#"{"name": "dpi", "type": "int"}"#).expect("deserialize param");
+    assert_eq!(param.r#type, "int");
+}
+
+#[test]
 fn overlay_roundtrip() {
     let temp = NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), b"fake executable content").unwrap();

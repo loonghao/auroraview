@@ -284,8 +284,8 @@ class EmbeddingMixin:
                     return
                 try:
                     backend = get_backend()
-                    if hasattr(backend, "_fix_all_child_windows_recursive"):
-                        count = backend._fix_all_child_windows_recursive(webview_hwnd)
+                    if hasattr(backend, "_fix_all_child_windows"):
+                        count = backend._fix_all_child_windows(webview_hwnd)
                         if count > 0:
                             logger.info(f"[EmbeddingMixin] Fixed {count} WebView2 child windows")
                 except Exception as e:
@@ -393,7 +393,8 @@ class EmbeddingMixin:
 
                 fix_fn = getattr(auroraview, "fix_webview2_child_windows", None)
                 if callable(fix_fn):
-                    fix_fn(webview_hwnd)
+                    transparent = bool(getattr(self._webview, "_transparent", False))
+                    fix_fn(webview_hwnd, transparent)
                     if _VERBOSE_LOGGING:
                         logger.debug(
                             f"[EmbeddingMixin] Fixed WebView2 child windows for HWND=0x{webview_hwnd:X}"

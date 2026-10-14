@@ -345,3 +345,457 @@ class TestCommandRegistryAsync:
         )
 
         assert result["result"] == 3
+
+
+class TestCliRegistration:
+    """Test RFC 0018 CLI decorator metadata (cli / help / args_help)."""
+
+    def test_cli_false_default_not_exposed(self):
+        """A command without `cli` is not CLI-exposed."""
+        registry = CommandRegistry()
+
+        @registry.register
+        def plain(x: int) -> int:
+            return x
+
+        assert registry.cli_meta("plain") is None
+        assert registry.list_cli_commands() == []
+
+    def test_cli_true_no_alias(self):
+        """cli=True exposes the command with no aliases."""
+        registry = CommandRegistry()
+
+        @registry.register("sync", cli=True)
+        def sync_cmd() -> None:
+            """Sync everything."""
+
+        meta = registry.cli_meta("sync")
+        assert meta is not None
+        assert meta.aliases == []
+        assert meta.help == "Sync everything."
+
+    def test_cli_str_alias(self):
+        """cli='exi' exposes the command with a single alias."""
+        registry = CommandRegistry()
+
+        @registry.register("export-image", cli="exi", help="Export image")
+        def export_image(path: str, dpi: int = 300) -> dict:
+            return {"path": path, "dpi": dpi}
+
+        meta = registry.cli_meta("export-image")
+        assert meta.aliases == ["exi"]
+        assert meta.help == "Export image"
+
+    def test_cli_list_aliases(self):
+        """cli=['val','v'] exposes multiple aliases."""
+        registry = CommandRegistry()
+
+        @registry.register("validate", cli=["val", "v"])
+        def validate() -> bool:
+            return True
+
+        assert registry.cli_meta("validate").aliases == ["val", "v"]
+
+    def test_help_falls_back_to_docstring(self):
+        """Help text defaults to the docstring first non-empty line."""
+        registry = CommandRegistry()
+
+        @registry.register("doc", cli=True)
+        def doc_cmd() -> None:
+            """First line of help.
+
+            More detail here.
+            """
+
+        assert registry.cli_meta("doc").help == "First line of help."
+
+    def test_help_empty_when_no_doc_no_help(self):
+        """Help is empty string when neither help= nor docstring present."""
+        registry = CommandRegistry()
+
+        @registry.register("nodoc", cli=True)
+        def nodoc_cmd() -> None:
+            pass
+
+        assert registry.cli_meta("nodoc").help == ""
+
+    def test_invalid_cli_value_raises(self):
+        """A non-bool/str/list cli value raises ValueError."""
+        registry = CommandRegistry()
+
+        with pytest.raises(ValueError):
+
+            @registry.register("bad", cli=123)
+            def bad_cmd() -> None:
+                pass
+
+    def test_empty_alias_raises(self):
+        """A blank alias string raises ValueError."""
+        registry = CommandRegistry()
+
+        with pytest.raises(ValueError):
+
+            @registry.register("blank", cli="   ")
+            def blank_cmd() -> None:
+                pass
+
+    def test_cli_list_non_str_item_raises(self):
+        """A non-string item inside the cli list raises ValueError."""
+        registry = CommandRegistry()
+
+        with pytest.raises(ValueError, match="cli alias must be a string"):
+
+            @registry.register("bad", cli=["ok", 123])
+            def bad_cmd() -> None:
+                pass
+
+    def test_cli_list_blank_item_raises(self):
+        """A blank string inside the cli list raises ValueError."""
+        registry = CommandRegistry()
+
+        with pytest.raises(ValueError, match="must not be empty"):
+
+            @registry.register("bad", cli=["ok", "  "])
+            def bad_cmd() -> None:
+                pass
+
+
+class TestCommandRegisteredEmitSuppression:
+    """RFC 0018 §7/§13.3: __command_registered__ must not hit stdout in the
+    headless CLI modes, where stdout is reserved for the command result /
+    metadata table and there is no front-end to consume the event."""
+
+    def _registry_with_fake_webview(self):
+        class FakeWebView:
+            def __init__(self) -> None:
+                self.events: list = []
+
+            def emit(self, name, data) -> None:
+                self.events.append((name, data))
+
+        registry = CommandRegistry()
+        webview = FakeWebView()
+        registry._webview = webview
+        return registry, webview
+
+    def test_emits_registration_event_in_normal_mode(self):
+        """Outside headless CLI mode the front-end still gets the event."""
+        registry, webview = self._registry_with_fake_webview()
+
+        @registry.register("greet", cli=True)
+        def greet(name: str) -> str:
+            return name
+
+        assert [e[0] for e in webview.events] == ["__command_registered__"]
+
+    def test_suppressed_in_cli_invoke_mode(self, monkeypatch):
+        """cli invoke mode skips the emit so stdout stays clean."""
+        import auroraview.core.commands as commands_mod
+
+        monkeypatch.setattr(commands_mod, "_is_headless_cli_mode", lambda: True)
+        registry, webview = self._registry_with_fake_webview()
+
+        @registry.register("greet", cli=True)
+        def greet(name: str) -> str:
+            return name
+
+        assert webview.events == []
+
+    def test_helper_reads_packed_flags(self, monkeypatch):
+        """_is_headless_cli_mode reflects the packed invoke/dump flags."""
+        import auroraview.core.packed as packed
+
+        monkeypatch.setattr(packed, "CLI_INVOKE_COMMAND", "get-time")
+        monkeypatch.setattr(packed, "CLI_DUMP_MODE", False)
+        from auroraview.core.commands import _is_headless_cli_mode
+
+        assert _is_headless_cli_mode() is True
+
+        monkeypatch.setattr(packed, "CLI_INVOKE_COMMAND", None)
+        assert _is_headless_cli_mode() is False
+
+
+class TestCliParamIntrospection:
+    """Test CliCommandMeta parameter introspection (§13.2)."""
+
+    def test_params_types_defaults_required(self):
+        registry = CommandRegistry()
+
+        @registry.register(
+            "exi",
+            cli=True,
+            args_help={"path": "output dir", "dpi": "resolution"},
+        )
+        def exi(path: str, dpi: int = 300) -> dict:
+            return {}
+
+        meta = registry.cli_meta("exi")
+        params = meta.params(registry._commands["exi"])
+        assert params == [
+            {
+                "name": "path",
+                "type": "str",
+                "required": True,
+                "default": None,
+                "help": "output dir",
+            },
+            {"name": "dpi", "type": "int", "required": False, "default": 300, "help": "resolution"},
+        ]
+
+    def test_params_unannotated_is_any(self):
+        registry = CommandRegistry()
+
+        @registry.register("anyp", cli=True)
+        def anyp(x) -> None:
+            pass
+
+        params = registry.cli_meta("anyp").params(registry._commands["anyp"])
+        assert params[0]["type"] == "any"
+
+    def test_params_non_type_annotation_uses_str_repr(self):
+        """A typing construct (not a plain class) falls back to str()."""
+        from typing import Optional
+
+        registry = CommandRegistry()
+
+        @registry.register("opt", cli=True)
+        def opt(x: Optional[str] = None) -> None:
+            pass
+
+        params = registry.cli_meta("opt").params(registry._commands["opt"])
+        assert params[0]["name"] == "x"
+        # Optional[str] is not a bare ``type``; the introspector stringifies it.
+        assert "str" in params[0]["type"]
+
+    def test_params_skips_var_args_and_self(self):
+        """*args/**kwargs and self are excluded from the param table."""
+        registry = CommandRegistry()
+
+        @registry.register("varp", cli=True)
+        def varp(self, a: int, *args, **kwargs) -> None:
+            pass
+
+        params = registry.cli_meta("varp").params(registry._commands["varp"])
+        assert [p["name"] for p in params] == ["a"]
+
+    def test_params_empty_on_uninspectable_callable(self):
+        """A callable whose signature can't be read yields an empty table."""
+        registry = CommandRegistry()
+
+        @registry.register("builtin", cli=True)
+        def builtin_wrap() -> None:
+            pass
+
+        meta = registry.cli_meta("builtin")
+
+        # Force inspect.signature to raise to exercise the defensive guard.
+        from unittest.mock import patch
+
+        with patch(
+            "auroraview.core.commands.inspect.signature",
+            side_effect=ValueError("no signature"),
+        ):
+            assert meta.params(builtin_wrap) == []
+
+    def test_to_dict_structure(self):
+        registry = CommandRegistry()
+
+        @registry.register("export-image", cli="exi", help="Export image")
+        def export_image(path: str, dpi: int = 300) -> dict:
+            return {}
+
+        meta = registry.cli_meta("export-image")
+        d = meta.to_dict(registry._commands["export-image"])
+        assert d["name"] == "export-image"
+        assert d["aliases"] == ["exi"]
+        assert d["help"] == "Export image"
+        assert len(d["params"]) == 2
+
+
+class TestCliAliasConflicts:
+    """Test fail-fast alias conflict detection (§12.4)."""
+
+    def test_alias_collides_with_reserved_verb(self):
+        registry = CommandRegistry()
+
+        with pytest.raises(ValueError, match="reserved CLI verb"):
+
+            @registry.register("export", cli="run")
+            def export() -> None:
+                pass
+
+    def test_alias_collides_with_command_name(self):
+        registry = CommandRegistry()
+
+        @registry.register("validate", cli=True)
+        def validate() -> None:
+            pass
+
+        with pytest.raises(ValueError, match="collides with command name"):
+
+            @registry.register("export", cli="validate")
+            def export() -> None:
+                pass
+
+    def test_alias_collides_with_other_alias(self):
+        registry = CommandRegistry()
+
+        @registry.register("validate", cli="v")
+        def validate() -> None:
+            pass
+
+        with pytest.raises(ValueError, match="already used by command"):
+
+            @registry.register("verify", cli="v")
+            def verify() -> None:
+                pass
+
+    def test_duplicate_alias_in_same_command(self):
+        registry = CommandRegistry()
+
+        with pytest.raises(ValueError, match="duplicate alias"):
+
+            @registry.register("export", cli=["e", "e"])
+            def export() -> None:
+                pass
+
+    def test_reregister_same_command_allowed(self):
+        """Re-registering a command's own name/alias is not a conflict."""
+        registry = CommandRegistry()
+
+        @registry.register("export", cli="exp")
+        def export_v1() -> None:
+            pass
+
+        # Re-register same name + same alias: should not raise.
+        @registry.register("export", cli="exp")
+        def export_v2() -> None:
+            pass
+
+        assert registry.cli_meta("export").aliases == ["exp"]
+
+
+class TestEnableCli:
+    """Test batch CLI enablement (§14.2)."""
+
+    def test_enable_cli_names_only(self):
+        registry = CommandRegistry()
+
+        @registry.register("export")
+        def export() -> None:
+            pass
+
+        @registry.register("validate")
+        def validate() -> None:
+            pass
+
+        registry.enable_cli("export", "validate")
+        assert set(registry.list_cli_commands()) == {"export", "validate"}
+        assert registry.cli_meta("export").aliases == []
+
+    def test_enable_cli_with_aliases(self):
+        registry = CommandRegistry()
+
+        @registry.register("export")
+        def export() -> None:
+            pass
+
+        registry.enable_cli({"export": "exp"})
+        assert registry.cli_meta("export").aliases == ["exp"]
+
+    def test_enable_cli_unknown_command_raises(self):
+        registry = CommandRegistry()
+
+        with pytest.raises(KeyError):
+            registry.enable_cli("nope")
+
+    def test_enable_cli_invalid_arg_type_raises(self):
+        registry = CommandRegistry()
+
+        @registry.register("export")
+        def export() -> None:
+            pass
+
+        with pytest.raises(ValueError, match="enable_cli arguments must be str or dict"):
+            registry.enable_cli(123)
+
+    def test_enable_cli_disabled_value_skips(self):
+        registry = CommandRegistry()
+
+        @registry.register("export")
+        def export() -> None:
+            pass
+
+        # A dict value of False normalizes to "not enabled" -> command stays
+        # off the CLI table without raising.
+        registry.enable_cli({"export": False})
+        assert "export" not in registry.list_cli_commands()
+
+    def test_unregister_clears_cli_meta(self):
+        registry = CommandRegistry()
+
+        @registry.register("export", cli="exp")
+        def export() -> None:
+            pass
+
+        assert registry.cli_meta("export") is not None
+        registry.unregister("export")
+        assert registry.cli_meta("export") is None
+
+
+class TestCommandDecoratorMixin:
+    """Test the public @webview.command decorator path (RFC 0018 §6.2)."""
+
+    def _webview(self):
+        from auroraview.core.mixins.commands import WebViewCommandsMixin
+
+        class _FakeWebView(WebViewCommandsMixin):
+            def __init__(self):
+                self._commands = None
+
+            def emit(self, *args, **kwargs):
+                pass
+
+        return _FakeWebView()
+
+    def test_bare_decorator_legacy(self):
+        wv = self._webview()
+
+        @wv.command
+        def greet(name: str) -> str:
+            return name
+
+        assert "greet" in wv.commands
+        assert wv.commands.cli_meta("greet") is None
+
+    def test_positional_name_legacy(self):
+        wv = self._webview()
+
+        @wv.command("add")
+        def add(x: int, y: int) -> int:
+            return x + y
+
+        assert wv.commands.invoke("add", x=2, y=3) == 5
+
+    def test_name_keyword_with_cli(self):
+        wv = self._webview()
+
+        @wv.command(name="export", cli="exp", help="Export data", args_help={"path": "out dir"})
+        def export(path: str, dpi: int = 300) -> dict:
+            return {"path": path}
+
+        meta = wv.commands.cli_meta("export")
+        assert meta is not None
+        assert meta.aliases == ["exp"]
+        assert meta.help == "Export data"
+        assert "export" in wv.commands
+        assert wv.commands.invoke("export", path="/tmp")["path"] == "/tmp"
+
+    def test_cli_true_no_name(self):
+        wv = self._webview()
+
+        @wv.command(cli=True)
+        def sync() -> None:
+            """Sync it."""
+
+        assert wv.commands.cli_meta("sync").help == "Sync it."

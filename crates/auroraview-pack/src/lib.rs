@@ -85,6 +85,7 @@
 //! ```
 
 mod bundle;
+mod cli_dump;
 pub mod common;
 mod config;
 mod deps_collector;
@@ -117,7 +118,10 @@ pub use common::{
 };
 
 // Re-export config types (runtime configuration)
-pub use config::{PackConfig, PackMode, PythonBundleConfig};
+pub use config::{CliCommandMeta, CliParamMeta, PackConfig, PackMode, PythonBundleConfig};
+
+// RFC 0018: pack-time CLI metadata collection
+pub use cli_dump::{collect_cli_metadata, CliDumpOutcome};
 
 pub use deps_collector::{CollectedDeps, DepsCollector, FileHashCache};
 pub use downloader::Downloader;

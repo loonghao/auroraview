@@ -23,6 +23,54 @@ windows_rust_target := "x86_64-pc-windows-msvc"
 default:
     @vx just --list
 
+# Check canonical repository links without building or installing dependencies.
+check-repository-links:
+    vx python scripts/check_repository_links.py
+
+# Optional integration tests stay independent of GUI/native runtime acceptance.
+test-dcc-mcp:
+    vx uv run --extra dcc-mcp pytest tests/python/unit/test_dcc_mcp_adapter.py tests/python/unit/test_dcc_mcp_host.py tests/python/integration/test_dcc_mcp_registration.py tests/python/integration/test_dcc_mcp_coexistence.py tests/python/integration/test_dcc_mcp_skill_isolation.py tests/python/integration/test_dcc_mcp_tool_invocation.py -v
+
+dcc-mcp-package-check:
+    cd packages/auroraview-dcc-mcp; vx just check
+
+# Prepare pinned GitHub release artifacts using SOURCE_RUN_ID and RELEASE_TAG.
+dcc-mcp-release-prepare:
+    vx uv run --no-project --python 3.11 scripts/ci/dcc_mcp_release.py
+
+# Resume partial PyPI uploads only when existing public files match the receipt.
+dcc-mcp-release-pypi-precheck:
+    vx uv run --no-project --python 3.11 scripts/ci/dcc_mcp_release.py --check-pypi before
+
+# Publication succeeds only after official PyPI serves both selected digests.
+dcc-mcp-release-pypi-readback:
+    vx uv run --no-project --python 3.11 scripts/ci/dcc_mcp_release.py --check-pypi after
+
+# Check the release helper without publishing artifacts.
+dcc-mcp-release-check:
+    vx uvx ruff check --target-version py311 scripts/ci/dcc_mcp_release.py scripts/ci/test_dcc_mcp_release.py
+    vx uvx ruff format --check --target-version py311 scripts/ci/dcc_mcp_release.py scripts/ci/test_dcc_mcp_release.py
+    vx uv run --no-project --python 3.11 -m unittest discover -s scripts/ci -p test_dcc_mcp_release.py -v
+
+dcc-mcp-release-format:
+    vx uvx ruff format --target-version py311 scripts/ci/dcc_mcp_release.py scripts/ci/test_dcc_mcp_release.py
+
+# Validate Gallery release boundaries and failure diagnostics without launching UI.
+gallery-ci-check:
+    vx uvx ruff check --target-version py311 scripts/ci/test_gallery_ci.py scripts/ci/stage_gallery_wheel.py tests/test_gallery_cdp.py
+    vx uvx ruff format --check --target-version py311 scripts/ci/test_gallery_ci.py scripts/ci/stage_gallery_wheel.py tests/test_gallery_cdp.py
+    vx uv run --no-project --python 3.11 --with pytest --with pyyaml -m unittest discover -s scripts/ci -p test_gallery_ci.py -v
+
+# Keep native wheel files beside the source package collected by Gallery pack.
+gallery-ci-stage-wheel wheel_dir:
+    vx uv run --no-project --python 3.11 "{{justfile_directory()}}/scripts/ci/stage_gallery_wheel.py" "{{wheel_dir}}"
+
+test-parent-ipc:
+    vx cargo test -p auroraview-core --test parent_ipc_tests
+
+test-webview-factory:
+    vx uv run python -m pytest tests/python/integration/test_webview.py -k test_create_with_auto_show_true -v
+
 
 # ============================================================================
 # Submodule Migration Tasks
@@ -197,6 +245,17 @@ ci-grep:
     vx python scripts/ci/check_capture_file_drop_defaults.py
     @echo "[ci-grep] RFC 0016 Browser-mode capture_file_drop guard..."
     vx python scripts/ci/check_browser_no_drag_drop_capture.py
+    @echo "[ci-grep] host-adapter contract Rust/Python capability parity guard..."
+    vx python scripts/ci/check_contract_capability_parity.py
+
+# Keep Blender's test dependencies separate from the runner's Python environment.
+prepare-blender-test-site wheel site python_version:
+    vx uv pip install --target "{{site}}" --python-version "{{python_version}}" --only-binary :all: "{{wheel}}" pytest pytest-timeout pytest-asyncio
+
+# Pytest must run inside bpy; a sys.executable subprocess is an ordinary Python process.
+# The strict runner rejects missing imports, skipped cases and an empty selection.
+test-blender-host blender site:
+    "{{blender}}" --background --factory-startup --python-exit-code 1 --python scripts/ci/run_blender_tests.py -- --test-site "{{site}}" -- tests/python/integration/test_blender_integration.py -v --tb=short --timeout=60
 
 # Run all tests
 [unix]
@@ -204,6 +263,7 @@ test:
     @echo "Running CI grep guards (RFC 0016 §5 / RFC 0017 §5)..."
     vx just ci-grep
     @echo "Running workspace crate tests..."
+    vx cargo test -p auroraview-contract
     vx cargo test -p auroraview-core
     vx cargo test -p auroraview-pack
     vx cargo test -p auroraview-cli
@@ -232,6 +292,7 @@ test:
     @echo "Running CI grep guards (RFC 0016 §5 / RFC 0017 §5)..."
     vx just ci-grep
     @echo "Running workspace crate tests..."
+    vx cargo test -p auroraview-contract
     vx cargo test -p auroraview-core
     vx cargo test -p auroraview-pack
     vx cargo test -p auroraview-cli
@@ -254,7 +315,7 @@ test-cov:
 # Run only fast tests (exclude slow tests)
 test-fast:
     @echo "Running fast tests..."
-    vx uvx pytest tests/python/ -v -m "not slow"
+    vx uv run pytest tests/python/ -v -m "not slow"
 
 # Run security audit (check for vulnerabilities in dependencies)
 audit:
@@ -281,6 +342,8 @@ nextest-install:
 # Ensure cargo-llvm-cov is available for local Rust coverage runs
 [unix]
 llvm-cov-install:
+    @echo "Ensuring llvm-tools-preview Rust component..."
+    vx rustup component add llvm-tools-preview
     @if vx cargo llvm-cov --version >/dev/null 2>&1; then \
         echo "cargo-llvm-cov already available"; \
     else \
@@ -457,17 +520,17 @@ test-standalone:
 # Test Python package only (no Rust rebuild)
 test-python:
     @echo "Running Python tests..."
-    vx uvx pytest tests/python/unit tests/python/integration -v --tb=short
+    vx uv run pytest tests/python/unit tests/python/integration -v --tb=short
 
 # Test Python unit tests only
 test-python-unit:
     @echo "Running Python unit tests..."
-    vx uvx pytest tests/python/unit -v --tb=short
+    vx uv run pytest tests/python/unit -v --tb=short
 
 # Test Python integration tests only
 test-python-integration:
     @echo "Running Python integration tests..."
-    vx uvx pytest tests/python/integration -v --tb=short \
+    vx uv run pytest tests/python/integration -v --tb=short \
         --ignore=tests/python/integration/test_gallery_e2e.py \
         --ignore=tests/python/integration/test_gallery_real_e2e.py
 
@@ -479,11 +542,12 @@ test-python-integration:
 test-unit:
     @echo "Running Rust unit tests..."
     vx cargo test --lib
+    vx cargo test -p auroraview-contract
     vx cargo test -p auroraview-core
     vx cargo test -p auroraview-pack
     vx cargo test -p auroraview-cli
     @echo "Running Python unit tests..."
-    vx uvx pytest tests/python/unit -v
+    vx uv run pytest tests/python/unit -v
 
 
 # Run only Rust integration tests
@@ -491,7 +555,7 @@ test-integration:
     @echo "Running Rust integration tests (cargo-nextest)..."
     vx just test-rust-fast
     @echo "Running Python integration tests..."
-    vx uvx pytest tests/python/integration -v
+    vx uv run pytest tests/python/integration -v
 
 
 # Watch mode for continuous testing
@@ -508,7 +572,7 @@ test-file FILE:
 # Run tests with specific marker
 test-marker MARKER:
     @echo "Running tests with marker {{MARKER}}..."
-    vx uvx pytest tests/ -v -m {{MARKER}}
+    vx uv run pytest tests/ -v -m {{MARKER}}
 
 
 # Format code
@@ -670,7 +734,7 @@ ci-rust-coverage-lcov:
 
 ci-test-python:
     @echo "Running Python unit tests with coverage..."
-    vx uvx pytest tests/ -v --tb=short -m "not slow" \
+    vx uv run pytest tests/ -v --tb=short -m "not slow" \
         --cov=auroraview \
         --cov-report=term-missing \
         --cov-report=html \
@@ -777,6 +841,12 @@ release:
     @echo "Building release wheels..."
     vx uv run maturin build --release --features "ext-module,python-bindings,win-webview2"
     @echo "Wheels built in target/wheels/"
+
+# Launch the AuroraView CLI (`python -m auroraview.__main__`).
+# Moved here from `vx.toml [scripts]`, where the command took no arguments.
+# See docs/guide/cli.md for the flags, including `--url`.
+auroraview *ARGS:
+    vx uv run python -m auroraview.__main__ {{ARGS}}
 
 # Run examples
 example EXAMPLE:
@@ -1304,12 +1374,12 @@ gallery-dev:
 # Run Gallery E2E tests
 gallery-test:
     @echo "Running Gallery E2E tests..."
-    vx uvx pytest tests/python/integration/test_gallery_e2e.py tests/python/integration/test_gallery_contract.py tests/python/integration/test_gallery_plugin_api.py -v --tb=short
+    vx uv run pytest tests/python/integration/test_gallery_e2e.py tests/python/integration/test_gallery_contract.py tests/python/integration/test_gallery_plugin_api.py -v --tb=short
 
 # Run Gallery Inspector tests (uses Inspector API, auto-starts Gallery)
 gallery-test-inspector: gallery-build
     @echo "Running Gallery Inspector tests (auto-starts Gallery)..."
-    vx uvx pytest tests/python/integration/test_gallery_inspector.py tests/python/integration/test_gallery_deep_inspection.py -v --tb=short
+    vx uv run pytest tests/python/integration/test_gallery_inspector.py tests/python/integration/test_gallery_deep_inspection.py -v --tb=short
 
 # Run Gallery Playwright E2E tests (frontend only, with mock API)
 gallery-test-playwright: gallery-ci-playwright-install
@@ -1468,7 +1538,7 @@ gallery-e2e: gallery-e2e-packed-playwright
 
 gallery-test-real: gallery-build
     @echo "Running Gallery real E2E tests..."
-    vx uvx pytest tests/python/integration/test_gallery_real_e2e.py -v --tb=short
+    vx uv run pytest tests/python/integration/test_gallery_real_e2e.py -v --tb=short
 
 # Run Gallery test loop (continuous testing)
 gallery-test-loop:
@@ -1606,7 +1676,7 @@ gallery-cdp: gallery-pack
     @powershell -File scripts/gallery_cdp_wait.ps1
     @echo ""
     @echo "[3/4] Running CDP tests (Inspector API + legacy)..."
-    -vx uvx pytest tests/test_gallery_cdp.py tests/python/integration/test_gallery_inspector.py tests/python/integration/test_gallery_deep_inspection.py -v --tb=short
+    -vx uv run pytest tests/test_gallery_cdp.py tests/python/integration/test_gallery_inspector.py tests/python/integration/test_gallery_deep_inspection.py -v --tb=short
     @echo ""
     @echo "[4/4] Cleaning up..."
     @powershell -File scripts/gallery_cdp_stop.ps1 -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"
@@ -1628,7 +1698,7 @@ gallery-cdp-only:
     @powershell -File scripts/gallery_cdp_wait.ps1
     @echo ""
     @echo "[3/3] Running CDP tests..."
-    -vx uvx pytest tests/test_gallery_cdp.py -v --tb=short
+    -vx uv run pytest tests/test_gallery_cdp.py -v --tb=short
     @echo ""
     @echo "Cleaning up..."
     @powershell -File scripts/gallery_cdp_stop.ps1 -PidFile "{{justfile_directory()}}\.gallery-pid.tmp"

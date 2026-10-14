@@ -1,0 +1,115 @@
+# AuroraView Pack - Packed Headless CLI Demo (RFC 0018)
+# ============================================================================
+#
+# Packs examples/packed_cli_demo.py into a standalone exe that:
+#   - opens its GUI window when double-clicked (unchanged behavior), and
+#   - runs @webview.command(cli=...) commands straight from a terminal:
+#       packed-cli-demo.exe -h
+#       packed-cli-demo.exe list --json
+#       packed-cli-demo.exe run import-image --path C:/pics/logo.png
+#       packed-cli-demo.exe run now --utc
+#
+# Build it:
+#   av pack examples/pack/python/packed-cli-demo.pack.toml
+#   # or: python -m auroraview.cli pack examples/pack/python/packed-cli-demo.pack.toml
+#
+# At pack time AuroraView runs the entry point once with AURORAVIEW_CLI_DUMP=1
+# to harvest the CLI command table (name/aliases/help/params) and embeds it in
+# the overlay, so `-h`/`list` are zero-latency at runtime (RFC 0018 §5.1, §13).
+#
+# NOTE: paths below are relative to this file's directory. Adjust them to your
+# own project layout; this template assumes the demo and a small frontend live
+# beside it. The demo also serves an inline HTML page when run as a plain
+# script (`python examples/packed_cli_demo.py`), independent of the packed
+# frontend bundled here.
+
+# ============================================================================
+# Package Metadata
+# ============================================================================
+[package]
+name = "packed-cli-demo"
+version = "1.0.0"
+title = "Packed CLI Demo"
+identifier = "com.auroraview.packed-cli-demo"
+description = "RFC 0018 headless CLI mode: one exe, GUI on double-click, commands from the terminal"
+authors = ["AuroraView Core Team"]
+
+# ============================================================================
+# Frontend Configuration
+# ============================================================================
+# FullStack packs require a frontend path. Point this at your built web assets
+# (e.g. a Vite/Webpack ./dist). For this demo a single static index.html is
+# enough; the buttons there call the same commands the CLI exposes.
+[frontend]
+path = "./web"
+
+# ============================================================================
+# Backend Configuration (Python)
+# ============================================================================
+[backend]
+type = "python"
+
+[backend.python]
+version = "3.11"
+# "module:function" - the launcher imports the module and calls the function.
+# Both the GUI path and the headless CLI path go through this same entry point.
+entry_point = "packed_cli_demo:main"
+# Bundle the demo module plus the auroraview package it imports. include_paths
+# walk directories; files land under the overlay's python/ root preserving the
+# relative tree, so `packed_cli_demo.py` imports as `packed_cli_demo` and
+# `../../../python/auroraview/...` imports as `auroraview`.
+#
+# In your own project you would instead list `packages = ["auroraview"]` to
+# pip-install it into the bundle; this example points at the in-repo source so
+# it builds without publishing.
+include_paths = ["../..", "../../../python"]
+exclude = [
+    "*.pyc",
+    "__pycache__",
+    "*.egg-info",
+    "tests",
+    ".pytest_cache",
+    ".venv",
+    "venv",
+]
+optimize = 1
+# "standalone" embeds a python-build-standalone runtime so the exe is fully
+# offline. It is also the only strategy whose interpreter exists at pack time,
+# which the CLI metadata dump needs (RFC 0018 §5.1).
+strategy = "standalone"
+
+# ============================================================================
+# Window Configuration
+# ============================================================================
+[window]
+width = 760
+height = 560
+resizable = true
+start_position = "center"
+
+# ============================================================================
+# Bundle Configuration
+# ============================================================================
+[bundle]
+copyright = "Copyright 2026 AuroraView"
+
+[bundle.windows]
+# Keep the console hidden: double-click stays window-only. The headless CLI
+# path re-attaches to the parent terminal at runtime via AttachConsole, so
+# `-h`/`run` still print correctly without a black window on launch
+# (RFC 0018 §3).
+console = false
+
+# ============================================================================
+# Build Configuration
+# ============================================================================
+[build]
+out_dir = "./pack-output"
+release = true
+
+# ============================================================================
+# Debug Configuration
+# ============================================================================
+[debug]
+enabled = false
+devtools = false
