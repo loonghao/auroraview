@@ -318,10 +318,16 @@ def format_diagnostics(report: Optional[Dict[str, Any]] = None) -> str:
             "yes" if report["thread"]["is_host_main_thread"] else "no",
         )
     )
+    app_instance = report["qt"]["app_instance"]
+    if app_instance is None:
+        app_instance_text = "unknown"
+    else:
+        app_instance_text = "yes" if app_instance else "no"
+
     lines.append(
         "qt         : {} (app instance: {})".format(
             report["qt"]["binding"] or "none",
-            "yes" if report["qt"]["app_instance"] else "no",
+            app_instance_text,
         )
     )
 
