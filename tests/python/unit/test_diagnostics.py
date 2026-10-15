@@ -376,6 +376,22 @@ class TestFormatDiagnostics:
 
         assert "SentinelHost" in format_diagnostics(report)
 
+    @pytest.mark.parametrize(
+        ("app_instance", "expected"),
+        [
+            (None, "unknown"),
+            (False, "no"),
+            (True, "yes"),
+        ],
+    )
+    def test_renders_app_instance_state(self, app_instance, expected):
+        report = diagnostics()
+        report["qt"]["app_instance"] = app_instance
+
+        text = format_diagnostics(report)
+
+        assert "app instance: {}".format(expected) in text
+
     def test_renders_errors_when_present(self, monkeypatch):
         def boom():
             raise RuntimeError("host probe failed")
