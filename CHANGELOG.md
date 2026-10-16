@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.14](https://github.com/try-auroraview/auroraview/compare/auroraview-v0.5.13...auroraview-v0.5.14) (2026-10-16)
+
+
+### Bug Fixes
+
+* **ci:** remove unsupported timeout key from cargo-mutants config ([#524](https://github.com/try-auroraview/auroraview/issues/524)) ([1f2aac3](https://github.com/try-auroraview/auroraview/commit/1f2aac38b8febb59a1a58857bc1c67a3cebbc55e))
+* preserve Gallery service mode and release artifacts ([#513](https://github.com/try-auroraview/auroraview/issues/513)) ([d5cc4db](https://github.com/try-auroraview/auroraview/commit/d5cc4db42ac8942f9f8b6a44bb5211aa2a24a9ad))
+* **python:** distinguish unknown from no for Qt app instance in diagnostics rendering ([8edc987](https://github.com/try-auroraview/auroraview/commit/8edc987b9517df88aae1e0d186948b3146a5a139))
+
+
+### Documentation
+
+* use existing logo for documentation favicon ([167f7ec](https://github.com/try-auroraview/auroraview/commit/167f7ec87c6bc90259205c79bedcfa266ed84988))
+
 ## [0.5.13](https://github.com/try-auroraview/auroraview/compare/auroraview-v0.5.12...auroraview-v0.5.13) (2026-10-09)
 
 
