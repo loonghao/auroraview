@@ -22,7 +22,6 @@ EXCLUDED_DIRS = {
     "dist",
     "gallery/dist",
     "node_modules",
-    "packages/auroraview-sdk/coverage",
     "submodules",
     "target",
 }

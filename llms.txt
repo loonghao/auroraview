@@ -49,7 +49,8 @@ crates/
   auroraview-cli/       CLI tools and embedded Skills
   auroraview-plugins/   Plugin system
 python/auroraview/      Python package (AuroraView base class, DCC host layer)
-packages/auroraview-sdk/  TypeScript frontend SDK
+crates/*/src/assets/js/  Inject scripts vendored from try-auroraview/auroraview-web-sdk
+  (web SDK is maintained in its own repository)
 gallery/                Gallery demo app (E2E validation baseline)
 examples/               Code examples
 docs/                   VitePress documentation

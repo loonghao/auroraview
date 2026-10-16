@@ -109,7 +109,6 @@ The CI uses path filters to determine which workflows to run:
 |----------|-------|----------|
 | `rust` | `src/**`, `crates/**`, `Cargo.*` | Rust builds, wheel builds |
 | `python` | `python/**`, `tests/python/**` | Python tests |
-| `sdk` | `packages/auroraview-sdk/**` | SDK build |
 | `gallery` | `gallery/**` | Gallery E2E |
 | `docs` | `docs/**`, `*.md` | Docs build |
 | `ci` | `.github/**`, `justfile` | All checks |

@@ -1,6 +1,5 @@
 """Check live repository links and package provenance without build dependencies."""
 
-import json
 import re
 import sys
 from pathlib import Path
@@ -100,7 +99,6 @@ def check() -> List[str]:
             target = document.parent / unquote(parsed.path)
             if not target.exists():
                 errors.append("{} links to missing file {}".format(filename, parsed.path))
-    sdk = json.loads((ROOT / "packages/auroraview-sdk/package.json").read_text(encoding="utf-8"))
     metadata = (
         ("Python package name", toml_string("pyproject.toml", "project", "name"), "auroraview"),
         (
@@ -114,8 +112,6 @@ def check() -> List[str]:
             toml_string("Cargo.toml", "workspace.package", "repository"),
             REPOSITORY_URL,
         ),
-        ("SDK package name", sdk["name"], "@auroraview/sdk"),
-        ("SDK repository", sdk["repository"]["url"], "git+" + REPOSITORY_URL + ".git"),
     )
     for label, actual, expected in metadata:
         if actual != expected:

@@ -27,7 +27,14 @@ Every tool command goes through `vx`; task orchestration goes through
 |---|---|
 | `crates/` | Rust crates (`auroraview-core` protocol + WebView backend abstraction, `auroraview-cli`, `auroraview-pack`, …) |
 | `python/auroraview/` | Python package — `AuroraView` base class and DCC host layer |
-| `packages/auroraview-sdk/` | TypeScript/JS front-end SDK |
+| `crates/*/src/assets/js/` | Inject scripts vendored from the web SDK (see below) |
+
+The **web (TypeScript) SDK** is not in this repository. It lives in
+[try-auroraview/auroraview-web-sdk](https://github.com/try-auroraview/auroraview-web-sdk)
+and publishes npm `@auroraview/sdk` plus a versioned `sdk-assets-v<version>.tar.gz`
+per release. This repo vendors a pinned copy of those inject scripts via
+`just sdk-assets` (pin: `.auroraview-sdk-version`) and the `sync-sdk-assets`
+workflow opens a PR when a newer SDK release appears.
 | `gallery/` | Gallery demo app, used as the E2E baseline |
 | `examples/` | Runnable examples |
 | `tests/` | Python unit + integration tests; Rust integration tests live in `crates/<name>/tests/` |
@@ -62,8 +69,7 @@ Every tool command goes through `vx`; task orchestration goes through
 - Use `chore:`/`docs:` for config and doc work so release-please does not cut a
   valueless version.
 - release-please also bumps `Cargo.toml` (`workspace.package.version`),
-  `pyproject.toml` and `packages/auroraview-sdk/package.json`. Never edit those
-  versions by hand.
+  `pyproject.toml`. Never edit those versions by hand.
 
 ## Do / Don't
 

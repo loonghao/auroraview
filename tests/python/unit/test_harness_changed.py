@@ -51,13 +51,8 @@ def test_build_command_plan_runs_assets_ci_for_assets_changes():
     ]
 
 
-def test_build_command_plan_combines_sdk_and_gallery_checks():
-    assert build_command_plan(
-        [
-            "packages/auroraview-sdk/src/core/bridge.ts",
-            "gallery/src/main.ts",
-        ]
-    ) == ["vx just sdk-ci", "vx just gallery-verify"]
+def test_build_command_plan_runs_gallery_checks():
+    assert build_command_plan(["gallery/src/main.ts"]) == ["vx just gallery-verify"]
 
 
 def test_classify_changes_marks_docs_for_markdown_files():

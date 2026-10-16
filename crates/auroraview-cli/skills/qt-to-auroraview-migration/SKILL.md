@@ -249,7 +249,7 @@ Use this checklist when applying the skill to a repo. Tick every item.
 - `python/auroraview/integration/qt/` — Qt embedding internals
 - `examples/qt_browser.py` — canonical BEFORE example (pure Qt WebEngine)
 - `examples/maya_qt_echo_demo.py` — canonical AFTER example (Qt host + AuroraView + API bridge)
-- `packages/auroraview-sdk/` — JS-side bridge (`@auroraview/sdk`)
+- `try-auroraview/auroraview-web-sdk` — JS-side bridge (npm `@auroraview/sdk`), maintained outside this repo
 - `crates/auroraview-mcp/` — Rust adapter crate that plugs AuroraView into
   `dcc-mcp-core`'s gateway (tracks Epic #364; part of the new MCP story)
 - [`dcc-mcp-core` upstream](https://github.com/loonghao/dcc-mcp-core) — gateway,
