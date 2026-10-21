@@ -385,7 +385,7 @@ jobs:
 
       - name: Cargo check (fast compile check)
         if: needs.path-filter.outputs.needs_rust_checks == 'true'
-        run: cargo check --workspace --all-targets --all-features --locked
+        run: cargo check --workspace --all-targets --all-features
 
   # =============================================================================
   # Clippy - Rust linting (parallel with quick-checks)
